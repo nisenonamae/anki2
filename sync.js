@@ -1,7 +1,7 @@
 /* Anki2 同期 — notion-daily の roadmap/apps/anki2/sync/ に、小分けのファイルで置く。
    変わったファイルだけをやり取りする。ノート・カードなどは1件ずつ見比べて新しいほうを残し、消した印も伝える。復習の記録は足し合わせるだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.1";
+window.APP_VER_SYNC = "r4.2";
 const SYNC = { busy: false, err: "", last: A2.S.meta.lastSync || 0, timer: null, note: "" };
 const conn = () => A2.S.meta.conn || null;
 const ghBase = c => "https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(c.repo) + "/contents/";
