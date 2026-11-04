@@ -24,7 +24,7 @@ A2.getOne = (store, key) => new Promise((res, rej) => { const q = A2.db.transact
 A2.S = { notes: new Map(), cards: new Map(), revlog: new Map(), notetypes: new Map(), decks: new Map(), subjects: new Map(), exsub: new Map(), meta: {} };
 A2.loadAll = async () => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { A2.S[n] = new Map((await A2.all(n)).map(x => [x.id, x])); }
   (await A2.all("meta")).forEach(m => { A2.S.meta[m.k] = m.v; }); A2.dirty = new Set(A2.S.meta.dirty || []);
-  A2.pending = Object.fromEntries(Object.entries(A2.S.meta.pending || {}).map(([k, v]) => [k, new Set(v)]));
+  A2.pending = Object.fromEntries(Object.entries(A2.S.meta.pending || {}).map(([k, v]) => [k, new Set(v)])); if (Number.isFinite(A2.S.meta.roll)) A2.ROLL = A2.S.meta.roll;
   for (const st of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) for (const x of A2.S[st].values()) A2.seen(x.mod);
   try { if (navigator.storage && navigator.storage.persist) A2.S.meta.persisted = await navigator.storage.persist(); } catch (e) {} };
 /* 同期のために:保存するたびに「いつ変えたか(mod)」と「送る必要のあるファイル」を記録する。消したものは「消した印」を残す */
@@ -82,7 +82,11 @@ A2.readPackage = async (file, onStep) => { const step = t => onStep && onStep(t)
   }
   step("ノート"); q("select id, guid, mid, mod, tags, flds from notes").forEach(n => { const nt = out.notetypes.find(x => x.id === "nt" + n.mid); const vals = String(n.flds).split("\x1f"), f = {}; (nt ? nt.fields : vals.map((_, i) => "欄" + (i + 1))).forEach((k, i) => f[k] = vals[i] || "");
     out.notes.push({ id: "n" + n.id, guid: n.guid, nt: "nt" + n.mid, f, tags: String(n.tags || "").trim().split(/\s+/).filter(Boolean), mod: n.mod * 1000 }); });
-  step("カード"); const ankiToday = Math.floor((Date.now() / 1000 - col.crt) / 86400), crtDay = A2.today() - ankiToday;   // Ankiの「今日」は、作ってからの日数。そこからの差で Anki2 の日付にする
+  step("カード");
+  const cfg = k => { try { if (has("config")) { const r = q("select val from config where key=?", [k])[0]; if (r) return JSON.parse(typeof r.val === "string" ? r.val : utf8(r.val)); } const cf = q("select conf from col")[0]; return cf ? JSON.parse(cf.conf || "{}")[k] : null; } catch (e) { return null; } };
+  const roll = Number.isFinite(+cfg("rollover")) && cfg("rollover") != null ? +cfg("rollover") : 4, cOff = Number.isFinite(+cfg("creationOffset")) && cfg("creationOffset") != null ? +cfg("creationOffset") : new Date(col.crt * 1000).getTimezoneOffset();
+  const crtDay = Math.floor((col.crt * 1000 - cOff * 60e3) / 86400e3);   // 作った日の日付(Ankiと同じく、切り替わり時刻では調整しない)
+  out.roll = roll; A2.ROLL = roll;                                         // 今日の数え方も、Ankiの切り替わり時刻にそろえる
   q("select id, nid, did, odid, ord, mod, type, queue, due, odue, ivl, factor, reps, lapses, left, flags, data from cards").forEach(c => { let data = {}; try { data = JSON.parse(c.data || "{}"); } catch (e) {}
     const did = c.odid ? c.odid : c.did, due = c.odid ? c.odue : c.due;
     const st = c.type === 0 ? "新規" : c.type === 1 ? "学習中" : c.type === 3 ? "再学習" : "復習";
@@ -98,7 +102,7 @@ A2.readPackage = async (file, onStep) => { const step = t => onStep && onStep(t)
     Object.entries(map).forEach(([k, name]) => { if (zip[k]) out.media.push({ name, blob: new Blob([unz(zip[k])]) }); }); }
   return out; };
 /* 読み込んだものを足す。同じ番号のものは1つにまとめ、新しいほうを残す。復習の記録は足すだけ */
-A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t), S = A2.S, res = { notes: 0, newNotes: 0, cards: 0, revlog: 0, media: 0, notetypes: 0, decks: 0 };
+A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t), S = A2.S, res = { notes: 0, newNotes: 0, cards: 0, revlog: 0, media: 0, notetypes: 0, decks: 0 }; if (Number.isFinite(pkg.roll)) await A2.setMeta("roll", pkg.roll);
   step("保存している");
   const nts = pkg.notetypes.map(nt => { const old = S.notetypes.get(nt.id); return old ? Object.assign({}, nt, { use: old.use, auto: old.auto, dupKeys: old.dupKeys }) : nt; });
   await A2.save("notetypes", nts); res.notetypes = nts.length;
@@ -108,7 +112,11 @@ A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t)
   const subs = [...new Set(decks.map(d => d.name.split("::")[0]))].filter(n => ![...S.subjects.values()].some(s => s.name === n)).map((n, i) => ({ id: "s" + A2.uid() + i, name: n, cat: "study", c: ["#2F4F8A", "#B5432F", "#3D7A55", "#7B4F9A", "#9A6A1E", "#1F7A8C"][(S.subjects.size + i) % 6] }));
   await A2.save("subjects", subs);
   const notes = pkg.notes.filter(n => { const old = S.notes.get(n.id); if (!old) res.newNotes++; return !old || (n.mod || 0) > (old.mod || 0); }); await A2.save("notes", notes, { keepMod: true }); res.notes = notes.length;
-  const fixDue = []; const cards = pkg.cards.filter(c => { const old = S.cards.get(c.id); if (old && old.mod === c.mod && c.st !== "新規" && (old.dueDay !== c.dueDay)) { fixDue.push(Object.assign(old, { dueDay: c.dueDay, dueMs: c.dueMs })); } return !old || (c.mod || 0) > (old.mod || 0); });
+  /* Anki2 で一度も復習していないカード(この端末の記録が全部この書き出しの中にある)は、Ankiの状態がそのまま正しい */
+  const pkgRev = new Set(pkg.revlog.map(r => r.id)), a2Reviewed = new Set(); for (const r of S.revlog.values()) if (!pkgRev.has(r.id)) a2Reviewed.add(r.cid);
+  const fixDue = []; const cards = pkg.cards.filter(c => { const old = S.cards.get(c.id);
+    if (old && !a2Reviewed.has(c.id) && (c.mod || 0) <= (old.mod || 0) && (old.dueDay !== c.dueDay || old.dueMs !== c.dueMs || old.st !== c.st)) { ["st", "dueDay", "dueMs", "pos", "ivl", "reps", "lapses", "s", "d", "left"].forEach(k => { if (c[k] === undefined) delete old[k]; else old[k] = c[k]; }); fixDue.push(old); }
+    return !old || (c.mod || 0) > (old.mod || 0); });
   await A2.save("cards", cards, { keepMod: true }); res.cards = cards.length; if (fixDue.length) { await A2.save("cards", fixDue); res.fixedDue = fixDue.length; }   // 直したものは新しい変更として同期される
   const rl = pkg.revlog.filter(r => !S.revlog.has(r.id)); rl.forEach(r => { r.mod = r.t; }); await A2.save("revlog", rl, { keepMod: true }); res.revlog = rl.length;
   /* FSRSの覚え具合がない(古いAnkiや、FSRSを使っていなかった)カードは、記録から計算し直す */
@@ -231,5 +239,5 @@ A2.autoBackup = async () => { const day = A2.today(); if (A2.S.meta.lastBackupDa
   await A2.put("backups", [{ id: "b" + day, day, at: Date.now(), cards: A2.S.cards.size, data: JSON.stringify(A2.snapshot()) }]); const old = list.sort((a, b) => b.day - a.day).slice(6); if (old.length) await A2.del("backups", old.map(b => b.id)); await A2.setMeta("lastBackupDay", day); };
 /* 控えの中身に戻す(消した印は作らない。戻した中身は新しい変更として同期される) */
 A2.restore = async data => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { const keep = new Set((data[n] || []).map(x => x.id)); await A2.remove(n, [...A2.S[n].keys()].filter(id => !keep.has(id)), { noTomb: false }); await A2.save(n, data[n] || []); } };
-A2.VER = "r4.7";
+A2.VER = "r4.8";
 window.A2 = A2;
