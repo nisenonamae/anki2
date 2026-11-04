@@ -10,9 +10,9 @@ A2.dayStr = day => { const d = new Date(day * 86400e3); return (d.getUTCMonth() 
 A2.uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 /* ───── 保存(IndexedDB)。起動時に全部を読み、変えたものだけ書く ───── */
-const STORES = ["notes", "cards", "revlog", "notetypes", "decks", "media", "meta", "subjects"];
+const STORES = ["notes", "cards", "revlog", "notetypes", "decks", "media", "meta", "subjects", "exsub"];   // exsub:分野ごとの演習(材料・地図・結果)
 A2.db = null;
-A2.open = () => new Promise((res, rej) => { const r = indexedDB.open("anki2", 1);
+A2.open = () => new Promise((res, rej) => { const r = indexedDB.open("anki2", 2);   // 2:演習の保存場所を足した
   r.onupgradeneeded = () => { const db = r.result; STORES.forEach(n => { if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: n === "media" ? "name" : n === "meta" ? "k" : "id" }); }); };
   r.onsuccess = () => { A2.db = r.result; res(A2.db); }; r.onerror = () => rej(r.error); });
 A2.all = store => new Promise((res, rej) => { const q = A2.db.transaction(store).objectStore(store).getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => rej(q.error); });
@@ -20,16 +20,25 @@ A2.put = (store, items) => new Promise((res, rej) => { if (!items.length) return
 A2.del = (store, keys) => new Promise((res, rej) => { if (!keys.length) return res(); const tx = A2.db.transaction(store, "readwrite"), os = tx.objectStore(store); keys.forEach(k => os.delete(k)); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
 A2.getOne = (store, key) => new Promise((res, rej) => { const q = A2.db.transaction(store).objectStore(store).get(key); q.onsuccess = () => res(q.result || null); q.onerror = () => rej(q.error); });
 /* 記憶の中の写し(画面はこれを読む) */
-A2.S = { notes: new Map(), cards: new Map(), revlog: new Map(), notetypes: new Map(), decks: new Map(), subjects: new Map(), meta: {} };
-A2.loadAll = async () => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects"]) { A2.S[n] = new Map((await A2.all(n)).map(x => [x.id, x])); }
-  (await A2.all("meta")).forEach(m => { A2.S.meta[m.k] = m.v; });
+A2.S = { notes: new Map(), cards: new Map(), revlog: new Map(), notetypes: new Map(), decks: new Map(), subjects: new Map(), exsub: new Map(), meta: {} };
+A2.loadAll = async () => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { A2.S[n] = new Map((await A2.all(n)).map(x => [x.id, x])); }
+  (await A2.all("meta")).forEach(m => { A2.S.meta[m.k] = m.v; }); A2.dirty = new Set(A2.S.meta.dirty || []);
   try { if (navigator.storage && navigator.storage.persist) A2.S.meta.persisted = await navigator.storage.persist(); } catch (e) {} };
-A2.save = async (store, items) => { items = [].concat(items); items.forEach(x => A2.S[store].set(x.id, x)); await A2.put(store, items); };
-A2.remove = async (store, ids) => { ids = [].concat(ids); ids.forEach(id => A2.S[store].delete(id)); await A2.del(store, ids); };
+/* 同期のために:保存するたびに「いつ変えたか(mod)」と「送る必要のあるファイル」を記録する。消したものは「消した印」を残す */
+const SMALL = ["notetypes", "decks", "subjects", "exsub"];
+const hashStr = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h >>> 0; };
+A2.pathOf = (store, rec) => SMALL.includes(store) ? store : store === "revlog" ? "revlog/" + new Date(rec.t).toISOString().slice(0, 7) : store === "notes" ? "notes/" + String(hashStr(rec.id) % 256).padStart(3, "0") : store === "cards" ? "cards/" + String(hashStr(rec.id) % 64).padStart(2, "0") : null;
+A2.dirty = new Set(); A2.onDirty = null;
+A2.markDirty = paths => { let n = 0; paths.forEach(p => { if (p && !A2.dirty.has(p)) { A2.dirty.add(p); n++; } }); if (n) { A2.put("meta", [{ k: "dirty", v: [...A2.dirty] }]); if (A2.onDirty) A2.onDirty(); } };
+A2.save = async (store, items, opt) => { items = [].concat(items).filter(Boolean); const now = Date.now(); if (!(opt && opt.keepMod)) items.forEach(x => { x.mod = now; }); items.forEach(x => A2.S[store].set(x.id, x)); await A2.put(store, items);
+  if (!(opt && opt.fromSync) && store !== "media" && store !== "meta") A2.markDirty(items.map(x => A2.pathOf(store, x))); };
+A2.remove = async (store, ids, opt) => { ids = [].concat(ids); const recs = ids.map(id => A2.S[store].get(id)).filter(Boolean); ids.forEach(id => A2.S[store].delete(id)); await A2.del(store, ids);
+  if (opt && opt.fromSync) return; const tombs = A2.S.meta.tombs || {}, now = Date.now(); tombs[store] = tombs[store] || {}; recs.forEach(r => { tombs[store][r.id] = { mod: now, p: A2.pathOf(store, r) }; }); await A2.setMeta("tombs", tombs); A2.markDirty(recs.map(r => A2.pathOf(store, r))); };
 A2.setMeta = async (k, v) => { A2.S.meta[k] = v; await A2.put("meta", [{ k, v }]); };
 /* 画像・音声:名前 → ファイル。描くときは blob の URL にする */
 const mediaURL = new Map();
-A2.mediaUrl = async name => { if (mediaURL.has(name)) return mediaURL.get(name); const m = await A2.getOne("media", name); const u = m ? URL.createObjectURL(m.blob) : ""; mediaURL.set(name, u); return u; };
+A2.fetchMedia = null;   // sync.js が入れる
+A2.mediaUrl = async name => { if (mediaURL.get(name)) return mediaURL.get(name); let m = await A2.getOne("media", name); if (!m && A2.fetchMedia) { const blob = await A2.fetchMedia(name); if (blob) { m = { name, blob }; await A2.put("media", [m]); } } const u = m ? URL.createObjectURL(m.blob) : ""; if (u) mediaURL.set(name, u); return u; };
 
 /* ───── Ankiの書き出し(.apkg / .colpkg)を読む ───── */
 /* protobuf を少しだけ読む(ノートタイプ・テンプレートの設定、メディアの一覧) */
@@ -89,15 +98,15 @@ A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t)
   /* 分野:いちばん上のデッキの名前 */
   const subs = [...new Set(decks.map(d => d.name.split("::")[0]))].filter(n => ![...S.subjects.values()].some(s => s.name === n)).map((n, i) => ({ id: "s" + A2.uid() + i, name: n, cat: "study", c: ["#2F4F8A", "#B5432F", "#3D7A55", "#7B4F9A", "#9A6A1E", "#1F7A8C"][(S.subjects.size + i) % 6] }));
   await A2.save("subjects", subs);
-  const notes = pkg.notes.filter(n => { const old = S.notes.get(n.id); if (!old) res.newNotes++; return !old || (n.mod || 0) > (old.mod || 0); }); await A2.save("notes", notes); res.notes = notes.length;
-  const cards = pkg.cards.filter(c => { const old = S.cards.get(c.id); return !old || (c.mod || 0) > (old.mod || 0); }); await A2.save("cards", cards); res.cards = cards.length;
-  const rl = pkg.revlog.filter(r => !S.revlog.has(r.id)); await A2.save("revlog", rl); res.revlog = rl.length;
+  const notes = pkg.notes.filter(n => { const old = S.notes.get(n.id); if (!old) res.newNotes++; return !old || (n.mod || 0) > (old.mod || 0); }); await A2.save("notes", notes, { keepMod: true }); res.notes = notes.length;
+  const cards = pkg.cards.filter(c => { const old = S.cards.get(c.id); return !old || (c.mod || 0) > (old.mod || 0); }); await A2.save("cards", cards, { keepMod: true }); res.cards = cards.length;
+  const rl = pkg.revlog.filter(r => !S.revlog.has(r.id)); rl.forEach(r => { r.mod = r.t; }); await A2.save("revlog", rl, { keepMod: true }); res.revlog = rl.length;
   /* FSRSの覚え具合がない(古いAnkiや、FSRSを使っていなかった)カードは、記録から計算し直す */
   const byCard = new Map(); [...S.revlog.values()].forEach(r => { if (!byCard.has(r.cid)) byCard.set(r.cid, []); byCard.get(r.cid).push(r); });
   const fixed = []; cards.forEach(c => { if (c.st === "新規" || (c.s && c.d)) return; const m = A2.replay(byCard.get(c.id) || []); if (m) { c.s = m.s; c.d = m.d; c.lastDay = m.lastDay; fixed.push(c); } });
   cards.forEach(c => { if (c.st !== "新規" && !c.lastDay) { const rs = byCard.get(c.id); if (rs && rs.length) c.lastDay = A2.dayOf(Math.max(...rs.map(r => r.t))); else if (c.dueDay != null) c.lastDay = c.dueDay - (c.ivl || 0); } });
-  await A2.save("cards", cards); res.replayed = fixed.length;
-  if (pkg.media.length) { await A2.put("media", pkg.media); pkg.media.forEach(m => mediaURL.delete(m.name)); res.media = pkg.media.length; }
+  await A2.save("cards", cards, { keepMod: true }); res.replayed = fixed.length;
+  if (pkg.media.length) { await A2.put("media", pkg.media); pkg.media.forEach(m => mediaURL.delete(m.name)); res.media = pkg.media.length; const up = new Set(A2.S.meta.mediaUp || []); pkg.media.forEach(m => up.add(m.name)); await A2.setMeta("mediaUp", [...up]); if (A2.onDirty) A2.onDirty(); }
   return res; };
 
 /* ───── FSRS-5(本家の初期のパラメータ)と、本家と同じ学習ステップ ───── */
