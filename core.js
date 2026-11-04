@@ -10,10 +10,11 @@ A2.dayStr = day => { const d = new Date(day * 86400e3); return (d.getUTCMonth() 
 A2.uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 /* ───── 保存(IndexedDB)。起動時に全部を読み、変えたものだけ書く ───── */
-const STORES = ["notes", "cards", "revlog", "notetypes", "decks", "media", "meta", "subjects", "exsub"];   // exsub:分野ごとの演習(材料・地図・結果)
+const STORES = ["notes", "cards", "revlog", "notetypes", "decks", "media", "meta", "subjects", "exsub", "backups"];   // exsub:分野ごとの演習(材料・地図・結果)
 A2.db = null;
-A2.open = () => new Promise((res, rej) => { const r = indexedDB.open("anki2", 2);   // 2:演習の保存場所を足した
+A2.open = () => new Promise((res, rej) => { const r = indexedDB.open("anki2", 3);   // 3:自動の控えの置き場所   // 2:演習の保存場所を足した
   r.onupgradeneeded = () => { const db = r.result; STORES.forEach(n => { if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: n === "media" ? "name" : n === "meta" ? "k" : "id" }); }); };
+  r.onblocked = () => rej(new Error("ほかのタブで古い版の Anki2 が開いている。そちらを閉じてから開き直してください"));
   r.onsuccess = () => { A2.db = r.result; res(A2.db); }; r.onerror = () => rej(r.error); });
 A2.all = store => new Promise((res, rej) => { const q = A2.db.transaction(store).objectStore(store).getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => rej(q.error); });
 A2.put = (store, items) => new Promise((res, rej) => { if (!items.length) return res(); const tx = A2.db.transaction(store, "readwrite"), os = tx.objectStore(store); items.forEach(x => os.put(x)); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
@@ -23,17 +24,20 @@ A2.getOne = (store, key) => new Promise((res, rej) => { const q = A2.db.transact
 A2.S = { notes: new Map(), cards: new Map(), revlog: new Map(), notetypes: new Map(), decks: new Map(), subjects: new Map(), exsub: new Map(), meta: {} };
 A2.loadAll = async () => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { A2.S[n] = new Map((await A2.all(n)).map(x => [x.id, x])); }
   (await A2.all("meta")).forEach(m => { A2.S.meta[m.k] = m.v; }); A2.dirty = new Set(A2.S.meta.dirty || []);
+  for (const st of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) for (const x of A2.S[st].values()) A2.seen(x.mod);
   try { if (navigator.storage && navigator.storage.persist) A2.S.meta.persisted = await navigator.storage.persist(); } catch (e) {} };
 /* 同期のために:保存するたびに「いつ変えたか(mod)」と「送る必要のあるファイル」を記録する。消したものは「消した印」を残す */
 const SMALL = ["notetypes", "decks", "subjects", "exsub"];
 const hashStr = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h >>> 0; };
 A2.pathOf = (store, rec) => SMALL.includes(store) ? store : store === "revlog" ? "revlog/" + new Date(rec.t).toISOString().slice(0, 7) : store === "notes" ? "notes/" + String(hashStr(rec.id) % 256).padStart(3, "0") : store === "cards" ? "cards/" + String(hashStr(rec.id) % 64).padStart(2, "0") : null;
 A2.dirty = new Set(); A2.onDirty = null;
+/* 変更の時刻:端末の時計と「今まで見た中でいちばん新しい時刻」の大きいほう +1。時計が遅れている端末でも、あとの変更があとになる */
+A2.clock = 0; A2.tick = () => { A2.clock = Math.max(Date.now(), A2.clock + 1); return A2.clock; }; A2.seen = t => { if (t && t > A2.clock && t < Date.now() + 365 * 86400e3) A2.clock = t; };
 A2.markDirty = paths => { let n = 0; paths.forEach(p => { if (p && !A2.dirty.has(p)) { A2.dirty.add(p); n++; } }); if (n) { A2.put("meta", [{ k: "dirty", v: [...A2.dirty] }]); if (A2.onDirty) A2.onDirty(); } };
-A2.save = async (store, items, opt) => { items = [].concat(items).filter(Boolean); const now = Date.now(); if (!(opt && opt.keepMod)) items.forEach(x => { x.mod = now; }); items.forEach(x => A2.S[store].set(x.id, x)); await A2.put(store, items);
+A2.save = async (store, items, opt) => { items = [].concat(items).filter(Boolean); if (!(opt && opt.keepMod)) items.forEach(x => { x.mod = A2.tick(); }); else items.forEach(x => A2.seen(x.mod)); items.forEach(x => A2.S[store].set(x.id, x)); await A2.put(store, items);
   if (!(opt && opt.fromSync) && store !== "media" && store !== "meta") A2.markDirty(items.map(x => A2.pathOf(store, x))); };
 A2.remove = async (store, ids, opt) => { ids = [].concat(ids); const recs = ids.map(id => A2.S[store].get(id)).filter(Boolean); ids.forEach(id => A2.S[store].delete(id)); await A2.del(store, ids);
-  if (opt && opt.fromSync) return; const tombs = A2.S.meta.tombs || {}, now = Date.now(); tombs[store] = tombs[store] || {}; recs.forEach(r => { tombs[store][r.id] = { mod: now, p: A2.pathOf(store, r) }; }); await A2.setMeta("tombs", tombs); A2.markDirty(recs.map(r => A2.pathOf(store, r))); };
+  if (opt && (opt.fromSync || opt.noTomb)) return; const tombs = A2.S.meta.tombs || {}, now = A2.tick(); tombs[store] = tombs[store] || {}; recs.forEach(r => { tombs[store][r.id] = { mod: now, p: A2.pathOf(store, r) }; }); await A2.setMeta("tombs", tombs); A2.markDirty(recs.map(r => A2.pathOf(store, r))); };
 A2.setMeta = async (k, v) => { A2.S.meta[k] = v; await A2.put("meta", [{ k, v }]); };
 /* 画像・音声:名前 → ファイル。描くときは blob の URL にする */
 const mediaURL = new Map();
@@ -192,4 +196,21 @@ A2.genOrds = (note, nt) => { if (nt.use === "演習") return []; if (nt.cloze) {
 A2.dupKeys = nt => (nt.dupKeys && nt.dupKeys.length ? nt.dupKeys : [nt.fields[0]]);
 A2.norm = v => String(v || "").replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
 A2.isDup = (nt, f, skip) => { for (const n of A2.S.notes.values()) if (n.nt === nt.id && n.id !== skip && A2.dupKeys(nt).every(k => A2.norm(n.f[k]) === A2.norm(f[k]))) return true; return false; };
+/* ───── データの点検:おかしなところを探して、安全に直す ───── */
+A2.check = async (fix) => { const S = A2.S, out = []; const decks = new Set(S.decks.keys()), notes = new Set(S.notes.keys()), nts = new Set(S.notetypes.keys());
+  const orphanCards = [...S.cards.values()].filter(c => !notes.has(c.nid)); if (orphanCards.length) out.push("ノートのないカード " + orphanCards.length + "枚");
+  const noDeck = [...S.cards.values()].filter(c => notes.has(c.nid) && !decks.has(c.deck)); if (noDeck.length) out.push("デッキのないカード " + noDeck.length + "枚(「なくしもの」デッキへ移す)");
+  const badNt = [...S.notes.values()].filter(n => !nts.has(n.nt)); if (badNt.length) out.push("ノートタイプのないノート " + badNt.length);
+  const badDue = [...S.cards.values()].filter(c => (c.dueDay != null && !Number.isFinite(c.dueDay)) || (c.dueMs != null && !Number.isFinite(c.dueMs)) || (c.s != null && !(c.s > 0)) || !["新規", "学習中", "再学習", "復習"].includes(c.st)); if (badDue.length) out.push("状態や日付がおかしいカード " + badDue.length + "枚(新規に戻す)");
+  if (fix) { if (orphanCards.length) await A2.remove("cards", orphanCards.map(c => c.id));
+    if (noDeck.length) { let lost = [...S.decks.values()].find(d => d.name === "なくしもの"); if (!lost) { lost = { id: "dlost", name: "なくしもの", opt: A2.defaultOpt() }; await A2.save("decks", [lost]); } noDeck.forEach(c => c.deck = lost.id); await A2.save("cards", noDeck); }
+    if (badDue.length) { badDue.forEach(c => { Object.assign(c, { st: "新規", s: null, d: null, ivl: 0 }); delete c.dueDay; delete c.dueMs; }); await A2.save("cards", badDue); } }
+  return out; };
+/* ───── 自動の控え:1日1回、端末の中に(7日分) ───── */
+A2.snapshot = () => { const d = { anki2: 1, at: Date.now() }; ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"].forEach(n => d[n] = [...A2.S[n].values()]); d.meta = { links: A2.S.meta.links }; return d; };
+A2.autoBackup = async () => { const day = A2.today(); if (A2.S.meta.lastBackupDay === day || !A2.S.cards.size) return; const list = await A2.all("backups");
+  await A2.put("backups", [{ id: "b" + day, day, at: Date.now(), cards: A2.S.cards.size, data: JSON.stringify(A2.snapshot()) }]); const old = list.sort((a, b) => b.day - a.day).slice(6); if (old.length) await A2.del("backups", old.map(b => b.id)); await A2.setMeta("lastBackupDay", day); };
+/* 控えの中身に戻す(消した印は作らない。戻した中身は新しい変更として同期される) */
+A2.restore = async data => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { const keep = new Set((data[n] || []).map(x => x.id)); await A2.remove(n, [...A2.S[n].keys()].filter(id => !keep.has(id)), { noTomb: false }); await A2.save(n, data[n] || []); } };
+A2.VER = "r4.1";
 window.A2 = A2;
