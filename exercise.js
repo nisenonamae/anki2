@@ -1,6 +1,6 @@
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.1";
+window.APP_VER_EX = "r4.2";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -23,9 +23,10 @@ function exSubject(){ const s = exSubj(), doc = exDoc(s.id); let body = "";
   if (EXV.tab === "解法の地図") { const areas = exAreas(doc); if (!EXV.area || !areas.includes(EXV.area)) EXV.area = areas[0];
     const its = doc.map.filter(x => x.area === EXV.area && x.kind === EXV.kind), k = EXK.find(x => x[0] === EXV.kind), allOpen = its.length && its.every(x => EXV.mopen[x.id]);
     body = `<nav class="marea">${areas.map(a => `<button data-xarea="${esc(a)}" aria-pressed="${EXV.area === a}">${esc(a)}<small>${doc.map.filter(x => x.area === a).length}</small></button>`).join("")}<button data-xareanew style="color:var(--wave)">+ 領域</button></nav>
-      ${!areas.length ? '<p class="note">まず「+ 領域」で、地図の領域(例:長文読解・英作文)を作る。</p>' : `<div class="mkind">${EXK.map(([kk, t]) => `<button data-xkind="${kk}" aria-pressed="${EXV.kind === kk}">${t}<small>${doc.map.filter(x => x.area === EXV.area && x.kind === kk).length}</small></button>`).join("")}</div>
+      ${!areas.length ? '<p class="note">まず「+ 領域」で、地図の領域(例:長文読解・英作文)を作る。AIに作ってもらってもよい。</p><button class="btn sm shu" data-xai>AIに作ってもらう</button>' : `<div class="mkind">${EXK.map(([kk, t]) => `<button data-xkind="${kk}" aria-pressed="${EXV.kind === kk}">${t}<small>${doc.map.filter(x => x.area === EXV.area && x.kind === kk).length}</small></button>`).join("")}</div>
       <div class="mdesc"><span>${k[2]}</span>${its.length ? `<button class="linkx" data-xmall="${allOpen ? "close" : "open"}">${allOpen ? "全部たたむ" : "全部ひらく"}</button>` : ""}</div>
       <div class="mapl k-${EXV.kind}">${its.map(exItem).join("") || '<p class="note" style="padding:.6rem 0">まだない。下の「+ 書き足す」から。</p>'}</div>
+      <div class="row" style="margin:.6rem 0 0;gap:.6rem"><button class="btn sm shu" data-xai>AIに作ってもらう</button><button class="btn ghost sm" data-xmapcopy>この領域の地図をコピー</button></div>
       ${EXV.adding ? `<div class="maddf"><input id="xadd-h" placeholder="${{ 常に: "見出し(例:時間を見る)", もし: "〜が出たら(例:知らない単語が出たら)", 型: "型の名前(例:要約問題)", 手順: "手順の名前" }[EXV.kind]}"><textarea id="xadd-t" rows="2" placeholder="${{ 常に: "どう意識するか", もし: "こうする", 型: "こう解く", 手順: "ひとことで(段は、あとで「⋯」から足す)" }[EXV.kind]}"></textarea><div class="row"><button class="btn sm" data-xaddsave>書き足す</button><button class="linkx" data-xaddcancel>やめる</button></div></div>` : `<button class="madd" data-xaddopen>+ 書き足す</button>`}`}`; }
   if (EXV.tab === "結果") body = doc.hist.length ? doc.hist.map(h => exHistRow(h, true)).join("") : '<p class="note">まだ演習していない。</p>';
   return `<div class="crumb"><button class="back" data-xhome>‹ 演習</button>${esc((CATS.find(c => c.id === s.cat) || {}).name || "")}</div><div class="shead" style="--c:${s.c}"><h3>${esc(s.name)}</h3><small>演習</small></div>
@@ -50,6 +51,38 @@ function exItem(it){ const open = !!EXV.mopen[it.id], tools = `<button class="mm
     return `<article class="mflow"><div class="mfh"><b>${esc(it.h)}</b>${tools}</div>${it.t ? `<p class="mft">${esc(it.t)}</p>` : ""}<div class="mfsteps">${ks.map((k, j) => `${j ? '<span class="mfa">→</span>' : ""}<button class="mfs${sel === j ? " on" : ""}" data-xmstep="${it.id}|${j}"><i>${j + 1}</i>${esc(k.h)}</button>`).join("") || '<span class="note">段はまだない。「⋯」から足す。</span>'}</div>
       ${sel != null && ks[sel] ? `<div class="mfdet"><b>${sel + 1}. ${esc(ks[sel].h)}</b><p>${esc(ks[sel].t || "")}</p>${ks[sel].detail ? `<p class="note">${esc(ks[sel].detail)}</p>` : ""}${exKids(ks[sel].kids, it, [sel])}</div>` : ""}<div class="mcf">${exBar(it)}</div></article>`; }
   return `<article class="mrule"><div class="mrow top"><div class="mcond"><small>${it.kind === "型" ? "この型が出たら" : "もし"}</small>${esc(it.h)}</div><div class="marr">→</div><div class="mact">${esc(it.t || "")}${exHasDet(it) ? ` <button class="mdtg" data-xmopen="${it.id}">${open ? "詳細をとじる" : "詳細"}</button>` : ""}</div></div>${exDet(it, open)}${exKids(it.kids, it, [])}<div class="mcf">${exBar(it)}${(it.kids || []).length ? `<span class="mlvt">場合分け ${exCount(it)}</span>` : ""}${tools}</div></article>`; }
+/* ───── 解法の地図を、AIに作ってもらって取り込む(決まった書き方) ─────
+   ## 領域 / ### 常に・もし・型・手順 / - 見出し | すること / 字下げ2つで入れ子(手順は段) / > 詳細 / ```mermaid … ``` で図 */
+const KIND_ALIAS = { 常に: "常に", 常に意識: "常に", 意識: "常に", もし: "もし", "もし〜なら": "もし", もしなら: "もし", 型: "型", 問題の型: "型", 手順: "手順" };
+function mapToText(items){ const by = {}; items.forEach(it => { (by[it.area] = by[it.area] || {})[it.kind] = (by[it.area][it.kind] || []).concat(it); });
+  const node = (n, lv) => [" ".repeat(lv * 2) + "- " + n.h + (n.t ? " | " + n.t : "")].concat(n.detail ? [" ".repeat(lv * 2 + 2) + "> " + n.detail.replace(/\n/g, " ")] : [], (n.figs || []).filter(f => f.type === "mermaid").flatMap(f => [" ".repeat(lv * 2 + 2) + "```mermaid"].concat(f.code.split("\n").map(l => " ".repeat(lv * 2 + 2) + l), [" ".repeat(lv * 2 + 2) + "```"])), (n.kids || []).flatMap(k => node(k, lv + 1)));
+  return Object.entries(by).map(([a, ks]) => ["## " + a].concat(EXK.filter(([k]) => ks[k]).flatMap(([k]) => ["### " + k].concat(ks[k].flatMap(n => node(n, 0)))))).flat().join("\n"); }
+function parseMapText(text, defArea){ const out = []; let area = defArea || "全体", kind = "常に", stack = [], fig = null, figInd = 0;
+  String(text || "").replace(/\r/g, "").split("\n").forEach(raw => { const line = raw.replace(/\t/g, "  ");
+    if (fig) { if (/^\s*```\s*$/.test(line)) { if (fig.node) (fig.node.figs = fig.node.figs || []).push({ type: "mermaid", code: fig.lines.join("\n") }); fig = null; } else fig.lines.push(line.slice(Math.min(figInd, line.length - line.trimStart().length))); return; }
+    const t = line.trim(); if (!t) return; let m;
+    const owner = ind0 => { for (let i = stack.length - 1; i >= 0; i--) if (stack[i].ind * 2 + 2 <= ind0) return stack[i].n; return stack.length ? stack[0].n : null; };   // 字下げがそろう項目のもの
+    if (/^```mermaid/i.test(t)) { figInd = line.length - line.trimStart().length; fig = { node: owner(figInd), lines: [] }; return; }
+    if (/^```/.test(t)) return;
+    if ((m = /^##\s+(.+)$/.exec(t)) && !/^###/.test(t)) { area = m[1].trim(); stack = []; return; }
+    if ((m = /^###\s+(.+)$/.exec(t))) { kind = KIND_ALIAS[m[1].trim().replace(/\s/g, "")] || "常に"; stack = []; return; }
+    if ((m = /^>\s?(.*)$/.exec(t))) { const n = owner(line.length - line.trimStart().length); if (n) n.detail = (n.detail ? n.detail + " " : "") + m[1].trim(); return; }
+    if ((m = /^[-*・]\s+(.+)$/.exec(t))) { const ind = Math.floor((line.length - line.trimStart().length) / 2), parts = m[1].split(/\s*[|｜]\s*/), n = { h: parts[0].trim(), t: parts.slice(1).join(" | ").trim(), kids: [] };
+      while (stack.length && stack[stack.length - 1].ind >= ind) stack.pop();
+      if (stack.length) stack[stack.length - 1].n.kids.push(n); else out.push(Object.assign(n, { area, kind })); stack.push({ ind, n }); } });
+  return out; }
+const nrm = s => String(s || "").replace(/\s+/g, "").toLowerCase();
+function planMerge(doc, items){ let add = 0, merge = 0, kidsAdded = 0; const addKids = (dst, src, apply) => (src || []).forEach(k => { const e = (dst.kids || []).find(x => nrm(x.h) === nrm(k.h)); if (e) { if (apply) { if (!e.t && k.t) e.t = k.t; if (!e.detail && k.detail) e.detail = k.detail; } addKids(e, k.kids, apply); } else { kidsAdded++; if (apply) (dst.kids = dst.kids || []).push(Object.assign({ id: "k" + A2.uid() }, k, { kids: [] })), addKids(dst.kids[dst.kids.length - 1], k.kids, apply); } });
+  const apply = items.apply; items.list.forEach(it => { const e = doc.map.find(x => x.area === it.area && x.kind === it.kind && nrm(x.h) === nrm(it.h));
+    if (e) { merge++; if (apply) { if (!e.t && it.t) e.t = it.t; if (!e.detail && it.detail) e.detail = it.detail; if (it.figs) e.figs = (e.figs || []).concat(it.figs.filter(f => !(e.figs || []).some(g => g.code === f.code))); } addKids(e, it.kids, apply); }
+    else { add++; if (apply) { const n = Object.assign({ id: "m" + A2.uid(), res: "" }, it, { kids: [] }); doc.map.push(n); addKids(n, it.kids, true); } } });
+  return { add, merge, kidsAdded }; }
+function mapPrompt(doc, area, req, withNow){ const now = doc.map.filter(x => !area || x.area === area);
+  return ["あなたは、受験生の「解法の地図」を作る担当です。解法の地図は、問題を解くときに意識すること・出会ったときにすること・問題の型ごとの解き方・手順を、あとで演習のときに見ながら使えるように整理したものです。", "",
+    "# 作ってほしいもの", (area ? "領域「" + area + "」について。" : "") + (req || "(ここに何をもとに作るかを書く)"), "",
+    "# 書き方(この形だけで、1つのコードブロックにして出す。前置きや説明は書かない)", "```", "## 領域の名前", "### 常に", "- 見出し | どう意識するか", "  > 詳細(長い説明。なくてよい)", "### もし", "- 〜が出たら | こうする", "  - この場合(〜なら) | こうする", "    - さらにこの場合 | こうする", "### 型", "- 問題の型の名前 | こう解く", "  - ただし〜のとき | こうする", "### 手順", "- 手順の名前 | ひとことで", "  - 1つ目の段 | すること", "  - 2つ目の段 | すること", "```", "",
+    "# 決まり", "- 「常に」は読んでいるあいだずっと意識すること、「もし」は何かに出会ったときにすること、「型」は問題の型ごとの解き方、「手順」は順番に進めること", "- 入れ子は、行の頭の空白2つで1段。「もし」と「型」の入れ子は場合分け、「手順」の入れ子は段(左から順)", "- 見出しは短く(20字くらいまで)。すること は具体的に、その場でできる動きで書く", "- 図があると分かりやすいときだけ、項目の下に ```mermaid のコードブロックで矢印の図を入れる(字下げをそろえる)", "- 「|」と「>」は書き方の印なので、中身には使わない",
+    withNow && now.length ? "\n# 今の地図(これと同じことは書かない。足すことだけ書く。同じ見出しに場合分けを足すときは、同じ見出しで書いてよい)\n```\n" + mapToText(now) + "\n```" : ""].join("\n"); }
 /* ───── 演習(画面いっぱい) ───── */
 let exTimer = null;
 function exStart(mid, qid){ EXV.run = { mat: mid, q: qid, sec: 0, go: true, mark: {}, done: false, grade: "", note: "", pane: null }; V.sheet = null; se("add");
@@ -89,6 +122,14 @@ function exSheet(sh){ if (!sh || !/^x-/.test(sh.k)) return null; const s = exSub
   if (sh.k === "x-h") { const h = doc.hist.find(x => x.id === sh.id), items = doc.map.filter(it => (h.marks || {})[it.id]);
     return `<h3>${esc(h.qn)}</h3><div class="note">${A2.dayStr(A2.dayOf(h.t))}・${exTm(h.sec)}・<span class="gb g-${h.g}">${h.g}</span></div>${h.note ? `<div class="pkv"><span class="k">気づいたこと</span><span class="v">${esc(h.note)}</span></div>` : ""}
       ${items.length ? `<h2>意識できたか</h2><div class="card">${items.map(it => `<div class="chk"><div class="t"><b>${esc(it.h)}</b></div><span class="gb g-${h.marks[it.id] === "o" ? "○" : h.marks[it.id] === "x" ? "×" : ""}">${h.marks[it.id] === "o" ? "できた" : h.marks[it.id] === "x" ? "忘れた" : "出ず"}</span></div>`).join("")}</div>` : ""}<div class="row"><button class="linkx" data-xhistdel="${h.id}" style="color:var(--shu)">この記録を消す</button></div>`; }
+  if (sh.k === "x-ai") { const its = sh.text ? parseMapText(sh.text, sh.area || EXV.area) : [], plan = its.length ? planMerge(doc, { list: its, apply: false }) : null;
+    return `<h3>AIに解法の地図を作ってもらう</h3><p class="note" style="margin-top:0">1. 何をもとに作るかを書いて、指示文をコピーする → 2. Claude に貼る → 3. 返ってきたものを下に貼って取り込む。</p>
+      <div class="f"><label>領域(新しい名前でもよい)</label><input id="xai-a" list="xai-al" value="${esc(sh.area != null ? sh.area : (EXV.area || ""))}" placeholder="例:長文読解" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><datalist id="xai-al">${areas.map(a => `<option value="${esc(a)}">`).join("")}</datalist></div>
+      <div class="f"><label>何をもとに作るか(資料を貼ってもよい)</label><textarea id="xai-r" rows="4" style="width:100%" placeholder="例:東大の英語の長文読解の設問の解き方。いつも時間が足りなくなる">${esc(sh.req || "")}</textarea></div>
+      <label class="chk" style="border:0"><input type="checkbox" id="xai-now"${sh.now === false ? "" : " checked"}> 今の地図も一緒に渡す(同じことを重ねずに、足してもらう)</label>
+      <div class="row"><button class="btn shu" data-xaicopy>指示文をコピー</button></div>
+      <h2>取り込む<small>返ってきたものを、そのまま貼る</small></h2><textarea id="xai-t" rows="7" style="width:100%;font-family:ui-monospace,monospace;font-size:.78rem" placeholder="## 長文読解&#10;### もし&#10;- 知らない単語が出たら | …">${esc(sh.text || "")}</textarea>
+      ${sh.text ? (its.length ? `<div class="aiim"><div class="note">${[...new Set(its.map(x => x.area))].map(esc).join("・")}:新しい項目 <b>${plan.add}</b>・今ある項目に足す ${plan.merge}・場合分けや段 <b>${plan.kidsAdded}</b></div><div class="aiil">${its.slice(0, 40).map(x => `<div class="aiir"><b>${esc(x.h)}</b><span>${esc(x.area)} › ${{ 常に: "常に", もし: "もし〜なら", 型: "問題の型", 手順: "手順" }[x.kind]}${x.kids.length ? "・中に " + x.kids.length : ""}</span></div>`).join("")}</div><div class="row" style="margin-top:.4rem"><button class="btn" data-xaiimport>取り込む</button></div></div>` : '<div class="mkneed" style="margin-top:.3rem">読み取れる項目がない。「## 領域」「### 形」「- 見出し | すること」の形か確かめる。</div>') : ""}`; }
   if (sh.k === "x-area") return `<h3>領域を足す</h3><div class="f"><label>名前</label>${inp("xa-n", "", "例:長文読解・英作文・評論")}</div><button class="btn" data-xareasave>足す</button>`;
   if (sh.k === "x-medit") { const path = sh.path || [], it = exNode(doc, sh.id, path), root = exNode(doc, sh.id, []), lvl = path.length;
     const lab = lvl ? ["この場合(〜なら)", "こうする"] : ({ 常に: ["見出し", "どう意識するか"], もし: ["〜が出たら", "こうする"], 型: ["型の名前", "こう解く"], 手順: ["手順の名前", "ひとことで"] })[root.kind];
@@ -118,6 +159,12 @@ document.addEventListener("click", async e => { const b = e.target.closest("butt
   if (d.xsub) { EXV = Object.assign(EXV, { sub: d.xsub, tab: "材料", area: null, kind: "常に", mat: null, adding: false }); go({}); return; }
   if (b.hasAttribute("data-xhome")) { EXV.sub = null; go({}); return; }
   if (d.xtab) { EXV.tab = d.xtab; EXV.adding = false; render(); return; } if (d.xarea) { EXV.area = d.xarea; render(); return; } if (d.xkind) { EXV.kind = d.xkind; EXV.adding = false; render(); return; }
+  if (b.hasAttribute("data-xai")) { V.sheet = { k: "x-ai", area: EXV.area || "" }; render(); return; }
+  if (b.hasAttribute("data-xaicopy")) { const sh = V.sheet; sh.area = $("xai-a").value.trim(); sh.req = $("xai-r").value.trim(); sh.now = $("xai-now").checked; const t = mapPrompt(doc, sh.area, sh.req, sh.now);
+    const ok = () => { se("add"); toast("指示文をコピーした。Claude に貼る"); render(); }; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, () => prompt("コピーしてください", t)); else prompt("コピーしてください", t); return; }
+  if (b.hasAttribute("data-xaiimport")) { const sh = V.sheet, its = parseMapText(sh.text, sh.area || EXV.area); if (!its.length) return; const r = planMerge(doc, { list: its, apply: true }); its.forEach(x => { if (!exAreas(doc).includes(x.area)) doc.areas = [...new Set((doc.areas || []).concat(x.area))]; });
+    await exSave(doc); EXV.area = its[0].area; EXV.kind = its[0].kind; EXV.tab = "解法の地図"; V.sheet = null; se("done"); toast("取り込んだ:新しい項目 " + r.add + "・場合分けや段 " + r.kidsAdded); render(); return; }
+  if (b.hasAttribute("data-xmapcopy")) { const t = mapToText(doc.map.filter(x => x.area === EXV.area)); if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => { toast("この領域の地図をコピーした"); render(); }, () => prompt("コピーしてください", t)); else prompt("コピーしてください", t); return; }
   if (b.hasAttribute("data-xareanew")) { V.sheet = { k: "x-area" }; render(); return; }
   if (b.hasAttribute("data-xareasave")) { const n = $("xa-n").value.trim(); if (!n) return; doc.areas = [...new Set((doc.areas || []).concat(n))]; await exSave(doc); EXV.area = n; V.sheet = null; render(); return; }
   if (d.xmopen) { EXV.mopen[d.xmopen] = !EXV.mopen[d.xmopen]; render(); return; }
@@ -173,5 +220,7 @@ document.addEventListener("click", async e => { const b = e.target.closest("butt
     await exSave(doc); toast("記録した"); exEnd(); return; }
 });
 document.addEventListener("change", e => { if (e.target.id === "xfig-file" && e.target.files[0]) exAddFig(e.target.files[0]); });
+document.addEventListener("input", e => { const t = e.target; if (!V.sheet || V.sheet.k !== "x-ai") return; if (t.id === "xai-a") V.sheet.area = t.value; if (t.id === "xai-r") V.sheet.req = t.value;
+  if (t.id === "xai-t") { V.sheet.text = t.value; clearTimeout(window.__xai); window.__xai = setTimeout(() => { const p0 = t.selectionStart, y = (document.querySelector(".sheet") || {}).scrollTop; const w = $("sheetwrap"); if (w) w.remove(); render(); const el = $("xai-t"); if (el) { el.focus(); el.setSelectionRange(p0, p0); } const sh2 = document.querySelector(".sheet"); if (sh2 && y) sh2.scrollTop = y; }, 400); } });
 document.addEventListener("paste", e => { if (!(V.sheet && V.sheet.k === "x-medit")) return; const f = [...(e.clipboardData.items || [])].find(x => x.type.startsWith("image/")); if (f) { e.preventDefault(); exAddFig(f.getAsFile()); } });
 window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawMermaid;
