@@ -1,6 +1,7 @@
 /* Anki2 同期 — notion-daily の roadmap/apps/anki2/sync/ に、小分けのファイルで置く。
    変わったファイルだけをやり取りする。ノート・カードなどは1件ずつ見比べて新しいほうを残し、消した印も伝える。復習の記録は足し合わせるだけ */
 "use strict";
+window.APP_VER_SYNC = "r4.1";
 const SYNC = { busy: false, err: "", last: A2.S.meta.lastSync || 0, timer: null, note: "" };
 const conn = () => A2.S.meta.conn || null;
 const ghBase = c => "https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(c.repo) + "/contents/";
@@ -25,15 +26,19 @@ async function mergeIn(p, remote){ const st = STORE_OF(p), put = [], gone = [], 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 /* 同期の途中で頼まれたら、捨てずに、終わってからもう一度まわす */
 function syncNow(){ if (!conn() || !conn().token) return Promise.resolve(0); if (SYNC.busy) { SYNC.again = true; return SYNC.p; }
-  SYNC.p = (async () => { let n = 0; do { SYNC.again = false; n += await syncOnce(); } while (SYNC.again); return n; })(); return SYNC.p; }
-async function syncOnce(){ const c = conn(); SYNC.busy = true; SYNC.err = ""; SYNC.note = "同期中…"; paintSync(); let changed = 0;
+  if (A2.VER !== (window.APP_VER_APP || A2.VER)) return Promise.resolve(0);
+  const run = async () => { let n = 0; do { SYNC.again = false; n += await syncOnce(); } while (SYNC.again); return n; };
+  SYNC.p = (navigator.locks && navigator.locks.request) ? navigator.locks.request("anki2-sync", run) : run(); SYNC.busy = true; return SYNC.p; }   // 同じ端末で2つ開いていても、同期は1つずつ
+async function syncOnce(){ const c = conn(); SYNC.busy = true; if (!c) { SYNC.busy = false; return 0; } SYNC.err = ""; SYNC.note = "同期中…"; paintSync(); let changed = 0;
   try { const shas = A2.S.meta.syncSha || {}, remote = {};
     const top = await ghList(c, "sync"); for (const f of top) { if (f.type === "file") remote[f.name.replace(/\.json$/, "")] = f.sha; else if (f.type === "dir") { for (const g of await ghList(c, "sync/" + f.name)) if (g.type === "file") remote[f.name + "/" + g.name.replace(/\.json$/, "")] = g.sha; } }
     const paths = new Set([...A2.dirty, ...Object.keys(remote).filter(p => remote[p] !== shas[p])]); let done = 0;
     for (const p of paths) { SYNC.note = "同期中… " + (++done) + "/" + paths.size; paintSync(); let rsha = remote[p] || null, tries = 0;
       while (tries++ < 4) { let rem = { v: 1, recs: [], del: {} };
-        if (rsha && rsha !== shas[p]) { const r = await ghGet(c, "sync/" + p + ".json"); if (r) { try { rem = await r.json(); } catch (e) {} changed += await mergeIn(p, rem); } }
-        else if (rsha) { const r = await ghGet(c, "sync/" + p + ".json"); if (r) { try { rem = await r.json(); } catch (e) {} } }
+        const readRem = async () => { const r = await ghGet(c, "sync/" + p + ".json"); if (!r) return { v: 1, recs: [], del: {} }; const t = await r.text(); let j; try { j = JSON.parse(t); } catch (e) { j = null; }
+          if (!j || !Array.isArray(j.recs)) throw new Error("置き場所の「" + p + "」が読めない(壊れているかもしれないので、上書きせずに止めた)"); return j; };
+        if (rsha && rsha !== shas[p]) { rem = await readRem(); changed += await mergeIn(p, rem); }
+        else if (rsha) rem = await readRem();
         const mine = localFile(p); if (!mine.recs.length && !Object.keys(mine.del).length && !rsha) break;
         if (rsha && same(mine, rem)) { shas[p] = rsha; break; }
         const res = await ghPut(c, "sync/" + p + ".json", new TextEncoder().encode(JSON.stringify(mine)), rsha, "Anki2 同期 " + p);
@@ -45,6 +50,7 @@ async function syncOnce(){ const c = conn(); SYNC.busy = true; SYNC.err = ""; SY
       const res = await ghPut(c, "media/" + name, new Uint8Array(await m.blob.arrayBuffer()), null, "Anki2 画像 " + name); if (res.conflict || res.sha) up.delete(name); await A2.setMeta("mediaUp", [...up]); }
     /* 古い「消した印」は90日で片づける */
     const tombs = A2.S.meta.tombs || {}, old = Date.now() - 90 * 86400e3; Object.values(tombs).forEach(t => Object.keys(t).forEach(id => { if (t[id].mod < old) delete t[id]; }));
+    if (changed) { const probs = await A2.check(true); if (probs.length) console.warn("点検で直した:", probs); }
     await A2.setMeta("tombs", tombs); await A2.setMeta("syncSha", shas); await A2.setMeta("dirty", [...A2.dirty]); SYNC.last = Date.now(); await A2.setMeta("lastSync", SYNC.last); SYNC.note = "";
   } catch (e) { SYNC.err = e.message || String(e); SYNC.note = ""; console.error(e); }
   SYNC.busy = false; paintSync(); if (A2.dirty.size && !SYNC.err) SYNC.again = SYNC.again || false; if (changed && !V.rv && !(typeof EXV !== "undefined" && EXV.run) && !V.sheet) render(); if (A2.dirty.size && !SYNC.err) schedule(); return changed; }
