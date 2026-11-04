@@ -1,6 +1,6 @@
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r2";
+const APP_VERSION = "r4";
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -224,8 +224,9 @@ function stats(){ const today = A2.today(), rv = [...A2.S.revlog.values()], card
     <div class="chart"><h4>予測は当たっているか<small>自分の復習の記録から</small></h4>${cal.length >= 2 ? lineChart([{ pts: [[.6, .6], [1, 1]], c: "var(--rule)", dash: "4 3", w: 1.5 }, { pts: cal, c: "var(--ok)", dots: true }], { xmax: 1, ymin: .55, ymax: 1, yt: [.6, .7, .8, .9, 1], xt: [[.6, "予測 60%"], [.8, "80%"], [1, "100%"]] }) + '<p class="note" style="margin:.2rem 0 0">点が点線に近いほど、FSRSの予測が当たっている。</p>' : '<p class="note">まだ記録が少ないので描けない(復習の記録つきで読み込むか、しばらく使うと出る)。</p>'}</div>`; }
 
 /* ───── 下から出る画面 ───── */
-function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
-  if (sh.k === "more") return `<h3>その他</h3><div class="mlist">${[["import", "読み込み", "Ankiの書き出し(.apkg・.colpkg)"], ["backup", "書き出し(控え)", "全部を1つのファイルに保存する"], ["restore", "控えから戻す", "書き出した控えのファイルから"], ["nts", "ノートタイプ", "欄・重複を見る欄・自動で書き換える欄・テンプレート"], ["prefs", "設定", "効果音・音声の自動再生"]].map(([k, t, d]) => `<button data-more="${k}"><b>${t}</b><small>${d}</small></button>`).join("")}</div><p class="note">Anki2 ${APP_VERSION}・カード ${A2.S.cards.size}枚・ノート ${A2.S.notes.size}・記録 ${A2.S.revlog.size}${A2.S.meta.persisted ? "・この端末に保存(消されにくい設定)" : ""}</p>`;
+function sheetHtml(){ const sh = V.sheet; if (!sh) return ""; const xs = window.exSheet && exSheet(sh); if (xs != null) return xs;
+  if (sh.k === "sync") return window.syncSheet ? syncSheet() : "";
+  if (sh.k === "more") return `<h3>その他</h3><div class="mlist">${[["sync", "同期", "スマホ・Chromebook・Mac で同じデータを使う"], ["import", "読み込み", "Ankiの書き出し(.apkg・.colpkg)"], ["backup", "書き出し(控え)", "暗記と演習の全部を1つのファイルに保存する"], ["restore", "控えから戻す", "書き出した控えのファイルから"], ["nts", "ノートタイプ", "欄・重複を見る欄・自動で書き換える欄・テンプレート"], ["prefs", "設定", "効果音・音声の自動再生"]].map(([k, t, d]) => `<button data-more="${k}"><b>${t}</b><small>${d}</small></button>`).join("")}</div><p class="note">Anki2 ${APP_VERSION}・カード ${A2.S.cards.size}枚・ノート ${A2.S.notes.size}・記録 ${A2.S.revlog.size}${A2.S.meta.persisted ? "・この端末に保存(消されにくい設定)" : ""}</p>`;
   if (sh.k === "import") return `<h3>Ankiから読み込む</h3><p class="note" style="margin-top:0">Ankiで「書き出す」→「スケジュール情報を含める」「メディアを含める」にして作ったファイルを選ぶ。何度読み込んでも重ならない(同じノート・カードは1つにまとめ、新しいほうを残す。記録は足すだけ)。</p><div class="imp"><label class="btn shu" style="cursor:pointer">ファイルを選ぶ<input type="file" id="imp-file" accept=".apkg,.colpkg,application/zip" hidden></label><div class="steplog" id="imp-log"></div></div>`;
   if (sh.k === "prefs") return `<h3>設定</h3><label class="chk" style="border:0"><input type="checkbox" id="pf-se"${A2.S.meta.se === false ? "" : " checked"}> 効果音を鳴らす</label><label class="chk" style="border:0"><input type="checkbox" id="pf-ap"${A2.S.meta.autoplay === false ? "" : " checked"}> 音声を自動で再生する</label>`;
   if (sh.k === "dopt") { const d = A2.S.decks.get(sh.id), o = Object.assign(A2.defaultOpt(), d.opt || {}); const f = (k, t, v, s) => `<div class="f"><label>${t}</label><input data-opt="${k}" value="${esc(v)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">${s ? `<div class="note">${s}</div>` : ""}</div>`;
@@ -263,15 +264,16 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
   return ""; }
 
 /* ───── 描く(同じ画面の中では、スクロールの位置と復習のカードの枠を保つ) ───── */
-function render(){ const y = window.scrollY;
-  document.body.classList.toggle("fullmode", !!V.rv); document.body.classList.toggle("rvmode", !!V.rv);
+function render(){ const y = window.scrollY, exFull = V.mode === "ex" && !V.rv && (typeof EXV !== "undefined") && EXV.run;
+  document.body.classList.toggle("fullmode", !!(V.rv || exFull)); document.body.classList.toggle("rvmode", !!V.rv);
   if (V.rv && V.rv.q[V.rv.i] && $("rv-frame")) {   // 復習中:カードの枠には触らず、上の帯と下のボタンだけ描き直す
     $("rv-top").innerHTML = rvTop(); $("rv-ov").innerHTML = rvOv(); $("rv-ctl").innerHTML = rvCtl(); mountReview(); afterRender(y); return; }
-  const title = { anki: "暗記", br: "ブラウザ", make: "作る", st: "統計" }[V.mode];
-  const body = V.rv ? review() : V.mode === "anki" ? ankiHome() : V.mode === "br" ? browser() : V.mode === "make" ? make() : stats();
+  const title = { anki: "暗記", ex: "演習", br: "ブラウザ", make: "作る", st: "統計" }[V.mode];
+  const body = V.rv ? review() : V.mode === "anki" ? ankiHome() : V.mode === "ex" ? exView() : V.mode === "br" ? browser() : V.mode === "make" ? make() : stats();
   if (V.rv) { rvFrameEl = null; $("app").innerHTML = `<div class="rvfull" id="rv-wrap">${body}</div>`; mountReview(); }
-  else $("app").innerHTML = `<header class="head"><h1>Anki2</h1><small>${APP_VERSION}・${title}<button class="hdbtn" data-moreopen>その他</button></small></header>${body}`;
-  $("bot").innerHTML = V.rv ? "" : [["anki", "暗記"], ["br", "ブラウザ"], ["make", "作る"], ["st", "統計"]].map(([k, t]) => `<button data-bot="${k}" aria-selected="${V.mode === k}">${t}</button>`).join("");
+  else if (exFull) $("app").innerHTML = body;
+  else $("app").innerHTML = `<header class="head"><h1>Anki2</h1><small>${APP_VERSION}・${title}${window.syncBadge ? syncBadge() : ""}<button class="hdbtn" data-moreopen>その他</button></small></header>${body}`;
+  $("bot").innerHTML = V.rv || exFull ? "" : [["anki", "暗記"], ["ex", "演習"], ["br", "ブラウザ"], ["make", "作る"], ["st", "統計"]].map(([k, t]) => `<button data-bot="${k}" aria-selected="${V.mode === k}">${t}</button>`).join("");
   afterRender(y); }
 function afterRender(y){ const old = $("sheetwrap");
   if (V.sheet) { const keep = old && old.dataset.k === V.sheet.k + "|" + (V.sheet.id || "") + "|" + (V.sheet.back ? 1 : 0) + "|" + (V.sheet.ti || 0) + (V.sheet.side || "") && V.sheet.k === "card";
@@ -280,7 +282,7 @@ function afterRender(y){ const old = $("sheetwrap");
   else if (old) old.remove();
   if (V.toast) { const t = document.createElement("div"); t.className = "toast"; t.textContent = V.toast; document.body.appendChild(t); setTimeout(() => t.remove(), 2000); V.toast = ""; }
   if (V.top) { window.scrollTo(0, 0); V.top = false; } else window.scrollTo(0, y);
-  if (V.mode === "make" && !V.rv && ADD.use !== "AI") addPreview(); }
+  if (V.mode === "make" && !V.rv && ADD.use !== "AI") addPreview(); if (window.exDrawMermaid) exDrawMermaid(); }
 
 /* デッキを動かす:old で始まるデッキを全部 nw に。行き先の分野がなければ作る。空になった分野は消す */
 async function moveDeck(old, nw, like){ const ds = [...A2.S.decks.values()].filter(x => x.name === old || x.name.startsWith(old + "::"));
@@ -294,10 +296,10 @@ async function doImport(file){ const log = $("imp-log"), say = t => { if (log) l
   try { say("読み込み中…"); const pkg = await A2.readPackage(file, say); const res = await A2.mergePackage(pkg, say);
     say(`終わった:ノートタイプ ${res.notetypes}・デッキ ${res.decks}・ノート ${res.notes}(新しく ${res.newNotes})・カード ${res.cards}・記録 ${res.revlog}・画像と音声 ${res.media}${res.replayed ? "・記録から覚え具合を計算し直した " + res.replayed : ""}`);
     se("done"); setTimeout(() => { V.sheet = null; toast("読み込んだ(カード " + res.cards + "枚・記録 " + res.revlog + ")"); render(); }, 900); } catch (e) { say("読み込めなかった:" + e.message); console.error(e); } }
-async function doBackup(){ const data = { anki2: 1, v: APP_VERSION, at: Date.now() }; for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects"]) data[n] = [...A2.S[n].values()]; data.meta = A2.S.meta;
+async function doBackup(){ const data = { anki2: 1, v: APP_VERSION, at: Date.now() }; for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) data[n] = [...A2.S[n].values()]; data.meta = { links: A2.S.meta.links };
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" }), a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "anki2-控え-" + new Date().toISOString().slice(0, 10) + ".json"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast("控えを書き出した(画像・音声は入らない)"); render(); }
 async function doRestore(file){ try { const d = JSON.parse(await file.text()); if (!d.anki2) throw new Error("Anki2 の控えではない"); if (!confirm("控えの中身に置き換える?(今の中身は消える)")) return;
-    for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects"]) { await A2.remove(n, [...A2.S[n].keys()]); await A2.save(n, d[n] || []); } toast("控えから戻した"); render(); } catch (e) { alert("戻せなかった:" + e.message); } }
+    for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { await A2.remove(n, [...A2.S[n].keys()]); await A2.save(n, d[n] || [], { keepMod: false }); } toast("控えから戻した"); render(); } catch (e) { alert("戻せなかった:" + e.message); } }
 
 /* ───── 押したとき ───── */
 document.addEventListener("click", async e => { if (e.target.closest(".lka")) return; const x = e.target.closest("[data-x]"); if (x) { V.sheet = null; render(); return; } const b = e.target.closest("button"); if (!b || b.disabled) return; const d = b.dataset;
@@ -389,6 +391,6 @@ document.addEventListener("change", async e => { const t = e.target;
   if (t.dataset && t.dataset.autof && V.sheet && V.sheet.k === "nt") { const nt = A2.S.notetypes.get(V.sheet.id); nt.auto = Object.assign({}, nt.auto || {}, { [t.dataset.autof]: t.value }); await A2.save("notetypes", [nt]); toast("保存した"); render(); } });
 document.addEventListener("toggle", e => { if (e.target.classList && e.target.classList.contains("morefld")) V.morefld = e.target.open; }, true);
 /* Androidの戻る:復習中は、アプリから抜けずに復習をやめる */
-history.pushState({ a2: 1 }, ""); window.addEventListener("popstate", () => { if (V.sheet) { V.sheet = null; render(); } else if (V.rv) endStudy(); history.pushState({ a2: 1 }, ""); });
+history.pushState({ a2: 1 }, ""); window.addEventListener("popstate", () => { if (V.sheet) { V.sheet = null; render(); } else if (V.rv) endStudy(); else if ((typeof EXV !== "undefined") && EXV.run) { if (EXV.run.done || EXV.run.sec < 30 || confirm("記録せずに演習をやめる?")) exEnd(); } else if (V.mode === "ex" && (typeof EXV !== "undefined") && (EXV.mat || EXV.sub)) { if (EXV.mat) EXV.mat = null; else EXV.sub = null; render(); } history.pushState({ a2: 1 }, ""); });
 (async function boot(){ try { await A2.open(); await A2.loadAll(); } catch (e) { $("app").innerHTML = '<p class="notice">この端末のブラウザに保存できない:' + esc(e.message) + "</p>"; return; } render();
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {}); })();
