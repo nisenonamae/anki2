@@ -1,6 +1,6 @@
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.7"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.8"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -335,7 +335,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return ""; const xs = window.
   return ""; }
 
 /* ───── 描く(同じ画面の中では、スクロールの位置と復習のカードの枠を保つ) ───── */
-function render(){ const y = window.scrollY, exFull = V.mode === "ex" && !V.rv && (typeof EXV !== "undefined") && EXV.run;
+function render(){ shownDay = A2.today(); const y = window.scrollY, exFull = V.mode === "ex" && !V.rv && (typeof EXV !== "undefined") && EXV.run;
   document.body.classList.toggle("fullmode", !!(V.rv || exFull)); document.body.classList.toggle("rvmode", !!V.rv);
   if (V.rv && V.rv.q[V.rv.i] && $("rv-frame")) {   // 復習中:カードの枠には触らず、上の帯と下のボタンだけ描き直す
     $("rv-top").innerHTML = rvTop(); $("rv-ov").innerHTML = rvOv(); $("rv-ctl").innerHTML = rvCtl(); mountReview(); afterRender(y); return; }
@@ -483,6 +483,13 @@ document.addEventListener("change", async e => { const t = e.target;
   if (t.dataset && t.dataset.autosel && V.sheet && V.sheet.k === "nt") { const nt = A2.S.notetypes.get(V.sheet.id), kind0 = String((nt.auto || {})[t.dataset.autosel] || "page").split("|")[0]; nt.auto = Object.assign({}, nt.auto || {}, { [t.dataset.autosel]: kind0 + "|" + (t.value.trim() || "#dojo-rec-input") }); await A2.save("notetypes", [nt]); toast("保存した"); }
   if (t.dataset && t.dataset.autof && V.sheet && V.sheet.k === "nt") { const nt = A2.S.notetypes.get(V.sheet.id); nt.auto = Object.assign({}, nt.auto || {}, { [t.dataset.autof]: t.value }); await A2.save("notetypes", [nt]); toast("保存した"); render(); } });
 document.addEventListener("toggle", e => { if (e.target.classList && e.target.classList.contains("morefld")) V.morefld = e.target.open; }, true);
+/* 日付が変わったら(切り替わりは午前4時)、または アプリに戻ってきたら、今日の数を数え直す。開きっぱなしでも、朝には今日の分が出る */
+let shownDay = null;
+function refreshIfNewDay(force){ const t = A2.today(); if (t === shownDay && !force) return; paceCache = null;
+  if (!V.rv && !V.sheet && !(typeof EXV !== "undefined" && EXV.run)) render(); }
+setInterval(() => refreshIfNewDay(false), 60000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshIfNewDay(true); });
+window.addEventListener("focus", () => refreshIfNewDay(true));
 /* Androidの戻る:復習中は、アプリから抜けずに復習をやめる */
 history.pushState({ a2: 1 }, ""); window.addEventListener("popstate", () => { if (V.sheet) { V.sheet = null; render(); } else if (V.rv) endStudy(); else if ((typeof EXV !== "undefined") && EXV.run) { if (EXV.run.done || EXV.run.sec < 30 || confirm("記録せずに演習をやめる?")) exEnd(); } else if (V.mode === "ex" && (typeof EXV !== "undefined") && (EXV.mat || EXV.sub)) { if (EXV.mat) EXV.mat = null; else EXV.sub = null; render(); } history.pushState({ a2: 1 }, ""); });
 /* エラーが起きても画面は残し、上に理由を出す。内容は端末に残す(直すときの手がかり) */
@@ -490,7 +497,7 @@ function logErr(m){ try { const L = (A2.S.meta.errors || []).concat({ t: Date.no
 function afterRenderErr(){ try { const e2 = document.createElement("div"); e2.id = "errbar"; e2.className = "errbar"; e2.innerHTML = `問題が起きた(データは保存されている):${esc(A2.S.meta.lastErr)} <button class="linkx" data-errok>閉じる</button> <button class="linkx" data-reload>再読み込み</button>`; document.body.appendChild(e2); } catch (e) {} }
 window.addEventListener("error", e => logErr((e.message || "") + " @" + (e.filename || "").split("/").pop() + ":" + e.lineno));
 window.addEventListener("unhandledrejection", e => logErr("(非同期) " + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason)));
-async function boot(){ const vers = { core: (window.A2 || {}).VER, app: APP_VERSION, ex: window.APP_VER_EX, sync: window.APP_VER_SYNC };
+async function boot(){ shownDay = null; const vers = { core: (window.A2 || {}).VER, app: APP_VERSION, ex: window.APP_VER_EX, sync: window.APP_VER_SYNC };
   if (Object.values(vers).some(v => v !== APP_VERSION)) { $("app").innerHTML = `<p class="notice">ファイルの版がそろっていない(${Object.entries(vers).map(([k, v]) => k + ":" + (v || "なし")).join("・")})。置き換えの途中かもしれないので、少し待ってから再読み込みしてください。データはそのまま残っている。</p><button class="btn" data-reload>再読み込み</button>`; return; }
   try { await A2.open(); await A2.loadAll(); } catch (e) { $("app").innerHTML = '<p class="notice">この端末のブラウザに保存できない:' + esc(e.message) + "</p>"; return; } render();
   setTimeout(async () => { try { await A2.autoBackup(); const p = await A2.check(true); if (p.length) { toast("データを点検して直した:" + p.join("・")); render(); } } catch (e) { logErr(e.message); } }, 3000);
