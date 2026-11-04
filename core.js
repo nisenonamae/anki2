@@ -84,7 +84,7 @@ A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t)
   step("保存している");
   const nts = pkg.notetypes.map(nt => { const old = S.notetypes.get(nt.id); return old ? Object.assign({}, nt, { use: old.use, auto: old.auto, dupKeys: old.dupKeys }) : nt; });
   await A2.save("notetypes", nts); res.notetypes = nts.length;
-  const decks = pkg.decks.filter(d => d.name !== "Default" || pkg.cards.some(c => c.deck === d.id)).map(d => Object.assign({ opt: A2.defaultOpt() }, S.decks.get(d.id) || {}, { id: d.id, name: d.name }));
+  const decks = pkg.decks.filter(d => d.name !== "Default" || pkg.cards.some(c => c.deck === d.id)).map(d => { const old = S.decks.get(d.id); return Object.assign({ opt: A2.defaultOpt() }, old || {}, { id: d.id, name: old ? old.name : d.name }); });   // Anki2 で場所を変えたデッキは、そのまま
   await A2.save("decks", decks); res.decks = decks.length;
   /* 分野:いちばん上のデッキの名前 */
   const subs = [...new Set(decks.map(d => d.name.split("::")[0]))].filter(n => ![...S.subjects.values()].some(s => s.name === n)).map((n, i) => ({ id: "s" + A2.uid() + i, name: n, cat: "study", c: ["#2F4F8A", "#B5432F", "#3D7A55", "#7B4F9A", "#9A6A1E", "#1F7A8C"][(S.subjects.size + i) % 6] }));
