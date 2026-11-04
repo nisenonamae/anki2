@@ -5,7 +5,7 @@
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.7";
+window.APP_VER_SYNC = "r4.8";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"];
 const conn = () => A2.S.meta.conn || null;
