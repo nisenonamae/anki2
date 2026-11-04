@@ -304,3 +304,5 @@ pre.mermaid{background:#fff;text-align:center}pre.mermaid svg{max-width:100%;hei
 .empty-big b{display:block;color:var(--ink);font-size:1.1rem;margin-bottom:.4rem}
 
 .hdbtn.sync{color:var(--ok);border-color:var(--ok)}.hdbtn.sync.wait{color:var(--mid);border-color:var(--mid)}.hdbtn.sync.err{color:var(--shu);border-color:var(--shu)}
+
+.errbar{position:fixed;left:0;right:0;top:0;z-index:60;background:var(--shu);color:#fff;font-size:.8rem;padding:.4rem .7rem calc(.4rem);padding-top:calc(.4rem + env(safe-area-inset-top,0px))}.errbar .linkx{color:#fff;margin-left:.6rem}
