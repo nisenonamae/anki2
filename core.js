@@ -24,6 +24,7 @@ A2.getOne = (store, key) => new Promise((res, rej) => { const q = A2.db.transact
 A2.S = { notes: new Map(), cards: new Map(), revlog: new Map(), notetypes: new Map(), decks: new Map(), subjects: new Map(), exsub: new Map(), meta: {} };
 A2.loadAll = async () => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { A2.S[n] = new Map((await A2.all(n)).map(x => [x.id, x])); }
   (await A2.all("meta")).forEach(m => { A2.S.meta[m.k] = m.v; }); A2.dirty = new Set(A2.S.meta.dirty || []);
+  A2.pending = Object.fromEntries(Object.entries(A2.S.meta.pending || {}).map(([k, v]) => [k, new Set(v)]));
   for (const st of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) for (const x of A2.S[st].values()) A2.seen(x.mod);
   try { if (navigator.storage && navigator.storage.persist) A2.S.meta.persisted = await navigator.storage.persist(); } catch (e) {} };
 /* 同期のために:保存するたびに「いつ変えたか(mod)」と「送る必要のあるファイル」を記録する。消したものは「消した印」を残す */
@@ -33,11 +34,15 @@ A2.pathOf = (store, rec) => SMALL.includes(store) ? store : store === "revlog" ?
 A2.dirty = new Set(); A2.onDirty = null;
 /* 変更の時刻:端末の時計と「今まで見た中でいちばん新しい時刻」の大きいほう +1。時計が遅れている端末でも、あとの変更があとになる */
 A2.clock = 0; A2.tick = () => { A2.clock = Math.max(Date.now(), A2.clock + 1); return A2.clock; }; A2.seen = t => { if (t && t > A2.clock && t < Date.now() + 365 * 86400e3) A2.clock = t; };
+A2.pending = {};   // { store: Set(id) } 送っていない変更
+A2.markPending = (store, ids) => { if (!["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"].includes(store)) return; const set = A2.pending[store] = A2.pending[store] || new Set(); ids.forEach(id => set.add(id));
+  clearTimeout(A2._pt); A2._pt = setTimeout(() => A2.put("meta", [{ k: "pending", v: Object.fromEntries(Object.entries(A2.pending).map(([k, v]) => [k, [...v]])) }]), 300); if (A2.onDirty) A2.onDirty(); };
+A2.pendingCount = () => Object.values(A2.pending).reduce((a, s) => a + s.size, 0);
 A2.markDirty = paths => { let n = 0; paths.forEach(p => { if (p && !A2.dirty.has(p)) { A2.dirty.add(p); n++; } }); if (n) { A2.put("meta", [{ k: "dirty", v: [...A2.dirty] }]); if (A2.onDirty) A2.onDirty(); } };
 A2.save = async (store, items, opt) => { items = [].concat(items).filter(Boolean); if (!(opt && opt.keepMod)) items.forEach(x => { x.mod = A2.tick(); }); else items.forEach(x => A2.seen(x.mod)); items.forEach(x => A2.S[store].set(x.id, x)); await A2.put(store, items);
-  if (!(opt && opt.fromSync) && store !== "media" && store !== "meta") A2.markDirty(items.map(x => A2.pathOf(store, x))); };
+  if (!(opt && opt.fromSync) && store !== "media" && store !== "meta") A2.markPending(store, items.map(x => x.id)); };
 A2.remove = async (store, ids, opt) => { ids = [].concat(ids); const recs = ids.map(id => A2.S[store].get(id)).filter(Boolean); ids.forEach(id => A2.S[store].delete(id)); await A2.del(store, ids);
-  if (opt && (opt.fromSync || opt.noTomb)) return; const tombs = A2.S.meta.tombs || {}, now = A2.tick(); tombs[store] = tombs[store] || {}; recs.forEach(r => { tombs[store][r.id] = { mod: now, p: A2.pathOf(store, r) }; }); await A2.setMeta("tombs", tombs); A2.markDirty(recs.map(r => A2.pathOf(store, r))); };
+  if (opt && (opt.fromSync || opt.noTomb)) return; const tombs = A2.S.meta.tombs || {}, now = A2.tick(); tombs[store] = tombs[store] || {}; recs.forEach(r => { tombs[store][r.id] = { mod: now, p: A2.pathOf(store, r) }; }); await A2.setMeta("tombs", tombs); A2.markPending(store, recs.map(r => r.id)); };
 A2.setMeta = async (k, v) => { A2.S.meta[k] = v; await A2.put("meta", [{ k, v }]); };
 /* 画像・音声:名前 → ファイル。描くときは blob の URL にする */
 const mediaURL = new Map();
@@ -212,5 +217,5 @@ A2.autoBackup = async () => { const day = A2.today(); if (A2.S.meta.lastBackupDa
   await A2.put("backups", [{ id: "b" + day, day, at: Date.now(), cards: A2.S.cards.size, data: JSON.stringify(A2.snapshot()) }]); const old = list.sort((a, b) => b.day - a.day).slice(6); if (old.length) await A2.del("backups", old.map(b => b.id)); await A2.setMeta("lastBackupDay", day); };
 /* 控えの中身に戻す(消した印は作らない。戻した中身は新しい変更として同期される) */
 A2.restore = async data => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { const keep = new Set((data[n] || []).map(x => x.id)); await A2.remove(n, [...A2.S[n].keys()].filter(id => !keep.has(id)), { noTomb: false }); await A2.save(n, data[n] || []); } };
-A2.VER = "r4.2";
+A2.VER = "r4.3";
 window.A2 = A2;
