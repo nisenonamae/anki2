@@ -39,7 +39,7 @@ A2.markPending = (store, ids) => { if (!["notes", "cards", "revlog", "notetypes"
   clearTimeout(A2._pt); A2._pt = setTimeout(() => A2.put("meta", [{ k: "pending", v: Object.fromEntries(Object.entries(A2.pending).map(([k, v]) => [k, [...v]])) }]), 300); if (A2.onDirty) A2.onDirty(); };
 A2.pendingCount = () => Object.values(A2.pending).reduce((a, s) => a + s.size, 0);
 A2.markDirty = paths => { let n = 0; paths.forEach(p => { if (p && !A2.dirty.has(p)) { A2.dirty.add(p); n++; } }); if (n) { A2.put("meta", [{ k: "dirty", v: [...A2.dirty] }]); if (A2.onDirty) A2.onDirty(); } };
-A2.save = async (store, items, opt) => { items = [].concat(items).filter(Boolean); if (!(opt && opt.keepMod)) items.forEach(x => { x.mod = A2.tick(); }); else items.forEach(x => A2.seen(x.mod)); items.forEach(x => A2.S[store].set(x.id, x)); await A2.put(store, items);
+A2.save = async (store, items, opt) => { if (store === "revlog") A2._rlTick = (A2._rlTick || 0) + 1; items = [].concat(items).filter(Boolean); if (!(opt && opt.keepMod)) items.forEach(x => { x.mod = A2.tick(); }); else items.forEach(x => A2.seen(x.mod)); items.forEach(x => A2.S[store].set(x.id, x)); await A2.put(store, items);
   if (!(opt && opt.fromSync) && store !== "media" && store !== "meta") A2.markPending(store, items.map(x => x.id)); };
 A2.remove = async (store, ids, opt) => { ids = [].concat(ids); const recs = ids.map(id => A2.S[store].get(id)).filter(Boolean); ids.forEach(id => A2.S[store].delete(id)); await A2.del(store, ids);
   if (opt && (opt.fromSync || opt.noTomb)) return; const tombs = A2.S.meta.tombs || {}, now = A2.tick(); tombs[store] = tombs[store] || {}; recs.forEach(r => { tombs[store][r.id] = { mod: now, p: A2.pathOf(store, r) }; }); await A2.setMeta("tombs", tombs); A2.markPending(store, recs.map(r => r.id)); };
@@ -82,7 +82,7 @@ A2.readPackage = async (file, onStep) => { const step = t => onStep && onStep(t)
   }
   step("ノート"); q("select id, guid, mid, mod, tags, flds from notes").forEach(n => { const nt = out.notetypes.find(x => x.id === "nt" + n.mid); const vals = String(n.flds).split("\x1f"), f = {}; (nt ? nt.fields : vals.map((_, i) => "欄" + (i + 1))).forEach((k, i) => f[k] = vals[i] || "");
     out.notes.push({ id: "n" + n.id, guid: n.guid, nt: "nt" + n.mid, f, tags: String(n.tags || "").trim().split(/\s+/).filter(Boolean), mod: n.mod * 1000 }); });
-  step("カード"); const crtDay = A2.dayOf(col.crt * 1000);
+  step("カード"); const ankiToday = Math.floor((Date.now() / 1000 - col.crt) / 86400), crtDay = A2.today() - ankiToday;   // Ankiの「今日」は、作ってからの日数。そこからの差で Anki2 の日付にする
   q("select id, nid, did, odid, ord, mod, type, queue, due, odue, ivl, factor, reps, lapses, left, flags, data from cards").forEach(c => { let data = {}; try { data = JSON.parse(c.data || "{}"); } catch (e) {}
     const did = c.odid ? c.odid : c.did, due = c.odid ? c.odue : c.due;
     const st = c.type === 0 ? "新規" : c.type === 1 ? "学習中" : c.type === 3 ? "再学習" : "復習";
@@ -108,7 +108,8 @@ A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t)
   const subs = [...new Set(decks.map(d => d.name.split("::")[0]))].filter(n => ![...S.subjects.values()].some(s => s.name === n)).map((n, i) => ({ id: "s" + A2.uid() + i, name: n, cat: "study", c: ["#2F4F8A", "#B5432F", "#3D7A55", "#7B4F9A", "#9A6A1E", "#1F7A8C"][(S.subjects.size + i) % 6] }));
   await A2.save("subjects", subs);
   const notes = pkg.notes.filter(n => { const old = S.notes.get(n.id); if (!old) res.newNotes++; return !old || (n.mod || 0) > (old.mod || 0); }); await A2.save("notes", notes, { keepMod: true }); res.notes = notes.length;
-  const cards = pkg.cards.filter(c => { const old = S.cards.get(c.id); return !old || (c.mod || 0) > (old.mod || 0); }); await A2.save("cards", cards, { keepMod: true }); res.cards = cards.length;
+  const fixDue = []; const cards = pkg.cards.filter(c => { const old = S.cards.get(c.id); if (old && old.mod === c.mod && c.st !== "新規" && (old.dueDay !== c.dueDay)) { fixDue.push(Object.assign(old, { dueDay: c.dueDay, dueMs: c.dueMs })); } return !old || (c.mod || 0) > (old.mod || 0); });
+  await A2.save("cards", cards, { keepMod: true }); res.cards = cards.length; if (fixDue.length) { await A2.save("cards", fixDue); res.fixedDue = fixDue.length; }   // 直したものは新しい変更として同期される
   const rl = pkg.revlog.filter(r => !S.revlog.has(r.id)); rl.forEach(r => { r.mod = r.t; }); await A2.save("revlog", rl, { keepMod: true }); res.revlog = rl.length;
   /* FSRSの覚え具合がない(古いAnkiや、FSRSを使っていなかった)カードは、記録から計算し直す */
   const byCard = new Map(); [...S.revlog.values()].forEach(r => { if (!byCard.has(r.cid)) byCard.set(r.cid, []); byCard.get(r.cid).push(r); });
@@ -178,7 +179,7 @@ A2.emptyField = v => /^(?:\s|<\/?(?:br|div)\s?\/?>)*$/i.test(String(v == null ? 
 A2.renderTmpl = (tmpl, note, nt, ord, back, front) => {
   const F = note.f, sec = str => { const re = /\{\{([#^])([^}]+)\}\}([\s\S]*?)\{\{\/\2\}\}/; let m; while ((m = re.exec(str))) { const key = m[2].trim(); let has = !A2.emptyField(F[key]); if (key === "Tags") has = note.tags.length > 0; const keep = m[1] === "#" ? has : !has; str = str.slice(0, m.index) + (keep ? sec(m[3]) : "") + str.slice(m.index + m[0].length); } return str; };
   let s = sec(tmpl).replace(/\{\{FrontSide\}\}/g, front || "");
-  return s.replace(/\{\{([^}#/^]+)\}\}/g, (all, key) => { key = key.trim(); const parts = key.split(":"), name = parts.pop(), filters = parts;
+  return s.replace(/\{\{([^}#/^]+)\}\}/g, (all, key) => { key = key.trim(); if (/^A2:/.test(key)) return F[key] != null ? String(F[key]) : ""; const parts = key.split(":"), name = parts.pop(), filters = parts;
     if (name === "Tags") return note.tags.join(" "); if (name === "Deck") return ""; if (name === "Card") return (nt.tmpls[Math.min(ord, nt.tmpls.length - 1)] || {}).name || ""; if (name === "Type") return nt.name;
     let v = F[name] != null ? String(F[name]) : "";
     if (filters.includes("cloze")) { const c = ord + 1; v = v.replace(/\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g, (m, k, ans, hint) => +k === c ? (back ? `<span class="cloze">${ans}</span>` : `<span class="cloze">[${hint || "..."}]</span>`) : ans); }
@@ -188,7 +189,20 @@ A2.renderTmpl = (tmpl, note, nt, ord, back, front) => {
     if (filters.some(f => /^tts/.test(f))) v = `<span class="tts" data-tts="${v.replace(/<[^>]*>/g, "").replace(/"/g, "")}">🔊</span>`;
     return v; });
 };
-A2.cardHtml = (card, back, fOver) => { const n0 = A2.S.notes.get(card.nid); if (!n0) return ""; const note = fOver ? Object.assign({}, n0, { f: fOver }) : n0, nt = A2.S.notetypes.get(note.nt); if (!nt) return "";
+/* 復習の記録から作る欄(表示のときだけ):ノートタイプの calc で決めた欄と、{{A2:…}} */
+/* カードごとの復習の記録(何万件あっても速いように、カードごとにまとめておく。記録が増えたら作り直す) */
+A2._rbc = null; A2._rbcKey = "";
+A2.history = cid => { const key = A2.S.revlog.size + ":" + (A2._rlTick || 0); if (!A2._rbc || A2._rbcKey !== key) { const m = new Map(); for (const r of A2.S.revlog.values()) { if (r.g < 1 || r.g > 4 || r.kind === 4) continue; (m.get(r.cid) || m.set(r.cid, []).get(r.cid)).push(r); } m.forEach(l => l.sort((a, b) => a.t - b.t)); A2._rbc = m; A2._rbcKey = key; }
+  return A2._rbc.get(cid) || []; };
+A2.virtual = (card, base) => { const nt = A2.S.notetypes.get((A2.S.notes.get(card.nid) || {}).nt) || {}, h = A2.history(card.id), F = Object.assign({}, base || {});
+  const ok = h.map(r => r.g > 1 ? "○" : "×"), ev = h.map(r => ["", "×", "△", "○", "◎"][r.g]), secs = h.map(r => Math.round((r.ms || 0) / 1000)), laps = h.filter(r => r.x && r.x.page).map(r => r.x.page), last = h[h.length - 1];
+  const V2 = { "A2:正誤": ok.join(", "), "A2:評価": ev.join(", "), "A2:時間": secs.join(", "), "A2:回数": String(h.length), "A2:前回": last ? ["", "もう一度", "難しい", "正解", "簡単"][last.g] + " " + Math.round((last.ms || 0) / 1000) + "秒" : "", "A2:記録": laps.join(", ") };
+  Object.assign(F, V2); const join = (a, b) => { a = String(a || "").replace(/(<br\s*\/?>|\s|,)+$/i, ""); return !b ? a : A2.emptyField(a) ? b : a + ", " + b; };
+  Object.entries(nt.calc || {}).forEach(([f, rule]) => { if (!rule) return; const keep = (base || {})[f];
+    if (rule === "okng") F[f] = ok.join(", "); else if (rule === "grades") F[f] = ev.join(", "); else if (rule === "count") F[f] = String(h.length); else if (rule === "last") F[f] = V2["A2:前回"];
+    else if (rule === "laps") F[f] = join(keep, laps.join(", ")); else if (rule === "secs") F[f] = secs.join(", "); });
+  return F; };
+A2.cardHtml = (card, back, fOver) => { const n0 = A2.S.notes.get(card.nid); if (!n0) return ""; fOver = A2.virtual(card, fOver || n0.f); const note = Object.assign({}, n0, { f: fOver }), nt = A2.S.notetypes.get(note.nt); if (!nt) return "";
   const tm = nt.tmpls[nt.cloze ? 0 : card.ord] || nt.tmpls[0], fr = A2.renderTmpl(tm.q, note, nt, card.ord, false);
   return back ? A2.renderTmpl(tm.a, note, nt, card.ord, true, fr) : fr; };
 /* 音声 [sound:x.mp3] は再生ボタンに */
@@ -217,5 +231,5 @@ A2.autoBackup = async () => { const day = A2.today(); if (A2.S.meta.lastBackupDa
   await A2.put("backups", [{ id: "b" + day, day, at: Date.now(), cards: A2.S.cards.size, data: JSON.stringify(A2.snapshot()) }]); const old = list.sort((a, b) => b.day - a.day).slice(6); if (old.length) await A2.del("backups", old.map(b => b.id)); await A2.setMeta("lastBackupDay", day); };
 /* 控えの中身に戻す(消した印は作らない。戻した中身は新しい変更として同期される) */
 A2.restore = async data => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { const keep = new Set((data[n] || []).map(x => x.id)); await A2.remove(n, [...A2.S[n].keys()].filter(id => !keep.has(id)), { noTomb: false }); await A2.save(n, data[n] || []); } };
-A2.VER = "r4.3";
+A2.VER = "r4.7";
 window.A2 = A2;
