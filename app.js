@@ -1,6 +1,6 @@
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4";
+const APP_VERSION = "r4.1"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -226,7 +226,7 @@ function stats(){ const today = A2.today(), rv = [...A2.S.revlog.values()], card
 /* ───── 下から出る画面 ───── */
 function sheetHtml(){ const sh = V.sheet; if (!sh) return ""; const xs = window.exSheet && exSheet(sh); if (xs != null) return xs;
   if (sh.k === "sync") return window.syncSheet ? syncSheet() : "";
-  if (sh.k === "more") return `<h3>その他</h3><div class="mlist">${[["sync", "同期", "スマホ・Chromebook・Mac で同じデータを使う"], ["import", "読み込み", "Ankiの書き出し(.apkg・.colpkg)"], ["backup", "書き出し(控え)", "暗記と演習の全部を1つのファイルに保存する"], ["restore", "控えから戻す", "書き出した控えのファイルから"], ["nts", "ノートタイプ", "欄・重複を見る欄・自動で書き換える欄・テンプレート"], ["prefs", "設定", "効果音・音声の自動再生"]].map(([k, t, d]) => `<button data-more="${k}"><b>${t}</b><small>${d}</small></button>`).join("")}</div><p class="note">Anki2 ${APP_VERSION}・カード ${A2.S.cards.size}枚・ノート ${A2.S.notes.size}・記録 ${A2.S.revlog.size}${A2.S.meta.persisted ? "・この端末に保存(消されにくい設定)" : ""}</p>`;
+  if (sh.k === "more") return `<h3>その他</h3><div class="mlist">${[["sync", "同期", "スマホ・Chromebook・Mac で同じデータを使う"], ["import", "読み込み", "Ankiの書き出し(.apkg・.colpkg)"], ["backup", "書き出し(控え)", "暗記と演習の全部を1つのファイルに保存する"], ["restore", "控えから戻す", "書き出した控えのファイルから"], ["autobk", "自動の控え", "毎日1回、この端末に取っている控え(7日分)から戻す"], ["check", "データの点検", "おかしなところを探して直す"], ["errlog", "起きた問題の記録", "エラーの内容(直すときの手がかり)"], ["nts", "ノートタイプ", "欄・重複を見る欄・自動で書き換える欄・テンプレート"], ["prefs", "設定", "効果音・音声の自動再生"]].map(([k, t, d]) => `<button data-more="${k}"><b>${t}</b><small>${d}</small></button>`).join("")}</div><p class="note">Anki2 ${APP_VERSION}・カード ${A2.S.cards.size}枚・ノート ${A2.S.notes.size}・記録 ${A2.S.revlog.size}${A2.S.meta.persisted ? "・この端末に保存(消されにくい設定)" : ""}</p>`;
   if (sh.k === "import") return `<h3>Ankiから読み込む</h3><p class="note" style="margin-top:0">Ankiで「書き出す」→「スケジュール情報を含める」「メディアを含める」にして作ったファイルを選ぶ。何度読み込んでも重ならない(同じノート・カードは1つにまとめ、新しいほうを残す。記録は足すだけ)。</p><div class="imp"><label class="btn shu" style="cursor:pointer">ファイルを選ぶ<input type="file" id="imp-file" accept=".apkg,.colpkg,application/zip" hidden></label><div class="steplog" id="imp-log"></div></div>`;
   if (sh.k === "prefs") return `<h3>設定</h3><label class="chk" style="border:0"><input type="checkbox" id="pf-se"${A2.S.meta.se === false ? "" : " checked"}> 効果音を鳴らす</label><label class="chk" style="border:0"><input type="checkbox" id="pf-ap"${A2.S.meta.autoplay === false ? "" : " checked"}> 音声を自動で再生する</label>`;
   if (sh.k === "dopt") { const d = A2.S.decks.get(sh.id), o = Object.assign(A2.defaultOpt(), d.opt || {}); const f = (k, t, v, s) => `<div class="f"><label>${t}</label><input data-opt="${k}" value="${esc(v)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">${s ? `<div class="note">${s}</div>` : ""}</div>`;
@@ -261,6 +261,9 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return ""; const xs = window.
   if (sh.k === "link") { const l = links().find(x => x.id === sh.id) || { id: sh.id, name: "", url: "", memo: "" }; const inp = (id, v, ph) => `<input id="${id}" value="${esc(v || "")}" placeholder="${ph}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">`;
     return `<h3>ツール</h3><div class="f"><label>名前</label>${inp("lk-n", l.name, "例:古文単語カードづくり")}</div><div class="f"><label>URL</label>${inp("lk-u", l.url, "https://claude.ai/artifact/…")}</div><div class="f"><label>メモ</label>${inp("lk-m", l.memo, "")}</div><div class="row"><button class="btn" data-lksave>保存</button>${links().some(x => x.id === sh.id) ? '<button class="linkx" data-lkdel style="color:var(--shu);margin-left:auto">一覧から外す</button>' : ""}</div>`; }
   if (sh.k === "msg") return `<h3>${esc(sh.t)}</h3><p>${esc(sh.b)}</p>`;
+  if (sh.k === "autobk") return `<h3>自動の控え</h3><p class="note" style="margin-top:0">毎日はじめて開いたときに、この端末の中に控えを取っている(7日分)。戻すと、その日の中身に置き換わり、同期しているならほかの端末にも伝わる。</p><div class="mlist" id="bklist"><p class="note" style="padding:.5rem">読み込み中…</p></div>`;
+  if (sh.k === "check") return `<h3>データの点検</h3><div id="chkres" class="note">点検中…</div>`;
+  if (sh.k === "errlog") { const L = A2.S.meta.errors || []; return `<h3>起きた問題の記録</h3>${L.length ? L.slice().reverse().map(x => `<div class="pkv"><span class="k">${new Date(x.t).toLocaleString("ja-JP")}</span><span class="v" style="font-size:.78rem;word-break:break-all">${esc(x.m)}</span></div>`).join("") + '<button class="linkx" data-errclear>記録を消す</button>' : '<p class="note">まだない。</p>'}`; }
   return ""; }
 
 /* ───── 描く(同じ画面の中では、スクロールの位置と復習のカードの枠を保つ) ───── */
@@ -282,7 +285,10 @@ function afterRender(y){ const old = $("sheetwrap");
   else if (old) old.remove();
   if (V.toast) { const t = document.createElement("div"); t.className = "toast"; t.textContent = V.toast; document.body.appendChild(t); setTimeout(() => t.remove(), 2000); V.toast = ""; }
   if (V.top) { window.scrollTo(0, 0); V.top = false; } else window.scrollTo(0, y);
-  if (V.mode === "make" && !V.rv && ADD.use !== "AI") addPreview(); if (window.exDrawMermaid) exDrawMermaid(); }
+  if (V.mode === "make" && !V.rv && ADD.use !== "AI") addPreview(); if (window.exDrawMermaid) exDrawMermaid();
+  if (V.sheet && V.sheet.k === "autobk" && $("bklist") && !$("bklist").dataset.done) { $("bklist").dataset.done = 1; A2.all("backups").then(l => { const el = $("bklist"); if (el) el.innerHTML = l.sort((a, b) => b.day - a.day).map(x => `<button data-bkgo="${x.id}"><b>${A2.dayStr(x.day)}</b><small>カード ${x.cards}枚・${new Date(x.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</small></button>`).join("") || '<p class="note" style="padding:.5rem">まだない(明日から取られる)。</p>'; }); }
+  if (V.sheet && V.sheet.k === "check" && $("chkres") && !$("chkres").dataset.done) { $("chkres").dataset.done = 1; A2.check(false).then(p => { const el = $("chkres"); if (!el) return; el.innerHTML = p.length ? p.map(esc).join("<br>") + '<div class="row" style="margin-top:.5rem"><button class="btn sm" data-chkfix>直す</button></div>' : "おかしなところは見つからなかった。"; }); }
+  if (A2.S.meta.lastErr && !$("errbar")) { const e2 = document.createElement("div"); e2.id = "errbar"; e2.className = "errbar"; e2.innerHTML = `問題が起きた(データは保存されている):${esc(A2.S.meta.lastErr)} <button class="linkx" data-errok>閉じる</button> <button class="linkx" data-reload>再読み込み</button>`; document.body.appendChild(e2); } }
 
 /* デッキを動かす:old で始まるデッキを全部 nw に。行き先の分野がなければ作る。空になった分野は消す */
 async function moveDeck(old, nw, like){ const ds = [...A2.S.decks.values()].filter(x => x.name === old || x.name.startsWith(old + "::"));
@@ -299,12 +305,17 @@ async function doImport(file){ const log = $("imp-log"), say = t => { if (log) l
 async function doBackup(){ const data = { anki2: 1, v: APP_VERSION, at: Date.now() }; for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) data[n] = [...A2.S[n].values()]; data.meta = { links: A2.S.meta.links };
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" }), a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "anki2-控え-" + new Date().toISOString().slice(0, 10) + ".json"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast("控えを書き出した(画像・音声は入らない)"); render(); }
 async function doRestore(file){ try { const d = JSON.parse(await file.text()); if (!d.anki2) throw new Error("Anki2 の控えではない"); if (!confirm("控えの中身に置き換える?(今の中身は消える)")) return;
-    for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { await A2.remove(n, [...A2.S[n].keys()]); await A2.save(n, d[n] || [], { keepMod: false }); } toast("控えから戻した"); render(); } catch (e) { alert("戻せなかった:" + e.message); } }
+    await A2.restore(d); toast("控えから戻した"); render(); } catch (e) { alert("戻せなかった:" + e.message); } }
 
 /* ───── 押したとき ───── */
 document.addEventListener("click", async e => { if (e.target.closest(".lka")) return; const x = e.target.closest("[data-x]"); if (x) { V.sheet = null; render(); return; } const b = e.target.closest("button"); if (!b || b.disabled) return; const d = b.dataset;
   if (d.bot) { go({ mode: d.bot, sheet: null }); return; }
+  if (b.hasAttribute("data-errok")) { A2.S.meta.lastErr = null; const eb = $("errbar"); if (eb) eb.remove(); return; }
+  if (b.hasAttribute("data-reload")) { location.reload(); return; }
+  if (b.hasAttribute("data-chkfix")) { const p = await A2.check(true); toast(p.length ? "直した:" + p.join("・") : "直すところはなかった"); V.sheet = null; render(); return; }
   if (b.hasAttribute("data-moreopen")) { V.sheet = { k: "more" }; render(); return; }
+  if (b.hasAttribute("data-errclear")) { await A2.setMeta("errors", []); render(); return; }
+  if (d.bkgo) { const b0 = await A2.getOne("backups", d.bkgo); if (!b0 || !confirm(A2.dayStr(b0.day) + " の控え(カード " + b0.cards + "枚)に戻す?今の中身は、この控えの中身に置き換わる")) return; await A2.restore(JSON.parse(b0.data)); V.sheet = null; toast("戻した"); render(); return; }
   if (d.more) { if (d.more === "backup") { V.sheet = null; doBackup(); return; } if (d.more === "restore") { const i = document.createElement("input"); i.type = "file"; i.accept = ".json"; i.onchange = () => i.files[0] && doRestore(i.files[0]); i.click(); return; } V.sheet = { k: d.more }; render(); return; }
   if (d.cat) { V.cat = d.cat; render(); return; }
   if (d.dtog) { V.dopen[d.dtog] = V.dopen[d.dtog] === false; render(); return; }
@@ -392,5 +403,16 @@ document.addEventListener("change", async e => { const t = e.target;
 document.addEventListener("toggle", e => { if (e.target.classList && e.target.classList.contains("morefld")) V.morefld = e.target.open; }, true);
 /* Androidの戻る:復習中は、アプリから抜けずに復習をやめる */
 history.pushState({ a2: 1 }, ""); window.addEventListener("popstate", () => { if (V.sheet) { V.sheet = null; render(); } else if (V.rv) endStudy(); else if ((typeof EXV !== "undefined") && EXV.run) { if (EXV.run.done || EXV.run.sec < 30 || confirm("記録せずに演習をやめる?")) exEnd(); } else if (V.mode === "ex" && (typeof EXV !== "undefined") && (EXV.mat || EXV.sub)) { if (EXV.mat) EXV.mat = null; else EXV.sub = null; render(); } history.pushState({ a2: 1 }, ""); });
-(async function boot(){ try { await A2.open(); await A2.loadAll(); } catch (e) { $("app").innerHTML = '<p class="notice">この端末のブラウザに保存できない:' + esc(e.message) + "</p>"; return; } render();
-  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {}); })();
+/* エラーが起きても画面は残し、上に理由を出す。内容は端末に残す(直すときの手がかり) */
+function logErr(m){ try { const L = (A2.S.meta.errors || []).concat({ t: Date.now(), m: String(m).slice(0, 500), v: APP_VERSION }).slice(-30); A2.S.meta.errors = L; A2.S.meta.lastErr = String(m).slice(0, 160); if (A2.db) A2.put("meta", [{ k: "errors", v: L }]); const eb = $("errbar"); if (eb) eb.remove(); afterRenderErr(); } catch (e) {} }
+function afterRenderErr(){ try { const e2 = document.createElement("div"); e2.id = "errbar"; e2.className = "errbar"; e2.innerHTML = `問題が起きた(データは保存されている):${esc(A2.S.meta.lastErr)} <button class="linkx" data-errok>閉じる</button> <button class="linkx" data-reload>再読み込み</button>`; document.body.appendChild(e2); } catch (e) {} }
+window.addEventListener("error", e => logErr((e.message || "") + " @" + (e.filename || "").split("/").pop() + ":" + e.lineno));
+window.addEventListener("unhandledrejection", e => logErr("(非同期) " + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason)));
+async function boot(){ const vers = { core: (window.A2 || {}).VER, app: APP_VERSION, ex: window.APP_VER_EX, sync: window.APP_VER_SYNC };
+  if (Object.values(vers).some(v => v !== APP_VERSION)) { $("app").innerHTML = `<p class="notice">ファイルの版がそろっていない(${Object.entries(vers).map(([k, v]) => k + ":" + (v || "なし")).join("・")})。置き換えの途中かもしれないので、少し待ってから再読み込みしてください。データはそのまま残っている。</p><button class="btn" data-reload>再読み込み</button>`; return; }
+  try { await A2.open(); await A2.loadAll(); } catch (e) { $("app").innerHTML = '<p class="notice">この端末のブラウザに保存できない:' + esc(e.message) + "</p>"; return; } render();
+  setTimeout(async () => { try { await A2.autoBackup(); const p = await A2.check(true); if (p.length) { toast("データを点検して直した:" + p.join("・")); render(); } } catch (e) { logErr(e.message); } }, 3000);
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {}); }
+/* 全部のファイルを読み終えてから始める(版がそろっているかを確かめるため) */
+let booted = false; const boot1 = () => { if (!booted) { booted = true; boot(); } };
+if (document.readyState === "complete") boot1(); else { document.addEventListener("DOMContentLoaded", boot1); window.addEventListener("load", boot1); }
