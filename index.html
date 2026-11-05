@@ -721,7 +721,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.29";
+A2.VER = "r4.31";
 window.A2 = A2;
 
 </script>
@@ -729,7 +729,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.29"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.31"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -737,6 +737,9 @@ const mmss = sec => Math.floor(sec / 60) + ":" + String(Math.floor(sec % 60)).pa
 let V = { mode: "anki", cat: "study", sheet: null, rv: null, bq: "", bsort: "due", bsel: {}, dopen: {}, toast: "", top: false, se: true };
 const go = patch => { Object.assign(V, patch); V.top = true; render(); };
 const toast = t => { V.toast = t; };
+/* 復習・演習を全画面にするか。スマホでは Chrome が「全画面表示を終了するには…」を出して判定のボタンを隠すので、初めはしない */
+const wantFull = () => { const v = A2.S.meta.fullscreen; if (v === true || v === false) return v; const touch = matchMedia("(pointer: coarse)").matches, app = matchMedia("(display-mode: standalone)").matches; return !(touch || app); };
+const goFull = () => { if (!wantFull()) return; try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
 /* 効果音 */
 let ac = null; const actx = () => { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state !== "running") ac.resume().catch(() => {}); return ac; };
 /* 音の仕組みは、画面に触ったその瞬間に起こしておく(Android は、あとからでは起こせない)。声で操作していても、アプリに戻ってきても鳴るように */
@@ -874,7 +877,7 @@ function rvCounts(r){ const now = Date.now(), today = A2.today(); let n = 0, rv 
   const L = rvLearning(r), l = L.filter(c => c.dueMs <= now + LEARN_AHEAD()).length, lToday = L.filter(c => A2.dayOf(c.dueMs) === today).length; return { n, l, r: rv, rest: n + rv + lToday }; }
 function startStudy(prefix, filter, title){ const r = { title: title || prefix, prefix, filter, ids: new Set(filter ? [] : A2.deckIds(prefix)), mi: 0, cur: null, back: false, t0: Date.now(), cardT0: Date.now(), done: 0, again: 0, hist: [], answered: new Set() };
   r.main = buildMain(r); const p = rvPick(r); if (p.done) { toast("今はここに出すカードがない"); render(); return; }
-  try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+  goFull();
   wakeOn(); go({ rv: r }); }
 setInterval(() => { const r = V.rv; if (r && r.wait && Date.now() >= r.wait) { r.wait = null; render(); } else if (r && r.wait) { const el = $("rvwait"); if (el) el.textContent = rvWaitText(r.wait); } }, 2000);
 const rvWaitText = t => { const m = Math.max(0, Math.ceil((t - Date.now()) / 60000)), d = new Date(t); return "あと " + m + "分(" + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0") + ")"; };
@@ -891,7 +894,7 @@ function rvTop(){ const r = V.rv, k = rvCounts(r), total = r.done + k.rest, pct 
 function rvOv(){ const c = rvCur(); if (!c) return ""; const n = A2.S.notes.get(c.nid); return (c.flag ? `<span class="flagbar" style="background:${FL[c.flag]}"></span>` : "") + (n && n.tags.includes("marked") ? '<span class="markst">★</span>' : ""); }
 function rvCtl(){ const r = V.rv, c = rvCur(), ivs = A2.nextWaits(c);
   return `${r.back ? `<div class="ansbar">${["もう一度", "難しい", "正解", "簡単"].map((x, k) => `<button class="ans a${k + 1}${r.sug === k + 1 ? " sug" : ""}" data-grade="${k + 1}"><small>${r.sug === k + 1 ? "おすすめ・" : ""}${A2.fmtWait(ivs[k].wait)}</small>${x}</button>`).join("")}</div><div class="fliprow"><button class="linkx" data-toface>表に戻る</button></div>` : `<button class="btn showans" data-showans>答えを見る</button>`}
-    <div class="rvtools2"><button class="tl" data-rvundo${r.hist.length ? "" : " disabled"}><i>↶</i>元に戻す</button><button class="tl" data-rvedit><i>✎</i>直す</button><button class="tl${VOICE.on ? " on" : ""}" data-voice><i>🎤</i>声 ${VOICE.on ? "入" : "切"}</button><button class="tl" data-rvmore><i>⋯</i>その他</button></div>
+    <div class="rvtools2"><button class="tl" data-rvundo${r.hist.length ? "" : " disabled"}><i>↶</i>元に戻す</button><button class="tl" data-rvedit><i>✎</i>直す</button><button class="tl${VOICE.on ? " on" : ""}" data-voice><i>🎤</i>声 ${VOICE.on ? "入" : VOICE.idle ? "休み中" : "切"}</button><button class="tl" data-rvmore><i>⋯</i>その他</button></div>
     ${VOICE.on ? `<div class="vstat"><span class="dot"></span>聞いています:「答え」「表」「もう一度」「難しい」「正解」「簡単」「戻す」「やめる」${VOICE.last ? `<b class="vheard">聞き取った「${esc(VOICE.last)}」</b>` : ""}</div>` : ""}
     <p class="note" style="text-align:center;margin-top:.5rem">キーボード:スペースで答え・B で表に戻る・1〜4で判定・Z で元に戻す・E で直す。リモコン(矢印):→ 答え・正解、← もう一度、↑ 簡単、↓ 難しい</p>`; }
 /* 復習の画面の骨組み:#rv-box(カードの枠)は、その回の復習が終わるまで一度も作り直さない・動かさない */
@@ -958,15 +961,15 @@ function voiceStart(){ const SR = window.SpeechRecognition || window.webkitSpeec
   const rr = new SR(); rr.lang = "ja-JP"; rr.continuous = true; rr.interimResults = true; rr.maxAlternatives = 3;
   /* 聞き取りの途中(まだ確定していない文字)も見て、決まった言葉がまるごと聞こえた時点で動く。同じ発言では二度動かない */
   rr.onresult = e => { for (let i = e.resultIndex; i < e.results.length; i++) { const res = e.results[i], key = VOICE.sess + ":" + i;
-      const alts = [...Array(res.length)].map((_, k) => res[k].transcript.trim()).filter(Boolean); if (!alts.length) continue; VOICE.last = alts[0];
+      const alts = [...Array(res.length)].map((_, k) => res[k].transcript.trim()).filter(Boolean); if (!alts.length) continue; VOICE.last = alts[0]; VOICE.heard = Date.now();
       if (VOICE.finalKey === key) { VOICE.fired = null; VOICE.finalKey = null; }   // 確定したあとに同じ番号で来たら、それは次の発言(Android はこうなる)
       if (VOICE.fired === key) { if (res.isFinal) VOICE.finalKey = key; continue; }
       const hit = alts.map(voiceMatch).find(Boolean);
       if (hit) { VOICE.fired = key; if (res.isFinal) VOICE.finalKey = key; voiceDo(hit); } else if (res.isFinal) { VOICE.finalKey = key; render(); } else paintVoice(); } };
   rr.onstart = () => { VOICE.sess = (VOICE.sess || 0) + 1; };
-  rr.onend = () => { if (VOICE.on) { try { rr.start(); } catch (e) {} } };
+  rr.onend = () => { if (!VOICE.on) return; if (!V.rv || Date.now() - (VOICE.heard || VOICE.since) > 60000) { VOICE.idle = true; VOICE.on = false; VOICE.rec = null; render(); return; } try { rr.start(); } catch (e) {} };   // 1分なにも聞こえなければ休む
   rr.onerror = e => { if (/not-allowed|service-not-allowed|audio-capture/.test(e.error)) { VOICE.on = false; toast("マイクが使えない(ブラウザの許可が必要)"); render(); } };
-  VOICE.rec = rr; VOICE.on = true; VOICE.last = ""; try { rr.start(); } catch (e) {} render(); }
+  VOICE.rec = rr; VOICE.on = true; VOICE.idle = false; VOICE.last = ""; VOICE.since = Date.now(); VOICE.heard = 0; try { rr.start(); } catch (e) {} render(); }
 function voiceStop(quiet){ VOICE.on = false; try { VOICE.rec && VOICE.rec.stop(); } catch (e) {} VOICE.rec = null; if (!quiet) render(); }
 /* 聞こえた文字から、どの操作か(言葉がまるごと入っているときだけ) */
 function voiceMatch(t){ const s = String(t).replace(/[\s。、!！?？]/g, "");
@@ -1121,7 +1124,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
   if (sh.k === "held") return window.heldSheet ? heldSheet() : "";
   if (sh.k === "more") return `<h3>その他</h3><div class="mlist">${[["sync", "同期", "スマホ・Chromebook・Mac で同じデータを使う"], ["import", "読み込み", "Ankiの書き出し(.apkg・.colpkg)"], ["backup", "書き出し(控え)", "暗記と演習の全部を1つのファイルに保存する"], ["restore", "控えから戻す", "書き出した控えのファイルから"], ["trash", "ごみ箱", "消したもの・ほかの端末で消したもの(30日残る)"], ["revived", "復活したもの", "まとめて戻したもの・前に消したのに戻ってきたものを、もう一度消す"], ["autobk", "自動の控え", "毎日1回、この端末に取っている控え(7日分)。消えたものだけ戻せる"], ["empty", "空のカード", "表に欄の中身が1つも出ないカードを探して消す(ノートは消さない)"], ["check", "データの点検", "おかしなところを探して直す"], ["errlog", "起きた問題の記録", "エラーの内容(直すときの手がかり)"], ["nts", "ノートタイプ", "欄・重複を見る欄・自動で書き換える欄・テンプレート"], ["prefs", "設定", "効果音・音声の自動再生"]].map(([k, t, d]) => `<button data-more="${k}"><b>${t}</b><small>${d}</small></button>`).join("")}</div><p class="note">Anki2 ${APP_VERSION}・カード ${A2.S.cards.size}枚・ノート ${A2.S.notes.size}・記録 ${A2.S.revlog.size}${A2.S.meta.persisted ? "・この端末に保存(消されにくい設定)" : ""}</p>`;
   if (sh.k === "import") return `<h3>Ankiから読み込む</h3><p class="note" style="margin-top:0">Ankiで「書き出す」→「スケジュール情報を含める」「メディアを含める」にして作ったファイルを選ぶ。何度読み込んでも重ならない(同じノート・カードは1つにまとめ、新しいほうを残す。記録は足すだけ)。</p><div class="imp"><label class="btn shu" style="cursor:pointer">ファイルを選ぶ<input type="file" id="imp-file" accept=".apkg,.colpkg,application/zip" hidden></label><div class="steplog" id="imp-log"></div></div>`;
-  if (sh.k === "prefs") return `<h3>設定</h3><label class="chk" style="border:0"><input type="checkbox" id="pf-se"${A2.S.meta.se === false ? "" : " checked"}> 効果音を鳴らす</label><label class="chk" style="border:0"><input type="checkbox" id="pf-ap"${A2.S.meta.autoplay === false ? "" : " checked"}> 音声を自動で再生する</label>`;
+  if (sh.k === "prefs") return `<h3>設定</h3><label class="chk" style="border:0"><input type="checkbox" id="pf-se"${A2.S.meta.se === false ? "" : " checked"}> 効果音を鳴らす</label><label class="chk" style="border:0"><input type="checkbox" id="pf-fs"${wantFull() ? " checked" : ""}> 復習・演習のとき全画面にする(スマホでは、下に案内が出てボタンが隠れることがある)</label><label class="chk" style="border:0"><input type="checkbox" id="pf-ap"${A2.S.meta.autoplay === false ? "" : " checked"}> 音声を自動で再生する</label>`;
   if (sh.k === "dopt") { const d = A2.S.decks.get(sh.id), o = Object.assign(A2.defaultOpt(), d.opt || {}); const f = (k, t, v, s) => `<div class="f"><label>${t}</label><input data-opt="${k}" value="${esc(v)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">${s ? `<div class="note">${s}</div>` : ""}</div>`;
     return `<h3>デッキのオプション</h3><div class="f"><label>場所と名前(「::」で区切る。いちばん左が分野)</label><input id="do-name" value="${esc(d.name)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><div class="note">例:英語::英単語::単語帳。中のデッキも一緒に動く</div></div>${f("newDay", "1日の新しいカード", o.newDay)}${f("revDay", "1日の復習の上限", o.revDay)}${f("steps", "学習ステップ", o.steps, "例:1m 10m")}${f("relearn", "再学習のステップ", o.relearn)}${f("retention", "覚えておきたい割合(%)", o.retention, "FSRS。高いほど復習が増える")}${f("maxIvl", "最大の間隔(日)", o.maxIvl)}${f("leech", "リーチ(忘れた回数)", o.leech, "この回数忘れたら「leech」のタグを付ける")}${f("fsrs", "FSRS のパラメータ(Anki のデッキの設定からコピー)", o.fsrs || "", "空なら標準の値" + (o.decay || A2.S.meta.fsrsDecay ? "(忘れ方の曲がり " + (o.decay || A2.S.meta.fsrsDecay) + " は Anki から)" : ""))}
       <label class="chk" style="border:0"><input type="checkbox" data-opt="burySib"${o.burySib ? " checked" : ""}> 兄弟カード(同じノートの別のカード)は次の日へ延期する</label><div class="row"><button class="btn sm" data-optsave="${d.id}">保存</button><button class="btn ghost sm" data-dinfo="${esc(d.name)}">中身を調べる</button><button class="linkx" data-ddel="${d.id}" style="color:var(--shu);margin-left:auto">このデッキを消す</button></div>`; }
@@ -1373,6 +1376,7 @@ document.addEventListener("change", async e => { const t = e.target;
   if (["bf-deck", "bf-nt", "bf-tag"].includes(t.id)) { V.bf = V.bf || { chips: {} }; V.bf[t.id.slice(3)] = t.value; V.bsel = {}; render(); }
   if (t.id === "st-scope") { V.stScope = t.value; render(); } if (t.id === "st-days") { V.stDays = +t.value; render(); }
   if (t.id === "ad-nt") { ADD.nt = t.value; ADD.f = {}; render(); } if (t.id === "ad-dk") ADD.deck = t.value; if (t.id === "ai-dk") { AI.deck = t.value; render(); }
+  if (t.id === "pf-fs") await A2.setMeta("fullscreen", t.checked);
   if (t.id === "pf-se") await A2.setMeta("se", t.checked); if (t.id === "pf-ap") await A2.setMeta("autoplay", t.checked);
   if (t.dataset && t.dataset.dupk && V.sheet && V.sheet.k === "nt") { const nt = A2.S.notetypes.get(V.sheet.id), set = new Set(A2.dupKeys(nt)); t.checked ? set.add(t.dataset.dupk) : set.delete(t.dataset.dupk); nt.dupKeys = nt.fields.filter(f => set.has(f)); if (!nt.dupKeys.length) nt.dupKeys = [nt.fields[0]]; await A2.save("notetypes", [nt]); render(); }
   if (t.dataset && t.dataset.calcf && V.sheet && V.sheet.k === "nt") { const nt = A2.S.notetypes.get(V.sheet.id); nt.calc = Object.assign({}, nt.calc || {}, { [t.dataset.calcf]: t.value }); await A2.save("notetypes", [nt]); toast("保存した"); render(); }
@@ -1410,7 +1414,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.29";
+window.APP_VER_EX = "r4.31";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -1496,7 +1500,7 @@ function mapPrompt(doc, area, req, withNow){ const now = doc.map.filter(x => !ar
 /* ───── 演習(画面いっぱい) ───── */
 let exTimer = null;
 function exStart(mid, qid){ EXV.run = { mat: mid, q: qid, sec: 0, go: true, mark: {}, done: false, grade: "", note: "", pane: null }; V.sheet = null; se("add");
-  try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} wakeOn();
+  goFull(); wakeOn();
   clearInterval(exTimer); exTimer = setInterval(() => { const r = EXV.run; if (!r || !r.go || r.done) return; r.sec++; const el = document.querySelector(".exbar .timer"); if (el) el.textContent = String(Math.floor(r.sec / 60)).padStart(2, "0") + ":" + String(r.sec % 60).padStart(2, "0"); }, 1000); go({}); }
 function exEnd(){ clearInterval(exTimer); wakeOff(); try { document.fullscreenElement && document.exitFullscreen(); } catch (e) {} EXV.run = null; go({}); }
 function exRun(){ const s = exSubj(), doc = exDoc(s.id), r = EXV.run, m = exMat(doc, r.mat), q = m.items.find(x => x.id === r.q), area = q.area || m.area, items = doc.map.filter(x => x.area === area);
@@ -1645,7 +1649,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.29";
+window.APP_VER_SYNC = "r4.31";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
