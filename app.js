@@ -1,6 +1,6 @@
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.8"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.11"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -71,31 +71,61 @@ async function showInFrame(frame, card, back, fOver){ if (!frame) return; const 
   if (frame.contentWindow && frame.contentWindow.a2show) go2(); else frame.addEventListener("load", go2, { once: true });
   if (back) { const m = /\[sound:([^\]]+)\]/.exec(A2.cardHtml(card, true, fOver).slice(A2.cardHtml(card, false, fOver).length)) || null; if (m && A2.S.meta.autoplay !== false) { const u = await A2.mediaUrl(m[1]); if (u) new Audio(u).play().catch(() => {}); } }
   else { const m = /\[sound:([^\]]+)\]/.exec(A2.cardHtml(card, false, fOver)); if (m && A2.S.meta.autoplay !== false) { const u = await A2.mediaUrl(m[1]); if (u) new Audio(u).play().catch(() => {}); } } }
-function startStudy(prefix, filter, title){ const q = A2.queue(prefix, filter); if (!q.length) { toast("今はここに出すカードがない"); render(); return; }
+/* 出す順番(本家の初めの設定と同じ):
+   1. 期日になった学習中のカード(もう一度で1分後、など)を先に
+   2. 今日の復習と新しいカードを混ぜて(復習は期日の古い順・同じ日はばらばら、新しいカードはデッキの順で、復習のあいだに均等に)
+   3. それもなければ、先取りの上限(20分)以内に期日になる学習中のカード
+   4. それより先なら、待つ(時間になれば出る)。デッキを出て入り直しても同じ */
+const LEARN_AHEAD = () => (+A2.S.meta.learnAhead || 20) * 60e3;
+const isLearn = c => c.st === "学習中" || c.st === "再学習";
+const buriedNow = c => c.bury && c.buryDay === A2.today();
+function rvScope(r, c){ return r.filter ? r.filter(c) : r.ids.has(c.deck); }
+function rvLearning(r){ const out = []; for (const c of A2.S.cards.values()) if (isLearn(c) && c.dueMs != null && !c.susp && !buriedNow(c) && rvScope(r, c)) out.push(c); return out.sort((a, b) => a.dueMs - b.dueMs); }
+function buildMain(r){ const today = A2.today(), rev = [], nw = []; let k = r.filter ? null : A2.counts(r.prefix);
+  for (const c of A2.S.cards.values()) { if (c.susp || buriedNow(c) || !rvScope(r, c)) continue;
+    if (c.st === "新規") nw.push(c); else if (c.st === "復習" || (isLearn(c) && c.dueMs == null)) { if (r.filter || (c.dueDay != null && c.dueDay <= today)) rev.push(c); } }
+  const rnd = new Map(); rev.forEach(c => rnd.set(c.id, Math.random())); rev.sort((a, b) => (a.dueDay || 0) - (b.dueDay || 0) || rnd.get(a.id) - rnd.get(b.id)); nw.sort((a, b) => (a.pos || 0) - (b.pos || 0));
+  const R = k ? rev.slice(0, k.r + k.l) : rev, N = k ? nw.slice(0, k.n) : nw, main = [];
+  if (!N.length) R.forEach(c => main.push(c.id)); else if (!R.length) N.forEach(c => main.push(c.id)); else { const step = (R.length + N.length) / N.length; let ni = 0, ri = 0; for (let i = 0; i < R.length + N.length; i++) { if (ni < N.length && (i + 1) >= Math.round((ni + 1) * step)) main.push(N[ni++].id); else if (ri < R.length) main.push(R[ri++].id); else main.push(N[ni++].id); } }
+  return main; }
+function rvPick(r, force){ const now = Date.now(), L = rvLearning(r);
+  if (L.length && L[0].dueMs <= now) return { id: L[0].id, main: false };
+  while (r.mi < r.main.length) { const c = A2.S.cards.get(r.main[r.mi]); if (c && !c.susp && !buriedNow(c) && !r.answered.has(c.id) && !(isLearn(c) && c.dueMs != null)) return { id: c.id, main: true }; r.mi++; }
+  if (L.length && (force || L[0].dueMs <= now + LEARN_AHEAD())) return { id: L[0].id, main: false };
+  if (L.length) return { wait: L[0].dueMs }; return { done: true }; }
+function rvEnsure(){ const r = V.rv; if (!r || r.cur) return; const p = rvPick(r, r.force); r.force = false; r.wait = null; if (p.id) { r.cur = p.id; r.curMain = p.main; r.cardT0 = Date.now(); } else if (p.wait) r.wait = p.wait; }
+const rvCur = () => V.rv && V.rv.cur ? A2.S.cards.get(V.rv.cur) : null;
+function rvCounts(r){ const now = Date.now(), today = A2.today(); let n = 0, rv = 0; for (let i = r.mi; i < r.main.length; i++) { const c = A2.S.cards.get(r.main[i]); if (!c || c.susp || buriedNow(c) || r.answered.has(c.id) || (isLearn(c) && c.dueMs != null)) continue; if (c.st === "新規") n++; else rv++; }
+  const L = rvLearning(r), l = L.filter(c => c.dueMs <= now + LEARN_AHEAD()).length, lToday = L.filter(c => A2.dayOf(c.dueMs) === today).length; return { n, l, r: rv, rest: n + rv + lToday }; }
+function startStudy(prefix, filter, title){ const r = { title: title || prefix, prefix, filter, ids: new Set(filter ? [] : A2.deckIds(prefix)), mi: 0, cur: null, back: false, t0: Date.now(), cardT0: Date.now(), done: 0, again: 0, hist: [], answered: new Set() };
+  r.main = buildMain(r); const p = rvPick(r); if (p.done) { toast("今はここに出すカードがない"); render(); return; }
   try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
-  wakeOn(); go({ rv: { title: title || prefix, prefix, q, i: 0, back: false, t0: Date.now(), cardT0: Date.now(), done: 0, again: 0, hist: [], frameReady: false } }); }
+  wakeOn(); go({ rv: r }); }
+setInterval(() => { const r = V.rv; if (r && r.wait && Date.now() >= r.wait) { r.wait = null; render(); } else if (r && r.wait) { const el = $("rvwait"); if (el) el.textContent = rvWaitText(r.wait); } }, 2000);
+const rvWaitText = t => { const m = Math.max(0, Math.ceil((t - Date.now()) / 60000)), d = new Date(t); return "あと " + m + "分(" + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0") + ")"; };
 let wake = null; async function wakeOn(){ try { wake = await navigator.wakeLock.request("screen"); } catch (e) {} } function wakeOff(){ try { wake && wake.release(); } catch (e) {} wake = null; }
-function rvTimeHtml(){ const r = V.rv; if (!r) return ""; const now = Date.now(), el = (now - r.t0) / 1000, rest = r.q.length - r.i, avg = r.done ? el / r.done : 0, card = (now - (r.cardT0 || r.t0)) / 1000, slow = card > Math.max(10, avg * 1.5);
-  const pc = paceOf(r.prefix || ""), restQ = r.q.slice(r.i), guess = restQ.reduce((a, c) => a + (c.st === "新規" ? pc.nw : pc.rev), 0), fin = rest ? new Date(now + (r.done >= 3 ? avg * rest : guess) * 1000) : null;
-  return `<div class="tb2"><small>経過</small><b>${mmss(el)}</b></div><div class="tb2"><small>1枚の平均</small><b>${avg ? (Math.round(avg * 10) / 10) + "<i>秒</i>" : "—"}</b></div><div class="tb2${slow ? " slow" : ""}"><small>このカード</small><b>${Math.round(card)}<i>秒</i></b></div><div class="tb2"><small>終わる時刻</small><b>${fin ? fin.getHours() + ":" + String(fin.getMinutes()).padStart(2, "0") : "—"}</b></div>`; }
+function rvTimeHtml(){ const r = V.rv; if (!r) return ""; const now = Date.now(), el = (now - r.t0) / 1000, k = rvCounts(r), rest = k.rest, avg = r.done ? el / r.done : 0, card = (now - (r.cardT0 || r.t0)) / 1000, slow = r.cur && card > Math.max(10, avg * 1.5);
+  const pc = paceOf(r.prefix || ""), guess = k.n * pc.nw + (k.r + (k.rest - k.n - k.r)) * pc.rev, fin = rest ? new Date(now + (r.done >= 3 ? avg * rest : guess) * 1000) : null;
+  return `<div class="tb2"><small>経過</small><b>${mmss(el)}</b></div><div class="tb2"><small>1枚の平均</small><b>${avg ? (Math.round(avg * 10) / 10) + "<i>秒</i>" : "—"}</b></div><div class="tb2${slow ? " slow" : ""}"><small>このカード</small><b>${r.cur ? Math.round(card) + "<i>秒</i>" : "—"}</b></div><div class="tb2"><small>終わる時刻</small><b>${fin ? fin.getHours() + ":" + String(fin.getMinutes()).padStart(2, "0") : "—"}</b></div>`; }
 setInterval(() => { const el = $("rvtime"); if (el && V.rv) el.innerHTML = rvTimeHtml(); }, 1000);
 function rvDone(){ const r = V.rv, sec = Math.round((Date.now() - r.t0) / 1000); return `<div class="result" style="margin-top:1rem"><b>おつかれさま。「${esc(r.title)}」の今の分は終わり</b><div class="note">${r.done}枚・もう一度 ${r.again}・${Math.floor(sec / 60)}分${sec % 60}秒・1枚 ${r.done ? (Math.round(sec / r.done * 10) / 10) : 0}秒</div></div><div class="row"><button class="btn" data-rvend>デッキへ戻る</button>${r.hist.length ? '<button class="btn ghost" data-rvundo>元に戻す</button>' : ""}</div>`; }
-function rvTop(){ const r = V.rv, rest = r.q.slice(r.i), total = r.done + rest.length, pct = total ? r.done / total * 100 : 0;
-  return `<div class="rvstick"><div class="rvtop"><button class="back" data-rvend>‹ やめる</button><b>${esc(r.title.split("::").pop())}</b><span class="cnt"><span class="n">${rest.filter(x => x.st === "新規").length}</span> + <span class="l">${rest.filter(x => x.st === "学習中" || x.st === "再学習").length}</span> + <span class="r">${rest.filter(x => x.st === "復習").length}</span></span></div>
+function rvTop(){ const r = V.rv, k = rvCounts(r), total = r.done + k.rest, pct = total ? r.done / total * 100 : 0;
+  return `<div class="rvstick"><div class="rvtop"><button class="back" data-rvend>‹ やめる</button><b>${esc(r.title.split("::").pop())}</b><span class="cnt"><span class="n">${k.n}</span> + <span class="l">${k.l}</span> + <span class="r">${k.r}</span></span></div>
     <div class="seekrow"><div class="seek"><i style="width:${pct}%"></i><b style="left:${pct}%"></b></div><span class="seekn"><b>${r.done}</b> / ${total}</span></div><div class="rvbig" id="rvtime">${rvTimeHtml()}</div></div>`; }
-function rvOv(){ const c = V.rv.q[V.rv.i], n = A2.S.notes.get(c.nid); return (c.flag ? `<span class="flagbar" style="background:${FL[c.flag]}"></span>` : "") + (n && n.tags.includes("marked") ? '<span class="markst">★</span>' : ""); }
-function rvCtl(){ const r = V.rv, c = r.q[r.i], ivs = A2.nextWaits(c);
+function rvOv(){ const c = rvCur(); if (!c) return ""; const n = A2.S.notes.get(c.nid); return (c.flag ? `<span class="flagbar" style="background:${FL[c.flag]}"></span>` : "") + (n && n.tags.includes("marked") ? '<span class="markst">★</span>' : ""); }
+function rvCtl(){ const r = V.rv, c = rvCur(), ivs = A2.nextWaits(c);
   return `${r.back ? `<div class="ansbar">${["もう一度", "難しい", "正解", "簡単"].map((x, k) => `<button class="ans a${k + 1}" data-grade="${k + 1}"><small>${A2.fmtWait(ivs[k].wait)}</small>${x}</button>`).join("")}</div><div class="fliprow"><button class="linkx" data-toface>表に戻る</button></div>` : `<button class="btn showans" data-showans>答えを見る</button>`}
     <div class="rvtools2"><button class="tl" data-rvundo${r.hist.length ? "" : " disabled"}><i>↶</i>元に戻す</button><button class="tl" data-rvedit><i>✎</i>直す</button><button class="tl${VOICE.on ? " on" : ""}" data-voice><i>🎤</i>声 ${VOICE.on ? "入" : "切"}</button><button class="tl" data-rvmore><i>⋯</i>その他</button></div>
     ${VOICE.on ? `<div class="vstat"><span class="dot"></span>聞いています:「答え」「表」「もう一度」「難しい」「正解」「簡単」「戻す」「やめる」${VOICE.last ? `<b>聞き取った「${esc(VOICE.last)}」</b>` : ""}</div>` : ""}
     <p class="note" style="text-align:center;margin-top:.5rem">キーボード:スペースで答え・B で表に戻る・1〜4で判定・Z で元に戻す・E で直す</p>`; }
 /* 復習の画面の骨組み:#rv-box(カードの枠)は、その回の復習が終わるまで一度も作り直さない・動かさない */
-function review(){ const r = V.rv; if (!r.q[r.i]) return rvDone();
+function review(){ const r = V.rv; rvEnsure(); if (r.wait) return `<div id="rv-top">${rvTop()}</div><div class="result" style="margin-top:1rem"><b>今出せるカードは、ここまで</b><div class="note">次の学習中のカードは <span id="rvwait">${rvWaitText(r.wait)}</span> に出る。時間になれば、そのまま出てくる。</div></div><div class="row"><button class="btn" data-rvnow>今すぐ出す</button><button class="btn ghost" data-rvend>やめる</button>${r.hist.length ? '<button class="btn ghost" data-rvundo>元に戻す</button>' : ""}</div>`;
+  if (!r.cur) return rvDone();
   return `<div id="rv-top">${rvTop()}</div><div class="cardbox rvf" id="rv-box"><span id="rv-ov">${rvOv()}</span><iframe class="rvframe" id="rv-frame" title="カード" srcdoc="${esc(FRAME_DOC())}"></iframe></div><div id="rv-ctl">${rvCtl()}</div>`; }
 /* 復習の画面は、カードの枠(iframe)を作り直さずに使い回す:表→裏で中身だけを差し替える */
 let rvFrameEl = null;
-function mountReview(){ const r = V.rv; if (!r) return; const c = r.q[r.i], fr = $("rv-frame"); if (!fr || !c) return; rvFrameEl = fr;
-  const key = c.id + "|" + r.back + "|" + r.i; if (fr.dataset.k === key) return; fr.dataset.k = key; showInFrame(fr, c, r.back); }
+function mountReview(){ const r = V.rv; if (!r) return; const c = rvCur(), fr = $("rv-frame"); if (!fr || !c) return; rvFrameEl = fr;
+  const key = c.id + "|" + r.back + "|" + r.done; if (fr.dataset.k === key) return; fr.dataset.k = key; showInFrame(fr, c, r.back); }
 /* 判定でノートの欄を自動で書き換える */
 const AUTO_RULES = [ ["", "書き換えない"], ["pagelog", "カードに出た値を、その回の復習の記録に残す(欄には書かない)"], ["time", "この回の時間"], ["grade", "判定(× △ ○ ◎)"], ["log", "記録に足す(日付・時間・判定を上に1行)"], ["best", "最高記録(正解したときの最短)"], ["count", "回数"], ["page", "カードの中に出た値を、最後に足す"], ["okng", "○×を最後に足す(もう一度=×、ほかは○)"] ];
 const CALC_RULES = [ ["", "作らない(保存してある中身のまま)"], ["okng", "○×の並び(もう一度=×、ほかは○)"], ["grades", "評価の並び(× △ ○ ◎)"], ["laps", "その回にカードに出た値の並び(前の中身のあとに続ける)"], ["secs", "かかった秒の並び"], ["count", "復習した回数"], ["last", "前回の判定と時間"] ];
@@ -126,12 +156,12 @@ function autoWrite(note, nt, k, sec){ const rules = nt.auto || {}; if (!Object.v
     else if (rr === "log") note.f[f] = [day + " " + tm + " " + mark].concat(String(note.f[f] || "").split(/<br\s*\/?>/i).filter(x => x.trim())).slice(0, 12).join("<br>");
     else if (rr === "best") { if (k >= 3) { const old = secOf(note.f[f]); if (old == null || sec < old) note.f[f] = tm; } } else if (rr === "count") note.f[f] = String((+note.f[f] || 0) + 1); });
   if (JSON.stringify(note.f) === before) return null; note.mod = Date.now(); return tm + " " + mark; }
-async function answer(k){ const r = V.rv, c = r.q[r.i]; if (!c) return; const now = Date.now(), note = A2.S.notes.get(c.nid), nt = A2.S.notetypes.get(note.nt), sec = (now - (r.cardT0 || r.t0)) / 1000;
-  const ivs = A2.nextWaits(c), o = ivs[k - 1], snap = { c: JSON.parse(JSON.stringify(c)), f: JSON.parse(JSON.stringify(note.f)), i: r.i, done: r.done, again: r.again, qlen: r.q.length, sibs: [] };
+async function answer(k){ const r = V.rv, c = rvCur(); if (!c) return; const now = Date.now(), note = A2.S.notes.get(c.nid), nt = A2.S.notetypes.get(note.nt), sec = (now - (r.cardT0 || r.t0)) / 1000;
+  const ivs = A2.nextWaits(c), o = ivs[k - 1], snap = { c: JSON.parse(JSON.stringify(c)), f: JSON.parse(JSON.stringify(note.f)), mi: r.mi, cur: r.cur, curMain: r.curMain, done: r.done, again: r.again, sibs: [] };
   const wrote = autoWrite(note, nt, k, sec); if (wrote) toast("記録を書き換えた(" + wrote + ")");
   const last = c.st === "復習" ? c.ivl : 0, today = A2.dayOf(now);
   Object.assign(c, { s: o.s, d: o.d, st: o.st, step: o.step, reps: (c.reps || 0) + 1, lastDay: today, mod: now }); if (o.lapse) c.lapses = (c.lapses || 0) + 1;
-  if (o.st === "復習") { c.ivl = o.ivl; c.dueDay = today + o.ivl; delete c.dueMs; } else { c.dueMs = now + o.wait * 60e3; if (k === 1) r.again++; r.q.push(c); }
+  if (o.st === "復習") { c.ivl = o.ivl; c.dueDay = today + o.ivl; delete c.dueMs; } else { c.dueMs = now + o.wait * 60e3; if (k === 1) r.again++; }
   if (c.st === "新規") delete c.pos;
   const opt = A2.optOf(c);
   if (o.lapse && c.lapses >= (+opt.leech || 8) && !note.tags.includes("leech")) { note.tags.push("leech"); toast("何度も忘れているので「leech」のタグを付けた(作り直しを考えるとよい)"); }
@@ -140,10 +170,10 @@ async function answer(k){ const r = V.rv, c = r.q[r.i]; if (!c) return; const no
   Object.values(nt.auto || {}).forEach(r0 => { const [rr, arg] = String(r0 || "").split("|"); if (rr === "pagelog") { const v = pageValue(arg).replace(/^[\s,、]+/, ""); if (v) rl.x = Object.assign(rl.x || {}, { page: v }); } });
   snap.rl = rl.id; r.hist.push(snap);
   await A2.save("cards", [c].concat(snap.sibs.map(x => A2.S.cards.get(x.id)))); await A2.save("notes", [note]); await A2.save("revlog", [rl]);
-  r.done++; r.i++; r.back = false; r.cardT0 = Date.now(); se("g" + k); if (!r.q[r.i]) se("done"); render(); }
-async function undo(){ const r = V.rv, h = r && r.hist.pop(); if (!h) return; const c = A2.S.cards.get(h.c.id), note = A2.S.notes.get(c.nid);
+  r.answered.add(c.id); if (r.curMain) r.mi++; r.cur = null; r.done++; r.back = false; se("g" + k); rvEnsure(); if (!r.cur && !r.wait) se("done"); render(); }
+async function undo(){ const r = V.rv, h = r && r.hist.pop(); if (!h) return; const c = A2.S.cards.get(h.c.id), note = A2.S.notes.get(c.nid); if (rvFrameEl) rvFrameEl.dataset.k = "";
   Object.keys(c).forEach(k => { if (!(k in h.c)) delete c[k]; }); Object.assign(c, h.c); note.f = h.f; h.sibs.forEach(s => A2.S.cards.set(s.id, s));
-  r.q.length = h.qlen; r.q[h.i] = c; r.i = h.i; r.done = h.done; r.again = h.again; r.back = true; r.cardT0 = Date.now();
+  r.answered.delete(c.id); r.mi = h.mi; r.cur = h.cur; r.curMain = h.curMain; r.wait = null; r.done = h.done; r.again = h.again; r.back = true; r.cardT0 = Date.now();
   await A2.save("cards", [c].concat(h.sibs)); await A2.save("notes", [note]); await A2.remove("revlog", [h.rl]); se("undo"); toast("ひとつ前に戻した"); render(); }
 /* 声 */
 const VOICE = { on: false, rec: null, last: "" };
@@ -295,6 +325,8 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return ""; const xs = window.
   if (sh.k === "subedit") { const s = A2.S.subjects.get(sh.id); return `<h3>分野</h3><div class="f"><label>名前(いちばん上のデッキの名前)</label><input id="su-n" value="${esc(s.name)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"></div><div class="f"><label>分類</label><select id="su-c">${CATS.map(c => `<option value="${c.id}"${c.id === s.cat ? " selected" : ""}>${c.name}</option>`).join("")}</select></div><div class="f"><label>色</label><div class="row">${["#2F4F8A", "#B5432F", "#3D7A55", "#7B4F9A", "#9A6A1E", "#1F7A8C", "#A0522D", "#26221E"].map(c => `<button class="colb${c === s.c ? " on" : ""}" data-nscol="${c}" style="background:${c}" aria-label="色"></button>`).join("")}</div></div><button class="btn" data-susave="${s.id}">保存</button>
       <h2>別の分野の中に入れる<small>この分野を、ほかの分野の中のデッキにする</small></h2><div class="row" style="gap:.4rem"><input id="su-into" list="su-list" placeholder="例:英語" style="flex:1;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><datalist id="su-list">${[...A2.S.subjects.values()].filter(x => x.id !== s.id).map(x => `<option value="${esc(x.name)}">`).join("")}</datalist><button class="btn sm" data-suinto="${s.id}">入れる</button></div>
       <div class="note">「英語」と入れると「${esc(s.name)}」が「英語 › ${esc(s.name)}」になる。英語の分野がなければ作る。</div>
+      <h2>この分野を消す</h2>${(() => { const ds = [...A2.S.decks.values()].filter(d => d.name === s.name || d.name.startsWith(s.name + "::")), ids = new Set(ds.map(d => d.id)), n = [...A2.S.cards.values()].filter(c => ids.has(c.deck)).length;
+        return ds.length ? `<div class="note">中にデッキ ${ds.length}・カード ${n}枚がある。消すと全部消える(その前に「別の分野の中に入れる」でよそへ動かすこともできる)。</div><button class="btn ghost sm" data-subdel="${s.id}" style="color:var(--shu);border-color:var(--shu);margin-top:.3rem">デッキとカードごと消す</button>` : `<button class="btn ghost sm" data-subdel="${s.id}" style="color:var(--shu);border-color:var(--shu)">この分野を消す(中は空)</button>`; })()}
       ${[...A2.S.decks.values()].some(d => d.name === s.name) ? `<div style="margin-top:.6rem"><button class="linkx" data-dopt="${[...A2.S.decks.values()].find(d => d.name === s.name).id}">「${esc(s.name)}」デッキのオプション(1日の枚数など)</button></div>` : ""}`; }
   if (sh.k === "newsub") return `<h3>分野を作る</h3><div class="f"><label>名前</label><input id="ns-n" placeholder="例:物理" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"></div><div class="f"><label>分類</label><select id="ns-c">${CATS.map(c => `<option value="${c.id}"${c.id === V.cat ? " selected" : ""}>${c.name}</option>`).join("")}</select></div><button class="btn" data-nssave>作る</button>`;
   if (sh.k === "newdeck") { const subs = [...A2.S.subjects.values()], sid = sh.sid || (subs.find(x => x.cat === V.cat) || subs[0] || {}).id; if (!subs.length) return '<h3>デッキを作る</h3><p class="note">先に分野を作る。</p>'; const s = A2.S.subjects.get(sid), parents = [...A2.S.decks.values()].filter(d => d.name.split("::")[0] === s.name).map(d => d.name.split("::").slice(1).join("::")).filter(Boolean);
@@ -337,7 +369,8 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return ""; const xs = window.
 /* ───── 描く(同じ画面の中では、スクロールの位置と復習のカードの枠を保つ) ───── */
 function render(){ shownDay = A2.today(); const y = window.scrollY, exFull = V.mode === "ex" && !V.rv && (typeof EXV !== "undefined") && EXV.run;
   document.body.classList.toggle("fullmode", !!(V.rv || exFull)); document.body.classList.toggle("rvmode", !!V.rv);
-  if (V.rv && V.rv.q[V.rv.i] && $("rv-frame")) {   // 復習中:カードの枠には触らず、上の帯と下のボタンだけ描き直す
+  if (V.rv) rvEnsure();
+  if (V.rv && V.rv.cur && $("rv-frame")) {   // 復習中:カードの枠には触らず、上の帯と下のボタンだけ描き直す
     $("rv-top").innerHTML = rvTop(); $("rv-ov").innerHTML = rvOv(); $("rv-ctl").innerHTML = rvCtl(); mountReview(); afterRender(y); return; }
   const title = { anki: "暗記", ex: "演習", br: "ブラウザ", make: "作る", st: "統計" }[V.mode];
   const body = V.rv ? review() : V.mode === "anki" ? ankiHome() : V.mode === "ex" ? exView() : V.mode === "br" ? browser() : V.mode === "make" ? make() : stats();
@@ -367,9 +400,13 @@ async function moveDeck(old, nw, like){ const ds = [...A2.S.decks.values()].filt
 async function pruneSubjects(){ const tops = new Set([...A2.S.decks.values()].map(d => d.name.split("::")[0])); const gone = [...A2.S.subjects.values()].filter(s => !tops.has(s.name)).map(s => s.id); if (gone.length) await A2.remove("subjects", gone); }
 /* ───── 読み込み・控え ───── */
 async function doImport(file){ const log = $("imp-log"), say = t => { if (log) log.textContent += t + "\n"; };
-  try { say("読み込み中…"); const pkg = await A2.readPackage(file, say); const res = await A2.mergePackage(pkg, say);
-    say(`終わった:ノートタイプ ${res.notetypes}・デッキ ${res.decks}・ノート ${res.notes}(新しく ${res.newNotes})・カード ${res.cards}・記録 ${res.revlog}・画像と音声 ${res.media}${res.replayed ? "・記録から覚え具合を計算し直した " + res.replayed : ""}${res.fixedDue ? "・期日を直した " + res.fixedDue : ""}`);
-    se("done"); setTimeout(() => { V.sheet = null; toast("読み込んだ(カード " + res.cards + "枚・記録 " + res.revlog + ")"); render(); }, 900); } catch (e) { say("読み込めなかった:" + e.message); console.error(e); } }
+  try { if (window.syncNow && A2.S.meta.conn) { say("まず同期して、最新にしている"); await syncNow(); }
+    say("読み込み中…"); const pkg = await A2.readPackage(file, say); const res = await A2.mergePackage(pkg, say);
+    const used = new Set(pkg.cards.map(c => c.deck)), where = pkg.decks.filter(d => used.has(d.id)).map(d => { const now = (A2.S.decks.get(d.id) || {}).name || d.name; return now.replace(/::/g, " › ") + (now !== d.name ? "(Ankiでは「" + d.name.replace(/::/g, " › ") + "」)" : ""); });
+    if (where.length) say("入れたデッキ:" + where.join("、"));
+    if (window.syncNow && A2.S.meta.conn) { say("同期している"); syncNow(); }
+    say(`終わった:ノートタイプ ${res.notetypes}・デッキ ${res.decks}・ノート ${res.notes}(新しく ${res.newNotes})・カード ${res.cards}・記録 ${res.revlog}・画像と音声 ${res.media}${res.replayed ? "・記録から覚え具合を計算し直した " + res.replayed : ""}${res.fixedDue ? "・期日を直した " + res.fixedDue : ""}${res.revived ? "・前に消したものを戻した " + res.revived : ""}`);
+    se("done"); setTimeout(() => { V.sheet = null; toast("読み込んだ:" + (where.length ? where.join("、") : "") + "(カード " + res.cards + "枚・記録 " + res.revlog + ")"); render(); }, 1800); } catch (e) { say("読み込めなかった:" + e.message); console.error(e); } }
 async function doBackup(){ const data = { anki2: 1, v: APP_VERSION, at: Date.now() }; for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) data[n] = [...A2.S[n].values()]; data.meta = { links: A2.S.meta.links };
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" }), a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "anki2-控え-" + new Date().toISOString().slice(0, 10) + ".json"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast("控えを書き出した(画像・音声は入らない)"); render(); }
 async function doRestore(file){ try { const d = JSON.parse(await file.text()); if (!d.anki2) throw new Error("Anki2 の控えではない"); if (!confirm("控えの中身に置き換える?(今の中身は消える)")) return;
@@ -404,6 +441,11 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
     Object.assign(s, { name: nn || s.name, cat: $("su-c").value, c: col ? col.nscol : s.c }); await A2.save("subjects", [s]); await A2.save("decks", ch); V.cat = s.cat; V.sheet = null; render(); return; }
   if (d.suinto) { const s = A2.S.subjects.get(d.suinto), into = String($("su-into").value || "").split("::").map(x => x.trim()).filter(Boolean).join("::"); if (!into) { $("su-into").focus(); return; } if (into === s.name) return;
     const tgt = [...A2.S.subjects.values()].find(x => x.name === into.split("::")[0]); if (await moveDeck(s.name, into + "::" + s.name, tgt ? null : s) === false) return; V.cat = (tgt || s).cat; V.sheet = null; toast("「" + s.name + "」を「" + into + "」の中に入れた"); render(); return; }
+  if (d.subdel) { const s = A2.S.subjects.get(d.subdel), ds = [...A2.S.decks.values()].filter(x => x.name === s.name || x.name.startsWith(s.name + "::")), ids = new Set(ds.map(x => x.id)), cs = [...A2.S.cards.values()].filter(c => ids.has(c.deck));
+    if (cs.length) { if (!confirm("分野「" + s.name + "」の中のデッキ " + ds.length + "・カード " + cs.length + "枚を全部消す?")) return; if (!confirm("本当に消す?(消したあとでも、その他 › 自動の控え から戻せる)")) return; }
+    else if (!confirm("分野「" + s.name + "」を消す?")) return;
+    if (cs.length) { await A2.remove("cards", cs.map(c => c.id)); const nids = new Set(cs.map(c => c.nid)); await A2.remove("notes", [...nids].filter(id => ![...A2.S.cards.values()].some(c => c.nid === id))); }
+    if (ds.length) await A2.remove("decks", ds.map(x => x.id)); await A2.remove("subjects", [s.id]); V.sheet = null; toast("分野「" + s.name + "」を消した"); render(); return; }
   if (b.hasAttribute("data-newsub")) { V.sheet = { k: "newsub" }; render(); return; }
   if (b.hasAttribute("data-nssave")) { const n = $("ns-n").value.trim(); if (!n) return; await A2.save("subjects", [{ id: "s" + A2.uid(), name: n, cat: $("ns-c").value, c: "#2F4F8A" }]); await ensureDeck(n); V.cat = $("ns-c").value; V.sheet = null; se("add"); render(); return; }
   if (d.newdeck != null && b.hasAttribute("data-newdeck")) { V.sheet = { k: "newdeck", sid: d.newdeck }; render(); return; }
@@ -415,12 +457,13 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-rvend")) { endStudy(); return; }
   if (b.hasAttribute("data-rvundo")) { undo(); return; }
   if (b.hasAttribute("data-voice")) { VOICE.on ? voiceStop() : voiceStart(); return; }
-  if (b.hasAttribute("data-rvmore")) { V.sheet = { k: "rvmore", id: V.rv.q[V.rv.i].id }; render(); return; }
-  if (b.hasAttribute("data-rvedit")) { V.sheet = { k: "card", id: V.rv.q[V.rv.i].id, back: V.rv.back }; render(); return; }
-  if (b.hasAttribute("data-rvinfo")) { V.sheet = { k: "info", id: V.rv ? V.rv.q[V.rv.i].id : V.sheet.id }; render(); return; }
+  if (b.hasAttribute("data-rvmore")) { V.sheet = { k: "rvmore", id: rvCur().id }; render(); return; }
+  if (b.hasAttribute("data-rvedit")) { V.sheet = { k: "card", id: rvCur().id, back: V.rv.back }; render(); return; }
+  if (b.hasAttribute("data-rvinfo")) { V.sheet = { k: "info", id: V.rv ? rvCur().id : V.sheet.id }; render(); return; }
   if (d.setflag != null && b.hasAttribute("data-setflag")) { const ids = V.sheet.ids || [V.sheet.id]; const cs = ids.map(id => A2.S.cards.get(id)); cs.forEach(c => c.flag = +d.setflag); await A2.save("cards", cs); V.sheet = null; render(); return; }
-  if (b.hasAttribute("data-rvmark")) { const c = V.rv.q[V.rv.i], n = A2.S.notes.get(c.nid); n.tags = n.tags.includes("marked") ? n.tags.filter(t => t !== "marked") : n.tags.concat("marked"); await A2.save("notes", [n]); V.sheet = null; se("tick"); render(); return; }
-  if (b.hasAttribute("data-rvbury") || b.hasAttribute("data-rvsusp")) { const r = V.rv, c = r.q[r.i]; if (b.hasAttribute("data-rvbury")) { c.bury = true; c.buryDay = A2.today(); } else c.susp = true; await A2.save("cards", [c]); r.q.splice(r.i, 1); r.back = false; r.cardT0 = Date.now(); V.sheet = null; se("tick"); toast(b.hasAttribute("data-rvbury") ? "明日へ延期した" : "一時停止にした"); render(); return; }
+  if (b.hasAttribute("data-rvmark")) { const c = rvCur(), n = A2.S.notes.get(c.nid); n.tags = n.tags.includes("marked") ? n.tags.filter(t => t !== "marked") : n.tags.concat("marked"); await A2.save("notes", [n]); V.sheet = null; se("tick"); render(); return; }
+  if (b.hasAttribute("data-rvnow")) { V.rv.force = true; V.rv.wait = null; render(); return; }
+  if (b.hasAttribute("data-rvbury") || b.hasAttribute("data-rvsusp")) { const r = V.rv, c = rvCur(); if (b.hasAttribute("data-rvbury")) { c.bury = true; c.buryDay = A2.today(); } else c.susp = true; await A2.save("cards", [c]); r.answered.add(c.id); if (r.curMain) r.mi++; r.cur = null; r.back = false; V.sheet = null; se("tick"); toast(b.hasAttribute("data-rvbury") ? "明日へ延期した" : "一時停止にした"); render(); return; }
   if (d.more2) { const [k, id] = d.more2.split("|"); V.sheet = { k, id }; render(); return; }
   /* ブラウザ・編集 */
   if (d.card) { V.sheet = { k: "card", id: d.card }; render(); return; }
@@ -460,9 +503,9 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (d.nti) { V.sheet.ti = +d.nti; render(); return; } if (d.ntside) { V.sheet.side = d.ntside; render(); return; }
   if (b.hasAttribute("data-ntsave")) { const t = A2.S.notetypes.get(V.sheet.id), tm = t.tmpls[V.sheet.ti || 0], v = $("nt-code").value, side = V.sheet.side || "表"; if (side === "表") tm.q = v; else if (side === "裏") tm.a = v; else t.css = v; await A2.save("notetypes", [t]); toast("テンプレートを直した"); render(); return; }
 });
-document.addEventListener("keydown", e => { if (!V.rv || V.sheet || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) return; const r = V.rv; if (!r.q[r.i]) return;
+document.addEventListener("keydown", e => { if (!V.rv || V.sheet || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) return; const r = V.rv; if (!rvCur()) return;
   if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (!r.back) { r.back = true; se("flip"); render(); } else answer(3); }
-  else if (/^[1-4]$/.test(e.key) && r.back) answer(+e.key); else if (e.key.toLowerCase() === "b" && r.back) { r.back = false; render(); } else if (e.key.toLowerCase() === "z") undo(); else if (e.key.toLowerCase() === "e") { V.sheet = { k: "card", id: r.q[r.i].id, back: r.back }; render(); } });
+  else if (/^[1-4]$/.test(e.key) && r.back) answer(+e.key); else if (e.key.toLowerCase() === "b" && r.back) { r.back = false; render(); } else if (e.key.toLowerCase() === "z") undo(); else if (e.key.toLowerCase() === "e") { V.sheet = { k: "card", id: rvCur().id, back: r.back }; render(); } });
 document.addEventListener("input", e => { const t = e.target;
   if (t.id === "bq") { V.bq = t.value; clearTimeout(window.__bq); window.__bq = setTimeout(() => { const p = t.selectionStart; render(); const el = $("bq"); if (el) { el.focus(); el.setSelectionRange(p, p); } }, 250); }
   if (t.dataset && t.dataset.afld) { ADD.f[t.dataset.afld] = t.value; clearTimeout(window.__ap); window.__ap = setTimeout(addPreview, 200); }
@@ -500,7 +543,7 @@ window.addEventListener("unhandledrejection", e => logErr("(非同期) " + ((e.r
 async function boot(){ shownDay = null; const vers = { core: (window.A2 || {}).VER, app: APP_VERSION, ex: window.APP_VER_EX, sync: window.APP_VER_SYNC };
   if (Object.values(vers).some(v => v !== APP_VERSION)) { $("app").innerHTML = `<p class="notice">ファイルの版がそろっていない(${Object.entries(vers).map(([k, v]) => k + ":" + (v || "なし")).join("・")})。置き換えの途中かもしれないので、少し待ってから再読み込みしてください。データはそのまま残っている。</p><button class="btn" data-reload>再読み込み</button>`; return; }
   try { await A2.open(); await A2.loadAll(); } catch (e) { $("app").innerHTML = '<p class="notice">この端末のブラウザに保存できない:' + esc(e.message) + "</p>"; return; } render();
-  setTimeout(async () => { try { await A2.autoBackup(); const p = await A2.check(true); if (p.length) { toast("データを点検して直した:" + p.join("・")); render(); } } catch (e) { logErr(e.message); } }, 3000);
+  setTimeout(async () => { try { await pruneSubjects(); await A2.autoBackup(); const p = await A2.check(true); if (p.length) { toast("データを点検して直した:" + p.join("・")); render(); } } catch (e) { logErr(e.message); } }, 3000);
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {}); }
 /* 全部のファイルを読み終えてから始める(版がそろっているかを確かめるため) */
 let booted = false; const boot1 = () => { if (!booted) { booted = true; boot(); } };
