@@ -94,7 +94,7 @@ A2.readPackage = async (file, onStep) => { const step = t => onStep && onStep(t)
     if (c.type === 0) card.pos = due; else if (c.queue === 1) card.dueMs = due * 1000; else card.dueDay = crtDay + due;   // 復習の期日は「作った日からの日数」で入っている
     if (c.type === 1 || c.type === 3) { if (c.queue === 3) card.dueDay = crtDay + due; card.left = c.left % 1000; }
     out.cards.push(card); });
-  step("復習の記録"); q("select id, cid, ease, ivl, lastIvl, time, type from revlog").forEach(r => out.revlog.push({ id: "r" + r.id, cid: "c" + r.cid, t: r.id, g: r.ease, ivl: r.ivl, last: r.lastIvl, ms: r.time, kind: r.type }));
+  step("復習の記録"); q("select id, cid, ease, ivl, lastIvl, time, type from revlog").forEach(r => out.revlog.push({ id: "r" + r.id, cid: "c" + r.cid, t: r.id, g: r.ease, ivl: r.ivl, last: r.lastIvl, ms: r.time, kind: r.type, src: "anki" }));
   db.close();
   step("画像・音声"); const mf = zip["media"]; if (mf && mf.length) { const raw = unz(mf); let map = {};
     if (raw[0] === 0x7b) map = JSON.parse(utf8(raw));   // 古い形:{"0":"a.jpg"}
@@ -205,6 +205,8 @@ A2.renderTmpl = (tmpl, note, nt, ord, back, front) => {
 /* 復習の記録から作る欄(表示のときだけ):ノートタイプの calc で決めた欄と、{{A2:…}} */
 /* カードごとの復習の記録(何万件あっても速いように、カードごとにまとめておく。記録が増えたら作り直す) */
 A2._rbc = null; A2._rbcKey = "";
+/* 記録の出どころ。前の版で読み込んだもの(印なし)は、読み込みのとき mod を t と同じにしていたので、それで見分ける */
+A2.revSrc = r => r.src || (r.mod === r.t ? "anki" : "a2");
 A2.history = cid => { const key = A2.S.revlog.size + ":" + (A2._rlTick || 0); if (!A2._rbc || A2._rbcKey !== key) { const m = new Map(); for (const r of A2.S.revlog.values()) { if (r.g < 1 || r.g > 4 || r.kind === 4) continue; (m.get(r.cid) || m.set(r.cid, []).get(r.cid)).push(r); } m.forEach(l => l.sort((a, b) => a.t - b.t)); A2._rbc = m; A2._rbcKey = key; }
   return A2._rbc.get(cid) || []; };
 A2.virtual = (card, base) => { const nt = A2.S.notetypes.get((A2.S.notes.get(card.nid) || {}).nt) || {}, h = A2.history(card.id), F = Object.assign({}, base || {});
@@ -244,5 +246,5 @@ A2.autoBackup = async () => { const day = A2.today(); if (A2.S.meta.lastBackupDa
   await A2.put("backups", [{ id: "b" + day, day, at: Date.now(), cards: A2.S.cards.size, data: JSON.stringify(A2.snapshot()) }]); const old = list.sort((a, b) => b.day - a.day).slice(6); if (old.length) await A2.del("backups", old.map(b => b.id)); await A2.setMeta("lastBackupDay", day); };
 /* 控えの中身に戻す(消した印は作らない。戻した中身は新しい変更として同期される) */
 A2.restore = async data => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { const keep = new Set((data[n] || []).map(x => x.id)); await A2.remove(n, [...A2.S[n].keys()].filter(id => !keep.has(id)), { noTomb: false }); await A2.save(n, data[n] || []); } };
-A2.VER = "r4.11";
+A2.VER = "r4.13";
 window.A2 = A2;
