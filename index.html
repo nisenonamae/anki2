@@ -747,7 +747,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.39";
+A2.VER = "r4.40";
 window.A2 = A2;
 
 </script>
@@ -755,7 +755,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.39"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.40"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -913,10 +913,13 @@ function rvTimeHtml(){ const r = V.rv; if (!r) return ""; const now = Date.now()
   return `<div class="tb2"><small>経過</small><b>${mmss(el)}</b></div><div class="tb2"><small>1枚の平均</small><b>${avg ? (Math.round(avg * 10) / 10) + "<i>秒</i>" : "—"}</b></div><div class="tb2${slow ? " slow" : ""}"><small>このカード</small><b>${r.cur ? Math.round(card) + "<i>秒</i>" : "—"}</b></div><div class="tb2"><small>終わる時刻</small><b>${fin ? fin.getHours() + ":" + String(fin.getMinutes()).padStart(2, "0") : "—"}</b></div>`; }
 setInterval(() => { const el = $("rvtime"); if (el && V.rv) el.innerHTML = rvTimeHtml(); }, 1000);
 function rvDone(){ const r = V.rv, sec = Math.round((Date.now() - r.t0) / 1000); return `<div class="result" style="margin-top:1rem"><b>おつかれさま。「${esc(r.title)}」の今の分は終わり</b><div class="note">${r.done}枚・もう一度 ${r.again}・${Math.floor(sec / 60)}分${sec % 60}秒・1枚 ${r.done ? (Math.round(sec / r.done * 10) / 10) : 0}秒</div></div><div class="row"><button class="btn" data-rvend>デッキへ戻る</button>${r.hist.length ? '<button class="btn ghost" data-rvundo>元に戻す</button>' : ""}</div>`; }
-function rvTop(){ const r = V.rv, k = rvCounts(r), total = r.done + k.rest, pct = total ? r.done / total * 100 : 0;
+/* 終えたカード:この復習で答えたカードのうち、今日はもう出てこないもの(次が明日以降・一時停止など)。「もう一度」や学習中は、まだ残り */
+function rvFinished(r){ const today = A2.today(); let n = 0; for (const id of r.answered) { const c = A2.S.cards.get(id); if (!c || c.susp || buriedNow(c)) { n++; continue; }
+    if (isLearn(c) && c.dueMs != null) { if (A2.dayOf(c.dueMs) > today) n++; continue; } if (c.st === "新規") continue; if (c.dueDay == null || c.dueDay > today) n++; } return n; }
+function rvTop(){ const r = V.rv, k = rvCounts(r), fin = rvFinished(r), total = fin + k.rest, pct = total ? fin / total * 100 : 0;
   return `<div class="rvstick"><div class="rvtop"><button class="back" data-rvend>‹ やめる</button><b>${esc(r.title.split("::").pop())}</b><span class="cnt">${(() => { const c = rvCur(), kind = !c ? "" : c.st === "新規" ? "n" : (isLearn(c) && c.dueMs != null) ? "l" : "r";   // 今のカードの種類に下線(本家と同じ)
       return `<span class="n${kind === "n" ? " cur" : ""}">${k.n}</span> + <span class="l${kind === "l" ? " cur" : ""}">${k.l}</span> + <span class="r${kind === "r" ? " cur" : ""}">${k.r}</span>`; })()}</span></div>
-    <div class="seekrow"><div class="seek"><i style="width:${pct}%"></i><b style="left:${pct}%"></b></div><span class="seekn"><b>${r.done}</b> / ${total}</span></div><div class="rvbig" id="rvtime">${rvTimeHtml()}</div></div>`; }
+    <div class="seekrow"><div class="seek"><i style="width:${pct}%"></i><b style="left:${pct}%"></b></div><span class="seekn"><b>${fin}</b> / ${total}</span></div><div class="rvbig" id="rvtime">${rvTimeHtml()}</div></div>`; }
 function rvOv(){ const c = rvCur(); if (!c) return ""; const n = A2.S.notes.get(c.nid); return (c.flag ? `<span class="flagbar" style="background:${FL[c.flag]}"></span>` : "") + (n && n.tags.includes("marked") ? '<span class="markst">★</span>' : ""); }
 function rvCtl(){ const r = V.rv, c = rvCur(), ivs = A2.nextWaits(c);
   return `${r.back ? `<div class="ansbar">${["もう一度", "難しい", "正解", "簡単"].map((x, k) => `<button class="ans a${k + 1}${r.sug === k + 1 ? " sug" : ""}" data-grade="${k + 1}"><small>${r.sug === k + 1 ? "おすすめ・" : ""}${A2.fmtWait(ivs[k].wait)}</small>${x}</button>`).join("")}</div><div class="fliprow"><button class="linkx" data-toface>表に戻る</button></div>` : `<button class="btn showans" data-showans>答えを見る</button>`}
@@ -1461,7 +1464,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.39";
+window.APP_VER_EX = "r4.40";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -1696,7 +1699,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.39";
+window.APP_VER_SYNC = "r4.40";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
