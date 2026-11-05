@@ -1,6 +1,6 @@
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.13"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.14"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -126,7 +126,7 @@ function rvCtl(){ const r = V.rv, c = rvCur(), ivs = A2.nextWaits(c);
   return `${r.back ? `<div class="ansbar">${["もう一度", "難しい", "正解", "簡単"].map((x, k) => `<button class="ans a${k + 1}${r.sug === k + 1 ? " sug" : ""}" data-grade="${k + 1}"><small>${r.sug === k + 1 ? "おすすめ・" : ""}${A2.fmtWait(ivs[k].wait)}</small>${x}</button>`).join("")}</div><div class="fliprow"><button class="linkx" data-toface>表に戻る</button></div>` : `<button class="btn showans" data-showans>答えを見る</button>`}
     <div class="rvtools2"><button class="tl" data-rvundo${r.hist.length ? "" : " disabled"}><i>↶</i>元に戻す</button><button class="tl" data-rvedit><i>✎</i>直す</button><button class="tl${VOICE.on ? " on" : ""}" data-voice><i>🎤</i>声 ${VOICE.on ? "入" : "切"}</button><button class="tl" data-rvmore><i>⋯</i>その他</button></div>
     ${VOICE.on ? `<div class="vstat"><span class="dot"></span>聞いています:「答え」「表」「もう一度」「難しい」「正解」「簡単」「戻す」「やめる」${VOICE.last ? `<b>聞き取った「${esc(VOICE.last)}」</b>` : ""}</div>` : ""}
-    <p class="note" style="text-align:center;margin-top:.5rem">キーボード:スペースで答え・B で表に戻る・1〜4で判定・Z で元に戻す・E で直す</p>`; }
+    <p class="note" style="text-align:center;margin-top:.5rem">キーボード:スペースで答え・B で表に戻る・1〜4で判定・Z で元に戻す・E で直す。リモコン(矢印):→ 答え・正解、← もう一度、↑ 簡単、↓ 難しい</p>`; }
 /* 復習の画面の骨組み:#rv-box(カードの枠)は、その回の復習が終わるまで一度も作り直さない・動かさない */
 function review(){ const r = V.rv; rvEnsure(); if (r.wait) return `<div id="rv-top">${rvTop()}</div><div class="result" style="margin-top:1rem"><b>今出せるカードは、ここまで</b><div class="note">次の学習中のカードは <span id="rvwait">${rvWaitText(r.wait)}</span> に出る。時間になれば、そのまま出てくる。</div></div><div class="row"><button class="btn" data-rvnow>今すぐ出す</button><button class="btn ghost" data-rvend>やめる</button>${r.hist.length ? '<button class="btn ghost" data-rvundo>元に戻す</button>' : ""}</div>`;
   if (!r.cur) return rvDone();
@@ -188,18 +188,30 @@ async function undo(){ const r = V.rv, h = r && r.hist.pop(); if (!h) return; co
 /* 声 */
 const VOICE = { on: false, rec: null, last: "" };
 function voiceStart(){ const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) { toast("このブラウザでは、声の聞き取りが使えない"); render(); return; }
-  const rr = new SR(); rr.lang = "ja-JP"; rr.continuous = true; rr.interimResults = false;
-  rr.onresult = e => { const t = e.results[e.results.length - 1][0].transcript.trim(); VOICE.last = t; voiceCmd(t); };
+  const rr = new SR(); rr.lang = "ja-JP"; rr.continuous = true; rr.interimResults = true; rr.maxAlternatives = 3;
+  /* 聞き取りの途中(まだ確定していない文字)も見て、決まった言葉がまるごと聞こえた時点で動く。同じ発言では二度動かない */
+  rr.onresult = e => { for (let i = e.resultIndex; i < e.results.length; i++) { const res = e.results[i], key = VOICE.sess + ":" + i;
+      const alts = [...Array(res.length)].map((_, k) => res[k].transcript.trim()).filter(Boolean); if (!alts.length) continue; VOICE.last = alts[0];
+      if (VOICE.fired === key) continue; const hit = alts.map(voiceMatch).find(Boolean);
+      if (hit) { VOICE.fired = key; voiceDo(hit); } else if (res.isFinal) render(); } };
+  rr.onstart = () => { VOICE.sess = (VOICE.sess || 0) + 1; };
   rr.onend = () => { if (VOICE.on) { try { rr.start(); } catch (e) {} } };
   rr.onerror = e => { if (/not-allowed|service-not-allowed|audio-capture/.test(e.error)) { VOICE.on = false; toast("マイクが使えない(ブラウザの許可が必要)"); render(); } };
   VOICE.rec = rr; VOICE.on = true; VOICE.last = ""; try { rr.start(); } catch (e) {} render(); }
 function voiceStop(quiet){ VOICE.on = false; try { VOICE.rec && VOICE.rec.stop(); } catch (e) {} VOICE.rec = null; if (!quiet) render(); }
-function voiceCmd(t){ const s = t.replace(/[\s。、!！?？]/g, ""), r = V.rv; if (!r) return;
-  if (/やめ|終わり|おわり/.test(s)) { endStudy(); return; } if (/元に戻|もとにもど|戻す|もどす/.test(s)) { undo(); return; }
-  if (/^(表|おもて)/.test(s) && r.back) { r.back = false; se("flip"); render(); return; }
-  const G = [[/もう一度|もういちど|もう一回|もういっかい|わからない|忘れた/, 1], [/難しい|むずかしい|むずい/, 2], [/簡単|かんたん/, 4], [/正解|せいかい|オッケー|OK|できた/i, 3]];
-  for (const [re, k] of G) if (re.test(s)) { if (!r.back) r.back = true; answer(k); return; }
-  if (/答え|こたえ|答|めくる/.test(s) && !r.back) { r.back = true; se("flip"); render(); return; } render(); }
+/* 聞こえた文字から、どの操作か(言葉がまるごと入っているときだけ) */
+function voiceMatch(t){ const s = String(t).replace(/[\s。、!！?？]/g, "");
+  if (/やめる|やめて|終わり|おわり/.test(s)) return "end"; if (/元に戻す|もとにもどす|戻して|もどして/.test(s)) return "undo";
+  if (/^(表|おもて)$/.test(s) || /表に戻/.test(s)) return "face";
+  if (/もう一度|もういちど|もう一回|もういっかい|わからない|忘れた|わすれた/.test(s)) return "g1"; if (/難しい|むずかしい|むずい/.test(s)) return "g2";
+  if (/簡単|かんたん/.test(s)) return "g4"; if (/正解|せいかい|オッケー|OK|できた/i.test(s)) return "g3";
+  if (/答え|こたえ|めくる|^次$|^つぎ$/.test(s)) return "show"; return null; }
+function voiceDo(cmd){ const r = V.rv; if (!r || !rvCur()) { render(); return; }
+  if (cmd === "end") { endStudy(); return; } if (cmd === "undo") { undo(); return; }
+  if (cmd === "face") { if (r.back) { r.back = false; se("flip"); render(); } return; }
+  if (cmd === "show") { if (!r.back) { r.back = true; se("flip"); render(); } return; }
+  const k = +cmd.slice(1); if (!r.back) r.back = true; answer(k); }
+function voiceCmd(t){ const m = voiceMatch(t); if (m) voiceDo(m); else render(); }
 function endStudy(){ voiceStop(true); wakeOff(); rvFrameEl = null; try { document.fullscreenElement && document.exitFullscreen(); } catch (e) {} go({ rv: null }); }
 
 /* ───── ブラウザ ───── */
@@ -525,7 +537,10 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
 });
 document.addEventListener("keydown", e => { if (!V.rv || V.sheet || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) return; const r = V.rv; if (!rvCur()) return;
   if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (!r.back) { r.back = true; se("flip"); render(); } else answer(3); }
-  else if (/^[1-4]$/.test(e.key) && r.back) answer(+e.key); else if (e.key.toLowerCase() === "b" && r.back) { r.back = false; render(); } else if (e.key.toLowerCase() === "z") undo(); else if (e.key.toLowerCase() === "e") { V.sheet = { k: "card", id: rvCur().id, back: r.back }; render(); } });
+  else if (/^[1-4]$/.test(e.key) && r.back) answer(+e.key);
+  else if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); if (!r.back) { r.back = true; se("flip"); render(); } else answer(3); }
+  else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); if (r.back) answer(1); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); if (r.back) answer(4); } else if (e.key === "ArrowDown") { e.preventDefault(); if (r.back) answer(2); } else if (e.key.toLowerCase() === "b" && r.back) { r.back = false; render(); } else if (e.key.toLowerCase() === "z") undo(); else if (e.key.toLowerCase() === "e") { V.sheet = { k: "card", id: rvCur().id, back: r.back }; render(); } });
 document.addEventListener("input", e => { const t = e.target;
   if (t.id === "bq") { V.bq = t.value; clearTimeout(window.__bq); window.__bq = setTimeout(() => { const p = t.selectionStart; render(); const el = $("bq"); if (el) { el.focus(); el.setSelectionRange(p, p); } }, 250); }
   if (t.dataset && t.dataset.afld) { ADD.f[t.dataset.afld] = t.value; clearTimeout(window.__ap); window.__ap = setTimeout(addPreview, 200); }
