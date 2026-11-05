@@ -5,9 +5,9 @@
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.16";
+window.APP_VER_SYNC = "r4.19";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
-const STORES_SYNC = ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"];
+const STORES_SYNC = ["notetypes", "decks", "subjects", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
 const devId = () => A2.S.meta.deviceId || (A2.S.meta.deviceId = "d" + A2.uid());
 const gh = (c, path, opt) => fetch("https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(c.repo) + path, Object.assign({ cache: "no-store" }, opt || {}, { headers: Object.assign({ Authorization: "Bearer " + c.token, Accept: "application/vnd.github+json" }, (opt && opt.body) ? { "Content-Type": "application/json" } : {}) }));
@@ -60,7 +60,8 @@ async function syncOnce(){ const c = conn(); SYNC.busy = true; SYNC.err = ""; if
       if (head === M.lastHead && !A2.pendingCount() && !(M.mediaUp || []).length) break;   // どこも変わっていない(問い合わせは1回だけ)
       const rs = await remoteState(c, head);
       /* 1. 受け取る:まとめ直したファイルのうち変わったもの、まだ読んでいない変更のファイル */
-      if (rs.head !== M.lastHead) { const shards = Object.keys(rs.files).filter(p => !p.startsWith("changes/") && rs.files[p] !== M.baseSha[p.replace(/\.json$/, "")]);
+      if (rs.head !== M.lastHead) { const rank = p => { const st = storeOfShard(p.replace(/\.json$/, "")); const i = STORES_SYNC.indexOf(st); return i < 0 ? 9 : i; };
+        const shards = Object.keys(rs.files).filter(p => !p.startsWith("changes/") && rs.files[p] !== M.baseSha[p.replace(/\.json$/, "")]).sort((a, b) => rank(a) - rank(b));
         let k = 0; for (let i = 0; i < shards.length; i += 6) { const part = shards.slice(i, i + 6), got = await Promise.all(part.map(p => readBlob(c, rs.files[p])));
           for (let j = 0; j < part.length; j++) { const p = part[j], o = got[j], key = p.replace(/\.json$/, ""), st = storeOfShard(key); changed += await applyRecs({ [st]: o.recs || [] }, { [st]: o.del || {} }); M.baseSha[key] = rs.files[p]; }
           k += part.length; SYNC.note = "受け取っている " + k + "/" + shards.length; paintSync(); }
@@ -92,9 +93,10 @@ async function syncOnce(){ const c = conn(); SYNC.busy = true; SYNC.err = ""; if
     await A2.put("meta", [{ k: "pending", v: Object.fromEntries(Object.entries(A2.pending).map(([k, v]) => [k, [...v]])) }]);
     const tombs = A2.S.meta.tombs || {}, old = Date.now() - 90 * 86400e3; Object.values(tombs).forEach(t => Object.keys(t).forEach(id => { if (t[id].mod < old) delete t[id]; }));
     for (const k of ["tombs", "baseSha", "applied", "lastHead", "mediaUp", "deviceId"]) await A2.setMeta(k, A2.S.meta[k]);
-    if (changed) { const probs = await A2.check(true); if (probs.length) console.warn("点検で直した:", probs); }
+    if (changed) { const probs = await A2.check(false); if (probs.length) console.warn("点検で気になったところ(自動では直さない):", probs); }
     SYNC.last = Date.now(); await A2.setMeta("lastSync", SYNC.last); SYNC.note = "";
-  } catch (e) { SYNC.err = e.status === 401 ? "トークンが違うか、期限が切れている" : e.status === 403 ? "GitHub に止められた(しばらく待つと戻る。トークンの権限も確かめる)" : (e.message || String(e)); SYNC.note = ""; console.error(e); }
+  } catch (e) { try { if (typeof logErr === "function") { const L = (A2.S.meta.errors || []).concat({ t: Date.now(), m: "同期:" + (e.status ? e.status + " " : "") + (e.message || e), v: window.APP_VER_SYNC }).slice(-30); A2.S.meta.errors = L; A2.put("meta", [{ k: "errors", v: L }]); } } catch (x) {}
+    SYNC.err = e.status === 401 ? "トークンが違うか、期限が切れている" : e.status === 403 ? "GitHub に止められた(しばらく待つと戻る。トークンの権限も確かめる)" : (e.message || String(e)); SYNC.note = ""; console.error(e); }
   SYNC.busy = false; paintSync(); if (changed && !V.rv && !(typeof EXV !== "undefined" && EXV.run) && !V.sheet) render(); if (A2.pendingCount() && !SYNC.err) schedule(); return changed; }
 A2.fetchMedia = async name => { const c = conn(); if (!c || !c.token) return null; try { const r = await gh(c, "/contents/" + enc(base(c) + "/media/" + name) + "?ref=" + encodeURIComponent(c.branch || "main"), { headers: {} }); if (!r.ok) return null;
     const r2 = await fetch("https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(c.repo) + "/contents/" + enc(base(c) + "/media/" + name) + "?ref=" + encodeURIComponent(c.branch || "main"), { headers: { Authorization: "Bearer " + c.token, Accept: "application/vnd.github.raw+json" }, cache: "no-store" }); return r2.ok ? await r2.blob() : null; } catch (e) { return null; } };
@@ -110,12 +112,29 @@ function syncSheet(){ const c = conn() || { owner: "nisenonamae", repo: "notion-
   return `<h3>同期</h3><p class="note" style="margin-top:0">notion-daily に置いて、スマホ・Chromebook・Mac で同じデータを使う。ほかのアプリと同じトークンでよい(端末ごとに1回入れる)。</p><div class="note" id="syncst">${syncStatus()}</div>
     ${f("sy-o", "持ち主(GitHubの名前)", c.owner)}${f("sy-r", "リポジトリ", c.repo)}${f("sy-b", "ブランチ", c.branch)}${f("sy-p", "置き場所", c.base)}${f("sy-t", "トークン", c.token, "github_pat_… / ghp_…", "password")}
     <div class="row"><button class="btn" data-syncsave>${conn() ? "保存して同期" : "つないで同期"}</button>${conn() ? '<button class="btn ghost sm" data-syncnow>今すぐ同期</button><button class="linkx" data-syncoff style="color:var(--shu);margin-left:auto">つなぐのをやめる</button>' : ""}</div>
-    <p class="note">ふだんは変わった分だけを送るので、カードが多くても軽い。はじめての端末だけは、全体を受け取るのに少し時間がかかる。</p>`; }
+    <p class="note">ふだんは変わった分だけを送るので、カードが多くても軽い。はじめての端末だけは、全体を受け取るのに少し時間がかかる。</p>
+    ${conn() ? `<h2>2台で中身が合わないとき</h2><div class="note">この端末:カード ${A2.S.cards.size}枚・ノート ${A2.S.notes.size}・復習の記録 ${A2.S.revlog.size}・デッキ ${A2.S.decks.size}${SYNC.full ? "<br>前回のやり直し:受け取った " + SYNC.full.got + "件・送った " + SYNC.full.sent + "件" : ""}</div>
+      <button class="btn ghost sm" data-syncfull style="margin-top:.4rem">同期をやり直す(全部合わせる)</button><div class="note" style="margin-top:.3rem">置き場所のものを全部読み直し、この端末のものを全部送り直す。1件ずつ新しいほうを残すので、重なったり消えたりはしない。両方の端末で1回ずつ押すと、2台がそろう。</div>
+      <button class="btn ghost sm" data-synccmp style="margin-top:.5rem">置き場所と見比べる</button><div id="synccmp" class="note" style="margin-top:.3rem"></div>` : ""}`; }
 document.addEventListener("click", async e => { const b = e.target.closest("button"); if (!b) return;
   if (b.hasAttribute("data-syncsave")) { const c = { owner: $("sy-o").value.trim(), repo: $("sy-r").value.trim(), branch: $("sy-b").value.trim() || "main", base: $("sy-p").value.trim() || "roadmap/apps/anki2", token: $("sy-t").value.trim() }; if (!c.owner || !c.repo || !c.token) { toast("持ち主・リポジトリ・トークンを入れてください"); render(); return; }
     const first = !conn(); await A2.setMeta("conn", c); if (first) { for (const st of STORES_SYNC) A2.markPending(st, [...A2.S[st].keys()]); const ms = await A2.all("media"); await A2.setMeta("mediaUp", ms.map(m => m.name)); }
     toast("つないだ。同期する"); render(); syncNow(); return; }
   if (b.hasAttribute("data-syncnow")) { syncNow(); return; }
+  /* この端末と置き場所を、1件ずつ見比べる(どちらにだけあるか) */
+  if (b.hasAttribute("data-synccmp")) { const out = $("synccmp"); if (out) out.textContent = "見比べている…"; try { const c = conn(), rs = await remoteState(c), last = {};
+      const see = (st, id, mod, gone) => { const m = last[st] = last[st] || new Map(), o = m.get(id); if (!o || (mod || 0) >= o.mod) m.set(id, { mod: mod || 0, gone }); };
+      for (const [p, sha] of Object.entries(rs.files)) { const o = await readBlob(c, sha);
+        if (p.startsWith("changes/")) { Object.entries(o.recs || {}).forEach(([st, list]) => list.forEach(r => see(st, r.id, r.mod, false))); Object.entries(o.del || {}).forEach(([st, m]) => Object.entries(m).forEach(([id, mod]) => see(st, id, mod, true))); }
+        else { const st = storeOfShard(p.replace(/\.json$/, "")); (o.recs || []).forEach(r => see(st, r.id, r.mod, false)); Object.entries(o.del || {}).forEach(([id, mod]) => see(st, id, mod, true)); } }
+      const rows = [["notes", "ノート"], ["cards", "カード"], ["revlog", "復習の記録"], ["decks", "デッキ"], ["notetypes", "ノートタイプ"]].map(([st, l]) => { const r = new Set([...(last[st] || new Map())].filter(([, v]) => !v.gone).map(([id]) => id)), loc = A2.S[st], onlyR = [...r].filter(id => !loc.has(id)).length, onlyL = [...loc.keys()].filter(id => !r.has(id)).length;
+        return "<b>" + l + "</b>:この端末 " + loc.size + "・置き場所 " + r.size + (onlyR ? "・<b style='color:var(--shu)'>置き場所にだけある " + onlyR + "</b>" : "") + (onlyL ? "・<b style='color:var(--shu)'>この端末にだけある " + onlyL + "</b>" : ""); });
+      if (out) out.innerHTML = rows.join("<br>") + "<br>未送信 " + A2.pendingCount() + (SYNC.err ? "・前の同期のエラー:" + esc(SYNC.err) : "") + "・版 " + esc(window.APP_VER_SYNC) + "<br>食い違いがあれば、両方の端末で「同期をやり直す」を1回ずつ押す。"; } catch (e) { if (out) out.textContent = "見比べられなかった:" + e.message; } return; }
+  if (b.hasAttribute("data-syncfull")) { if (SYNC.busy) { toast("同期中。終わってからもう一度押してください"); render(); return; }
+    const M = A2.S.meta, before = { n: A2.S.cards.size + A2.S.notes.size + A2.S.revlog.size };
+    M.baseSha = {}; M.applied = {}; M.lastHead = null; let sent = 0; for (const st of STORES_SYNC) { A2.markPending(st, [...A2.S[st].keys()]); sent += A2.S[st].size; }
+    await A2.setMeta("baseSha", {}); await A2.setMeta("applied", {}); await A2.setMeta("lastHead", null); toast("やり直している…"); render();
+    const got = await syncNow(); SYNC.full = { got: got || 0, sent: SYNC.err ? 0 : sent }; toast(SYNC.err ? "やり直せなかった:" + SYNC.err : "やり直した(受け取った " + (got || 0) + "件)"); render(); return; }
   if (b.hasAttribute("data-syncoff")) { if (!confirm("この端末の同期をやめる?(データはこの端末に残る)")) return; await A2.setMeta("conn", null); render(); return; } });
 window.syncNow = syncNow; window.syncBadge = syncBadge; window.syncSheet = syncSheet; window.SYNC = SYNC;
 setTimeout(() => { if (conn()) syncNow(); }, 1500);
