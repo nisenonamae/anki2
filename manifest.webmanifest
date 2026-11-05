@@ -1,1 +1,16 @@
-{ "name": "Anki2", "short_name": "Anki2", "start_url": "./", "display": "standalone", "background_color": "#F6F3EC", "theme_color": "#F6F3EC", "icons": [] }
+{
+  "name": "Anki2",
+  "short_name": "Anki2",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F6F3EC",
+  "theme_color": "#2F4F8A",
+  "description": "暗記と演習",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
