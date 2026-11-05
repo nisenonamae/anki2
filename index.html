@@ -435,7 +435,11 @@ A2.readPackage = async (file, onStep) => { const step = t => onStep && onStep(t)
       const tmpls = q("select name, config from templates where ntid=? order by ord", [nt.id]).map(t => { const tc = pb(t.config || new Uint8Array()); return { name: t.name, q: tc[1] ? utf8(tc[1][0]) : "", a: tc[2] ? utf8(tc[2][0]) : "" }; });
       out.notetypes.push({ id: "nt" + nt.id, name: nt.name, fields, tmpls, css: c[3] ? utf8(c[3][0]) : "", cloze: (c[1] && c[1][0]) === 1, use: "暗記" }); });
     try { db.exec("PRAGMA writable_schema=1"); } catch (e) {}
-    q("select id, name from decks").forEach(d => out.decks.push({ id: "d" + d.id, name: String(d.name).split("\x1f").join("::") }));
+    const cfgs = {}; if (has("deck_config")) q("select id, config from deck_config").forEach(r => { const f = pb(r.config || new Uint8Array()), fl = k => f[k] && f[k][0] && f[k][0].length ? Array.from(new Float32Array(f[k][0].slice().buffer)) : null, num = k => f[k] ? f[k][0] : null;
+      const f32 = k => { if (!f[k]) return null; const b = f[k][0]; return b instanceof Uint8Array && b.length === 4 ? new DataView(b.buffer, b.byteOffset, 4).getFloat32(0, true) : null; };
+      let fsrs = null; Object.keys(f).forEach(k => { const b = f[k][0]; if (b instanceof Uint8Array && (b.length === 84 || b.length === 76) && +k !== 1 && +k !== 2) { const a = Array.from(new Float32Array(b.slice().buffer)); if (a.every(x => isFinite(x))) fsrs = a; } });
+      const steps = fl(1), rel = fl(2), dr = f32(37); cfgs[r.id] = { steps: steps ? steps.map(m => m >= 1440 ? (m / 1440) + "d" : m >= 60 && m % 60 === 0 ? (m / 60) + "h" : m + "m").join(" ") : null, relearn: rel ? rel.map(m => m + "m").join(" ") : null, newDay: num(9), revDay: num(10), maxIvl: num(16), leech: num(22), retention: dr ? Math.round(dr * 100) : null, fsrs: fsrs ? fsrs.map(x => Math.round(x * 10000) / 10000).join(", ") : null }; });
+    q("select id, name, kind from decks").forEach(d => { let conf = null; try { const k = pb(d.kind || new Uint8Array()); if (k[1]) { const nrm = pb(k[1][0]); conf = nrm[1] ? nrm[1][0] : null; } } catch (e) {} out.decks.push({ id: "d" + d.id, name: String(d.name).split("\x1f").join("::"), anki: conf != null ? cfgs[conf] || null : null }); });
   } else {
     const c = q("select models, decks from col")[0]; const models = JSON.parse(c.models || "{}"), decks = JSON.parse(c.decks || "{}");
     Object.values(models).forEach(m => out.notetypes.push({ id: "nt" + m.id, name: m.name, fields: m.flds.sort((a, b) => a.ord - b.ord).map(f => f.name), tmpls: m.tmpls.sort((a, b) => a.ord - b.ord).map(t => ({ name: t.name, q: t.qfmt, a: t.afmt })), css: m.css || "", cloze: m.type === 1, use: "暗記" }));
@@ -451,6 +455,7 @@ A2.readPackage = async (file, onStep) => { const step = t => onStep && onStep(t)
   q("select id, nid, did, odid, ord, mod, type, queue, due, odue, ivl, factor, reps, lapses, left, flags, data from cards").forEach(c => { let data = {}; try { data = JSON.parse(c.data || "{}"); } catch (e) {}
     const did = c.odid ? c.odid : c.did, due = c.odid ? c.odue : c.due;
     const st = c.type === 0 ? "新規" : c.type === 1 ? "学習中" : c.type === 3 ? "再学習" : "復習";
+    if (data.dr) out.dr = out.dr || {}, out.dr["d" + did] = (out.dr["d" + did] || []).concat(data.dr); if (data.decay) out.decay = (out.decay || []).concat(data.decay);
     const card = { id: "c" + c.id, nid: "n" + c.nid, deck: "d" + did, ord: c.ord, st, ivl: c.ivl, reps: c.reps, lapses: c.lapses, flag: c.flags & 7, susp: c.queue === -1, bury: c.queue === -2 || c.queue === -3, buryDay: (c.queue === -2 || c.queue === -3) ? A2.today() : null, mod: c.mod * 1000, s: data.s || null, d: data.d || null, step: 0 };
     if (c.type === 0) card.pos = due; else if (c.queue === 1) card.dueMs = due * 1000; else card.dueDay = crtDay + due;   // 復習の期日は「作った日からの日数」で入っている
     if (c.type === 1 || c.type === 3) { if (c.queue === 3) card.dueDay = crtDay + due; card.left = c.left % 1000; }
@@ -472,7 +477,12 @@ A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t)
   step("保存している");
   const nts = pkg.notetypes.map(nt => { const old = S.notetypes.get(nt.id); return old ? Object.assign({}, nt, { use: old.use, auto: old.auto, dupKeys: old.dupKeys }) : nt; });
   await A2.save("notetypes", nts); res.notetypes = nts.length;
-  const decks = pkg.decks.filter(d => d.name !== "Default" || pkg.cards.some(c => c.deck === d.id)).map(d => { const old = S.decks.get(d.id); return Object.assign({ opt: A2.defaultOpt() }, old || {}, { id: d.id, name: old ? old.name : d.name }); });   // Anki2 で場所を変えたデッキは、そのまま
+  const mode = a => { if (!a || !a.length) return null; const m = new Map(); a.forEach(x => m.set(x, (m.get(x) || 0) + 1)); return [...m.entries()].sort((x, y) => y[1] - x[1])[0][0]; };
+  const decayAll = mode(pkg.decay || []); if (decayAll) await A2.setMeta("fsrsDecay", decayAll);
+  const decks = pkg.decks.filter(d => d.name !== "Default" || pkg.cards.some(c => c.deck === d.id)).map(d => { const old = S.decks.get(d.id), base = Object.assign({ opt: A2.defaultOpt() }, old || {}, { id: d.id, name: old ? old.name : d.name });   // Anki2 で場所を変えたデッキは、そのまま
+    if (!(old && old.opt && old.opt.userEdited)) { const a = d.anki || {}, o = Object.assign({}, base.opt); ["steps", "relearn", "newDay", "revDay", "maxIvl", "leech", "fsrs"].forEach(k => { if (a[k] != null && a[k] !== "") o[k] = a[k]; });
+      const dr = mode((pkg.dr || {})[d.id] || []); if (dr) o.retention = Math.round(dr * 100); else if (a.retention) o.retention = a.retention; if (decayAll) o.decay = decayAll; o.fromAnki = true; base.opt = o; }
+    return base; });
   await A2.save("decks", decks); res.decks = decks.length;
   /* 分野:いちばん上のデッキの名前 */
   const subs = [...new Set(decks.map(d => d.name.split("::")[0]))].filter(n => ![...S.subjects.values()].some(s => s.name === n)).map((n, i) => ({ id: "s" + A2.uid() + i, name: n, cat: "study", c: ["#2F4F8A", "#B5432F", "#3D7A55", "#7B4F9A", "#9A6A1E", "#1F7A8C"][(S.subjects.size + i) % 6] }));
@@ -495,29 +505,34 @@ A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t)
   return res; };
 
 /* ───── FSRS-5(本家の初期のパラメータ)と、本家と同じ学習ステップ ───── */
-A2.W = [0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925, 1.9395, 0.11, 0.29605, 2.2698, 0.2315, 2.9898, 0.51655, 0.6621];
-const W5 = A2.W, DECAY = -0.5, FACTOR = 19 / 81;
-A2.R = (t, S) => Math.pow(1 + FACTOR * t / S, DECAY);
-A2.I = (S, r) => S / FACTOR * (Math.pow(r, 1 / DECAY) - 1);
-const clampD = x => Math.min(10, Math.max(1, x)), fD0 = G => clampD(W5[4] - Math.exp(W5[5] * (G - 1)) + 1), fS0 = G => W5[G - 1];
-const fDn = (D, G) => clampD(W5[7] * fD0(4) + (1 - W5[7]) * (D + (-W5[6] * (G - 3)) * (10 - D) / 9));
-const fSr = (D, S, r, G) => S * (Math.exp(W5[8]) * (11 - D) * Math.pow(S, -W5[9]) * (Math.exp(W5[10] * (1 - r)) - 1) * (G === 2 ? W5[15] : 1) * (G === 4 ? W5[16] : 1) + 1);
-const fSf = (D, S, r) => Math.min(S, W5[11] * Math.pow(D, -W5[12]) * (Math.pow(S + 1, W5[13]) - 1) * Math.exp(W5[14] * (1 - r)));
-const fSs = (S, G) => S * Math.exp(W5[17] * (G - 3 + W5[18]));
+/* FSRS-6(Anki 25 と同じ形。21個のパラメータ、20番目が忘れていく曲線の曲がり方 decay)。パラメータはデッキの設定から。なければ標準の値に、Anki から読み込んだ decay を使う */
+A2.W6 = [0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001, 1.8722, 0.1666, 0.796, 1.4835, 0.0614, 0.2629, 1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542];
+A2.W = A2.W6;
+A2.paramsOf = deckId => { const d = A2.S.decks.get(deckId), o = (d && d.opt) || {}; let w = null;
+  if (o.fsrs) { const nums = String(o.fsrs).match(/-?\d+(\.\d+)?/g); if (nums && (nums.length === 21 || nums.length === 19)) { w = nums.map(Number); if (w.length === 19) w = w.concat([0.0658, 0.5]); } }
+  if (!w) { w = A2.W6.slice(); const dc = +(o.decay || A2.S.meta.fsrsDecay || 0); if (dc > 0 && dc < 1) w[20] = dc; } return w; };
+const fac = W => Math.pow(0.9, -1 / W[20]) - 1;
+A2.R = (t, S, W) => { W = W || A2.W6; return Math.pow(1 + fac(W) * t / S, -W[20]); };
+A2.I = (S, r, W) => { W = W || A2.W6; return S / fac(W) * (Math.pow(r, -1 / W[20]) - 1); };
+const clampD = x => Math.min(10, Math.max(1, x)), fD0 = (G, W) => clampD(W[4] - Math.exp(W[5] * (G - 1)) + 1), fS0 = (G, W) => Math.max(0.001, W[G - 1]);
+const fDn = (D, G, W) => clampD(W[7] * fD0(4, W) + (1 - W[7]) * (D + (-W[6] * (G - 3)) * (10 - D) / 9));
+const fSr = (D, S, r, G, W) => S * (Math.exp(W[8]) * (11 - D) * Math.pow(S, -W[9]) * (Math.exp(W[10] * (1 - r)) - 1) * (G === 2 ? W[15] : 1) * (G === 4 ? W[16] : 1) + 1);
+const fSf = (D, S, r, W) => Math.min(S / Math.exp(W[17] * W[18]), W[11] * Math.pow(D, -W[12]) * (Math.pow(S + 1, W[13]) - 1) * Math.exp(W[14] * (1 - r)));
+const fSs = (S, G, W) => { const v = S * Math.exp(W[17] * (G - 3 + W[18])) * Math.pow(S, -W[19]); return G >= 3 ? Math.max(v, S) : v; };
 /* 復習の記録から、覚え具合を計算し直す(同じ日のうちは短期の式) */
-A2.replay = revs => { let S = null, D = null, last = null; revs.filter(r => r.g >= 1 && r.g <= 4 && r.kind !== 4).sort((a, b) => a.t - b.t).forEach(r => { const day = A2.dayOf(r.t);
-    if (S == null) { S = fS0(r.g); D = fD0(r.g); } else if (day === last) { S = fSs(S, r.g); D = fDn(D, r.g); } else { const t = day - last, R = A2.R(t, S); S = r.g === 1 ? fSf(D, S, R) : fSr(D, S, R, r.g); D = fDn(D, r.g); }
+A2.replay = (revs, W) => { W = W || A2.W6; let S = null, D = null, last = null; revs.filter(r => r.g >= 1 && r.g <= 4 && r.kind !== 4).sort((a, b) => a.t - b.t).forEach(r => { const day = A2.dayOf(r.t);
+    if (S == null) { S = fS0(r.g, W); D = fD0(r.g, W); } else if (day === last) { S = fSs(S, r.g, W); D = fDn(D, r.g, W); } else { const t = day - last, R = A2.R(t, S, W); S = r.g === 1 ? fSf(D, S, R, W) : fSr(D, S, R, r.g, W); D = fDn(D, r.g, W); }
     last = day; }); return S == null ? null : { s: S, d: D, lastDay: last }; };
 A2.defaultOpt = () => ({ newDay: 20, revDay: 200, steps: "1m 10m", relearn: "10m", retention: 90, maxIvl: 36500, leech: 8, burySib: true });
 const parseSteps = str => (String(str || "").match(/\d+(\.\d+)?\s*[smhd]?/g) || []).map(x => { const v = parseFloat(x); return /d/.test(x) ? v * 1440 : /h/.test(x) ? v * 60 : /s/.test(x) ? v / 60 : v; });   // 分
 A2.optOf = c => Object.assign(A2.defaultOpt(), (A2.S.decks.get(c.deck) || {}).opt || {});
 /* 判定したときの行き先。wait は分(1日 = 1440分)で返す */
-A2.schedule = (c, G, now) => { now = now || Date.now(); const o = A2.optOf(c), ret = (+o.retention || 90) / 100, maxI = +o.maxIvl || 36500, gIvl = S => Math.min(maxI, Math.max(1, Math.round(A2.I(S, ret)))), today = A2.dayOf(now);
+A2.schedule = (c, G, now) => { now = now || Date.now(); const o = A2.optOf(c), W = A2.paramsOf(c.deck), ret = (+o.retention || 90) / 100, maxI = +o.maxIvl || 36500, gIvl = S => Math.min(maxI, Math.max(1, Math.round(A2.I(S, ret, W)))), today = A2.dayOf(now);
   const steps = parseSteps(o.steps).length ? parseSteps(o.steps) : [1, 10], relearn = parseSteps(o.relearn).length ? parseSteps(o.relearn) : [10];
   const out = { s: c.s, d: c.d, st: c.st, step: c.step || 0 };
-  if (c.st === "新規" || !c.s) { out.s = fS0(G); out.d = fD0(G); }
-  else if (c.st === "学習中" || c.st === "再学習") { out.s = fSs(c.s, G); out.d = fDn(c.d || 5, G); }
-  else { const t = Math.max(0, today - (c.lastDay != null ? c.lastDay : today - (c.ivl || 0))), r = A2.R(t, Math.max(.1, c.s)); out.d = fDn(c.d || 5, G); out.s = G === 1 ? fSf(c.d || 5, c.s, r) : fSr(c.d || 5, c.s, r, G); }
+  if (c.st === "新規" || !c.s) { out.s = fS0(G, W); out.d = fD0(G, W); }
+  else if (c.st === "学習中" || c.st === "再学習") { out.s = fSs(c.s, G, W); out.d = fDn(c.d || 5, G, W); }
+  else { const t = Math.max(0, today - (c.lastDay != null ? c.lastDay : today - (c.ivl || 0))), r = A2.R(t, Math.max(.1, c.s), W); out.d = fDn(c.d || 5, G, W); out.s = G === 1 ? fSf(c.d || 5, c.s, r, W) : fSr(c.d || 5, c.s, r, G, W); }
   if (c.st === "新規" || c.st === "学習中" || c.st === "再学習") { const st = c.st === "再学習" ? relearn : steps, i = c.st === "新規" ? 0 : Math.min(c.step || 0, st.length - 1);
     if (G === 1) { out.st = c.st === "再学習" ? "再学習" : "学習中"; out.step = 0; out.wait = st[0]; }
     else if (G === 2) { out.st = c.st === "再学習" ? "再学習" : "学習中"; out.step = i; out.wait = i === 0 ? (st.length > 1 ? (st[0] + st[1]) / 2 : Math.min(st[0] * 1.5, st[0] + 1440)) : st[i]; }
@@ -595,6 +610,7 @@ A2.renderTmpl = (tmpl, note, nt, ord, back, front) => A2.tmplInfo(tmpl, note, nt
 A2._rbc = null; A2._rbcKey = "";
 /* 記録の出どころ。前の版で読み込んだもの(印なし)は、読み込みのとき mod を t と同じにしていたので、それで見分ける */
 A2.revSrc = r => r.src || (r.mod === r.t ? "anki" : "a2");
+A2.historyAll = cid => [...A2.S.revlog.values()].filter(r => r.cid === cid).sort((a, b) => a.t - b.t);
 A2.history = cid => { const key = A2.S.revlog.size + ":" + (A2._rlTick || 0); if (!A2._rbc || A2._rbcKey !== key) { const m = new Map(); for (const r of A2.S.revlog.values()) { if (r.g < 1 || r.g > 4 || r.kind === 4) continue; (m.get(r.cid) || m.set(r.cid, []).get(r.cid)).push(r); } m.forEach(l => l.sort((a, b) => a.t - b.t)); A2._rbc = m; A2._rbcKey = key; }
   return A2._rbc.get(cid) || []; };
 A2.virtual = (card, base) => { const nt = A2.S.notetypes.get((A2.S.notes.get(card.nid) || {}).nt) || {}, h = A2.history(card.id), F = Object.assign({}, base || {});
@@ -648,7 +664,7 @@ A2.revived = () => { const out = [], ST = ["notes", "cards", "decks", "notetypes
   (A2.S.meta.restores || []).forEach(r => { const ids = {}; let n = 0; Object.entries(r.ids || {}).forEach(([st, list]) => { const live = list.filter(id => A2.S[st] && A2.S[st].has(id)); if (live.length) { ids[st] = live; n += live.length; } }); if (n) out.push({ key: "r" + r.at, at: r.at, why: r.why, ids, n }); });
   const known = new Set(out.flatMap(o => Object.entries(o.ids).flatMap(([st, l]) => l.map(id => st + ":" + id)))); (A2.S.meta.imported || []).forEach(k => known.add(k));   // 読み込んだものは数えない
   const bursts = new Map(); ST.forEach(st => { for (const x of A2.S[st].values()) { if (!x.mod || known.has(st + ":" + x.id)) continue; const k = Math.floor(x.mod / 4000); (bursts.get(k) || bursts.set(k, {}).get(k))[st] = ((bursts.get(k) || {})[st] || []).concat(x.id); } });
-  bursts.forEach((ids, k) => { const n = Object.values(ids).reduce((a, l) => a + l.length, 0); if (n >= 10 && Date.now() - k * 4000 < 24 * 3600e3) out.push({ key: "b" + k, at: k * 4000, why: "まとめて変わった(戻したときなど)。中身を確かめてから消す", ids, n }); });
+  /* 推測の「まとめて変わったもの」は出さない(記録どおりに直したカードなどを間違えて出さないため)。戻す操作は r4.22 から正確に記録している */
   const tombs = A2.S.meta.tombs || {}, back = {}; let bn = 0; ST.forEach(st => Object.entries(tombs[st] || {}).forEach(([id, t]) => { if (t.seen == null && A2.S[st].has(id)) { (back[st] = back[st] || []).push(id); bn++; } }));
   if (bn) out.push({ key: "legacy", at: 0, why: "前に消したのに戻ってきたもの", ids: back, n: bn });
   return out.sort((a, b) => b.at - a.at); };
@@ -683,17 +699,23 @@ A2.repairStudied = async () => { const all = await A2.all("trash"), mine = all.f
   for (const d of decks) { const top = d.rec.name.split("::")[0]; if (![...A2.S.subjects.values()].some(s => s.name === top)) await A2.save("subjects", [{ id: "s" + A2.uid(), name: top, cat: "study", c: "#2F4F8A" }]); }
   return cards.length; };
 /* 健康診断:カードの今の期日が、最後の復習の記録(いつ答えて、何日後になったか)と合っているか。記録は同期でも書き換えられない */
-A2.auditCard = c => { if (!c || c.st === "新規" || c.susp) return { ok: true, skip: true }; const h = A2.history(c.id).filter(r => r.kind !== 4); const last = h[h.length - 1]; if (!last) return { ok: true, skip: true };
-  const day = A2.dayOf(last.t), tol = A2.revSrc(last) === "anki" ? 1 : 0;
+A2.auditCard = c => { if (!c || c.susp) return { ok: true, skip: true }; const all = A2.historyAll(c.id), lastAny = all[all.length - 1]; if (!lastAny) return { ok: true, skip: true };
+  if (lastAny.kind === 4) return { ok: true, skip: true };   // 最後が手でした操作(新規に戻す・期日を決める)なら、それに従う
+  const h = all.filter(r => r.kind !== 4); const last = h[h.length - 1]; if (!last) return { ok: true, skip: true };
+  if (c.st === "新規") return { ok: false, last, why: "復習の記録があるのに、新規になっている" };
+  const day = A2.dayOf(last.t), tol = 0;   // Anki から読み込んだものも、記録とぴったり合う(本物の書き出しで確かめた)
   if (last.ivl > 0) { const want = day + last.ivl; if (c.st !== "復習" || c.dueDay == null) return { ok: false, last, want, why: "記録では復習(" + last.ivl + "日)なのに、今は" + c.st }; return { ok: Math.abs(c.dueDay - want) <= tol, last, want, got: c.dueDay }; }
   const wantMs = last.t - last.ivl * 1000; if (c.dueMs == null) return { ok: c.st === "復習" ? false : true, last, wantMs, why: "記録では学習中なのに、今は" + c.st }; return { ok: Math.abs(c.dueMs - wantMs) < 120000 || c.dueMs > wantMs, last, wantMs }; };
 A2.audit = () => { let ok = 0, bad = [], checked = 0; for (const c of A2.S.cards.values()) { const r = A2.auditCard(c); if (r.skip) continue; checked++; if (r.ok) ok++; else bad.push({ c, r }); } return { checked, ok, bad }; };
 /* 記録どおりに直す */
 A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => { const x = Object.assign({}, c), last = r.last;
+    const m = A2.replay(A2.history(c.id), A2.paramsOf(c.deck)); if (m && !(x.s > 0 && x.d > 0)) { x.s = m.s; x.d = m.d; } x.reps = Math.max(x.reps || 0, A2.history(c.id).length); delete x.pos;
     if (last.ivl > 0) { Object.assign(x, { st: "復習", ivl: last.ivl, dueDay: A2.dayOf(last.t) + last.ivl, lastDay: A2.dayOf(last.t) }); delete x.dueMs; }
     else { x.st = last.kind === 2 ? "再学習" : "学習中"; x.dueMs = last.t - last.ivl * 1000; }
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
-A2.VER = "r4.26";
+/* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
+A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
+A2.VER = "r4.27";
 window.A2 = A2;
 
 </script>
@@ -701,7 +723,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.26"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.27"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1089,7 +1111,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
   if (sh.k === "import") return `<h3>Ankiから読み込む</h3><p class="note" style="margin-top:0">Ankiで「書き出す」→「スケジュール情報を含める」「メディアを含める」にして作ったファイルを選ぶ。何度読み込んでも重ならない(同じノート・カードは1つにまとめ、新しいほうを残す。記録は足すだけ)。</p><div class="imp"><label class="btn shu" style="cursor:pointer">ファイルを選ぶ<input type="file" id="imp-file" accept=".apkg,.colpkg,application/zip" hidden></label><div class="steplog" id="imp-log"></div></div>`;
   if (sh.k === "prefs") return `<h3>設定</h3><label class="chk" style="border:0"><input type="checkbox" id="pf-se"${A2.S.meta.se === false ? "" : " checked"}> 効果音を鳴らす</label><label class="chk" style="border:0"><input type="checkbox" id="pf-ap"${A2.S.meta.autoplay === false ? "" : " checked"}> 音声を自動で再生する</label>`;
   if (sh.k === "dopt") { const d = A2.S.decks.get(sh.id), o = Object.assign(A2.defaultOpt(), d.opt || {}); const f = (k, t, v, s) => `<div class="f"><label>${t}</label><input data-opt="${k}" value="${esc(v)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">${s ? `<div class="note">${s}</div>` : ""}</div>`;
-    return `<h3>デッキのオプション</h3><div class="f"><label>場所と名前(「::」で区切る。いちばん左が分野)</label><input id="do-name" value="${esc(d.name)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><div class="note">例:英語::英単語::単語帳。中のデッキも一緒に動く</div></div>${f("newDay", "1日の新しいカード", o.newDay)}${f("revDay", "1日の復習の上限", o.revDay)}${f("steps", "学習ステップ", o.steps, "例:1m 10m")}${f("relearn", "再学習のステップ", o.relearn)}${f("retention", "覚えておきたい割合(%)", o.retention, "FSRS。高いほど復習が増える")}${f("maxIvl", "最大の間隔(日)", o.maxIvl)}${f("leech", "リーチ(忘れた回数)", o.leech, "この回数忘れたら「leech」のタグを付ける")}
+    return `<h3>デッキのオプション</h3><div class="f"><label>場所と名前(「::」で区切る。いちばん左が分野)</label><input id="do-name" value="${esc(d.name)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><div class="note">例:英語::英単語::単語帳。中のデッキも一緒に動く</div></div>${f("newDay", "1日の新しいカード", o.newDay)}${f("revDay", "1日の復習の上限", o.revDay)}${f("steps", "学習ステップ", o.steps, "例:1m 10m")}${f("relearn", "再学習のステップ", o.relearn)}${f("retention", "覚えておきたい割合(%)", o.retention, "FSRS。高いほど復習が増える")}${f("maxIvl", "最大の間隔(日)", o.maxIvl)}${f("leech", "リーチ(忘れた回数)", o.leech, "この回数忘れたら「leech」のタグを付ける")}${f("fsrs", "FSRS のパラメータ(Anki のデッキの設定からコピー)", o.fsrs || "", "空なら標準の値" + (o.decay || A2.S.meta.fsrsDecay ? "(忘れ方の曲がり " + (o.decay || A2.S.meta.fsrsDecay) + " は Anki から)" : ""))}
       <label class="chk" style="border:0"><input type="checkbox" data-opt="burySib"${o.burySib ? " checked" : ""}> 兄弟カード(同じノートの別のカード)は次の日へ延期する</label><div class="row"><button class="btn sm" data-optsave="${d.id}">保存</button><button class="btn ghost sm" data-dinfo="${esc(d.name)}">中身を調べる</button><button class="linkx" data-ddel="${d.id}" style="color:var(--shu);margin-left:auto">このデッキを消す</button></div>`; }
   if (sh.k === "subedit") { const s = A2.S.subjects.get(sh.id); return `<h3>分野</h3><div class="f"><label>名前(いちばん上のデッキの名前)</label><input id="su-n" value="${esc(s.name)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"></div><div class="f"><label>分類</label><select id="su-c">${CATS.map(c => `<option value="${c.id}"${c.id === s.cat ? " selected" : ""}>${c.name}</option>`).join("")}</select></div><div class="f"><label>色</label><div class="row">${["#2F4F8A", "#B5432F", "#3D7A55", "#7B4F9A", "#9A6A1E", "#1F7A8C", "#A0522D", "#26221E"].map(c => `<button class="colb${c === s.c ? " on" : ""}" data-nscol="${c}" style="background:${c}" aria-label="色"></button>`).join("")}</div></div><button class="btn" data-susave="${s.id}">保存</button> <button class="btn ghost sm" data-dinfo="${esc(s.name)}">中身を調べる</button>
       <h2>別の分野の中に入れる<small>この分野を、ほかの分野の中のデッキにする</small></h2><div class="row" style="gap:.4rem"><input id="su-into" list="su-list" placeholder="例:英語" style="flex:1;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><datalist id="su-list">${[...A2.S.subjects.values()].filter(x => x.id !== s.id).map(x => `<option value="${esc(x.name)}">`).join("")}</datalist><button class="btn sm" data-suinto="${s.id}">入れる</button></div>
@@ -1108,6 +1130,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
     return `<h3>カードの情報</h3>${[["デッキ", (A2.S.decks.get(c.deck) || {}).name], ["ノートタイプ", (A2.S.notetypes.get(n.nt) || {}).name], ["状態", c.st + (c.susp ? "(一時停止)" : "")], ["次の復習", c.st === "新規" ? "まだ" : c.dueDay != null ? A2.dayStr(c.dueDay) : "今日"], ["間隔", (c.ivl || 0) + "日"], ["復習した回数", c.reps || 0], ["忘れた回数", c.lapses || 0], ["安定さ(FSRS)", c.s ? (Math.round(c.s * 10) / 10) + "日" : "まだ"], ["難しさ(FSRS)", c.d ? (Math.round(c.d * 10) / 10) + " / 10" : "まだ"], ["今、思い出せる確率", c.s && c.st === "復習" ? Math.round(A2.R(Math.max(0, today - (c.lastDay != null ? c.lastDay : today)), c.s) * 100) + "%" : "—"], ["タグ", n.tags.join(" ")]].map(([k, v]) => `<div class="pkv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`).join("")}
       ${(() => { const a = A2.auditCard(c); if (a.skip) return ""; const L = a.last, g = ["", "もう一度", "難しい", "正解", "簡単"][L.g] || "", when = new Date(L.t).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
         const res = L.ivl > 0 ? L.ivl + "日後(" + A2.dayStr(A2.dayOf(L.t) + L.ivl) + ")" : Math.round(-L.ivl / 60) + "分後"; return `<div class="auditbar ${a.ok ? "ok" : "bad"}" style="margin:.6rem 0">この間隔の理由:${when} に「${g}」→ ${res}。${a.ok ? "✓ 今の期日は記録と一致" : "記録とずれている(" + esc(a.why || "期日が違う") + ")"}</div>`; })()}
+      <h2>このカードの移り変わり<small>毎日の自動の控えから</small></h2><div id="cardhist" data-cid="${c.id}" class="note">読み込み中…</div>
       <h2>復習の記録<small>${revs.length}回</small></h2>${revs.slice(0, 30).map(r => `<div class="pkv"><span class="k">${new Date(r.t).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span><span class="v">${["", "もう一度", "難しい", "正解", "簡単"][r.g] || "?"}・${r.ivl > 0 ? r.ivl + "日" : Math.round(-r.ivl / 60) + "分"}・${Math.round((r.ms || 0) / 1000)}秒</span></div>`).join("") || '<p class="note">まだない。</p>'}`; }
   if (sh.k === "card") { const c = A2.S.cards.get(sh.id), n = A2.S.notes.get(c.nid), t = A2.S.notetypes.get(n.nt), list = V.rv ? [] : (V.blist || []), idx = list.indexOf(c.id); if (!sh.draft) sh.draft = Object.assign({}, n.f);
     return `<h3>カードを編集</h3><div class="note">${esc((A2.S.decks.get(c.deck) || {}).name)}・${esc(t.name)}${idx >= 0 ? "・" + (idx + 1) + "/" + list.length : ""}</div>
@@ -1179,6 +1202,10 @@ function afterRender(y){ const old = $("sheetwrap");
   if (V.top) { window.scrollTo(0, 0); V.top = false; } else window.scrollTo(0, y);
   if (V.mode === "make" && !V.rv && ADD.use !== "AI") addPreview(); if (window.exDrawMermaid) exDrawMermaid();
   if (V.sheet && V.sheet.k === "today") paintTodayList();
+  { const el = $("cardhist"); if (el && !el.dataset.done) { el.dataset.done = 1; const cid = el.dataset.cid; A2.all("backups").then(bs => { const rows = bs.sort((a, b) => a.day - b.day).map(b => { let x = null; try { x = (JSON.parse(b.data).cards || []).find(c => c.id === cid); } catch (e) {} const t = new Date(b.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      return `<div class="pkv"><span class="k">${t}</span><span class="v">${x ? x.st + (x.st === "復習" && x.dueDay != null ? "・次は " + A2.dayStr(x.dueDay) + "(間隔 " + (x.ivl || 0) + "日)" : x.dueMs ? "・" + new Date(x.dueMs).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + " に出る" : "") : "(この時はなかった)"}</span></div>`; });
+      const c = A2.S.cards.get(cid); rows.push(`<div class="pkv"><span class="k"><b>今</b></span><span class="v"><b>${c ? c.st + (c.st === "復習" && c.dueDay != null ? "・次は " + A2.dayStr(c.dueDay) + "(間隔 " + (c.ivl || 0) + "日)" : "") : "なし"}</b></span></div>`);
+      const e2 = $("cardhist"); if (e2) e2.innerHTML = rows.join(""); }); } }
   if (V.sheet && V.sheet.k === "autobk" && $("bklist") && !$("bklist").dataset.done) { $("bklist").dataset.done = 1; A2.all("backups").then(l => { const el = $("bklist"); if (el) el.innerHTML = l.sort((a, b) => b.day - a.day).map(x => `<div class="pkv"><span class="k"><b>${A2.dayStr(x.day)}</b><br><small>カード ${x.cards}枚・${new Date(x.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</small></span><span class="v"><button class="btn sm" data-bkadd="${x.id}">消えたものだけ戻す</button> <button class="linkx" data-bkgo="${x.id}">この日の状態に戻す</button></span></div>`).join("") || '<p class="note" style="padding:.5rem">まだない(明日から取られる)。</p>'; }); }
   if (V.sheet && V.sheet.k === "trash" && $("trlist") && !$("trlist").dataset.done) { $("trlist").dataset.done = 1; A2.all("trash").then(l => { const el = $("trlist"); if (!el) return; const g = new Map();
       l.forEach(t => { const k = A2.dayStr(A2.dayOf(t.at)) + "|" + t.why; (g.get(k) || g.set(k, []).get(k)).push(t); });
@@ -1238,7 +1265,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (d.custgo != null && b.hasAttribute("data-custgo")) { const q = d.custgo || ($("cust-q") || {}).value || ""; V.sheet = null; startStudy("", c => match(c, q) && !c.susp, "カスタム学習"); return; }
   if (d.dopt) { V.sheet = { k: "dopt", id: d.dopt }; render(); return; }
   if (d.optsave) { const dk = A2.S.decks.get(d.optsave); dk.opt = Object.assign(A2.defaultOpt(), dk.opt || {}); document.querySelectorAll("[data-opt]").forEach(el => { dk.opt[el.dataset.opt] = el.type === "checkbox" ? el.checked : el.value; });
-    const nn = String(($("do-name") || {}).value || "").split("::").map(x => x.trim()).filter(Boolean).join("::"); await A2.save("decks", [dk]);
+    const nn = String(($("do-name") || {}).value || "").split("::").map(x => x.trim()).filter(Boolean).join("::"); dk.opt.userEdited = true; await A2.save("decks", [dk]);
     if (nn && nn !== dk.name) { if (await moveDeck(dk.name, nn) === false) return; } V.sheet = null; toast("保存した"); render(); return; }
   if (d.ddel) { const dk = A2.S.decks.get(d.ddel), cs = [...A2.S.cards.values()].filter(c => c.deck === dk.id); if (!confirm("デッキ「" + dk.name + "」を消す?" + (cs.length ? "(中のカード " + cs.length + "枚も消える)" : ""))) return; await A2.remove("cards", cs.map(c => c.id)); const nids = new Set(cs.map(c => c.nid)); await A2.remove("notes", [...nids].filter(id => ![...A2.S.cards.values()].some(c => c.nid === id))); await A2.remove("decks", [dk.id]); await pruneSubjects(); V.sheet = null; toast("消した"); render(); return; }
   if (d.subedit) { V.sheet = { k: "subedit", id: d.subedit }; render(); return; }
@@ -1285,7 +1312,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-bfclear")) { V.bf = { chips: {} }; V.bq = ""; render(); return; }
   if (b.hasAttribute("data-bmore")) { V.bmax = (V.bmax || 200) + 400; render(); return; }
   if (d.bact) { const ids = Object.keys(V.bsel).filter(k => V.bsel[k]), cs = ids.map(id => A2.S.cards.get(id)).filter(Boolean);
-    if (d.bact === "none") V.bsel = {}; else if (d.bact === "susp") { cs.forEach(c => c.susp = !c.susp); await A2.save("cards", cs); } else if (d.bact === "reset") { cs.forEach(c => { Object.assign(c, { st: "新規", ivl: 0, s: null, d: null, pos: 0 }); delete c.dueDay; delete c.dueMs; }); await A2.save("cards", cs); }
+    if (d.bact === "none") V.bsel = {}; else if (d.bact === "susp") { cs.forEach(c => c.susp = !c.susp); await A2.save("cards", cs); } else if (d.bact === "reset") { const now = Date.now(); cs.forEach(c => { Object.assign(c, { st: "新規", ivl: 0, s: null, d: null, pos: 0 }); delete c.dueDay; delete c.dueMs; }); await A2.save("cards", cs); await A2.save("revlog", cs.map((c, i) => ({ id: "rM" + now + "_" + i, cid: c.id, t: now + i, g: 0, ivl: 0, last: 0, ms: 0, kind: 4, src: "a2" })), { keepMod: true }); }
     else if (d.bact === "flag") { V.sheet = { k: "flag", ids }; render(); return; } else if (d.bact === "tag") { const t = prompt("足すタグ"); if (t) { const ns = [...new Set(cs.map(c => c.nid))].map(id => A2.S.notes.get(id)); ns.forEach(n => { if (!n.tags.includes(t)) n.tags.push(t); }); await A2.save("notes", ns); } }
     else if (d.bact === "deck") { const nm = prompt("移すデッキの名前(::で区切る)", ""); if (nm) { const dk = await ensureDeck(nm.trim()); cs.forEach(c => c.deck = dk.id); await A2.save("cards", cs); } }
     else if (d.bact === "del") { if (!confirm(cs.length + "枚を消す?")) return; await A2.remove("cards", ids); const nids = new Set(cs.map(c => c.nid)); await A2.remove("notes", [...nids].filter(id => ![...A2.S.cards.values()].some(c => c.nid === id))); V.bsel = {}; }
@@ -1358,6 +1385,7 @@ async function boot(){ shownDay = null; const vers = { core: (window.A2 || {}).V
   if (Object.values(vers).some(v => v !== APP_VERSION)) { $("app").innerHTML = `<p class="notice">ファイルの版がそろっていない(${Object.entries(vers).map(([k, v]) => k + ":" + (v || "なし")).join("・")})。置き換えの途中かもしれないので、少し待ってから再読み込みしてください。データはそのまま残っている。</p><button class="btn" data-reload>再読み込み</button>`; return; }
   try { await A2.open(); await A2.loadAll(); } catch (e) { $("app").innerHTML = '<p class="notice">この端末のブラウザに保存できない:' + esc(e.message) + "</p>"; return; } render();
   /* 開いたときの点検は、知らせるだけで、何も変えない(同期の途中だと、届く途中のカードを消してしまうため) */
+  setTimeout(async () => { try { const h = await A2.healFromRecords(); if (h) toast("復習の記録と食い違っていた " + h + "枚を、記録どおりに直した"); } catch (e) { logErr(e.message); } }, 1500);
   setTimeout(async () => { try { await pruneSubjects(); await A2.autoBackup(); } catch (e) { logErr(e.message); } }, 3000);
   setTimeout(async () => { try { if (window.SYNC && SYNC.busy) return; const p = await A2.check(false); if (p.length) { toast("データの点検で気になるところがある(その他 › データの点検)"); render(); } } catch (e) { logErr(e.message); } }, 60000);
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {}); }
@@ -1370,7 +1398,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.26";
+window.APP_VER_EX = "r4.27";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -1605,7 +1633,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.26";
+window.APP_VER_SYNC = "r4.27";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
@@ -1711,6 +1739,7 @@ async function syncOnce(){ const c = conn(); SYNC.busy = true; SYNC.err = ""; if
     if (SYNC.prevs.length) M.lastPrev = { at: Date.now(), items: SYNC.prevs.slice(-5000) };
     M.lastSum = Object.assign({ at: Date.now() }, SYNC.sum, { held: (M.held || []).length });
     for (const k of ["tombs", "baseSha", "applied", "lastHead", "mediaUp", "deviceId", "rk", "rkReady", "lastFull", "held", "lastPrev", "lastSum"]) await A2.setMeta(k, A2.S.meta[k]);
+    try { const h = await A2.healFromRecords(); if (h) { toast("復習の記録と食い違っていた " + h + "枚を、記録どおりに直した"); SYNC.again = true; } } catch (e) { console.error(e); if (typeof logErr === "function") logErr("記録どおりに直す:" + (e.message || e)); }
     try { const back = await A2.repairStudied(); if (back) { toast("片づけで消してしまった、最近学習したカード " + back + "枚を戻した"); SYNC.again = true; if (!V.rv && !V.sheet) render(); } } catch (e) { console.error(e); if (typeof logErr === "function") logErr("同期のあとの片づけ:" + (e.message || e)); }
     /* 一度だけ:全部の中身がそろってから、戻ってしまったものを消す(あなたの指示) */
     if (M.rkReady && !M.cleanupRevived1 && !SYNC.err) { M.cleanupRevived1 = { at: Date.now(), n: 0 }; await A2.setMeta("cleanupRevived1", M.cleanupRevived1); try { const r = await A2.cleanupRevived(); M.cleanupRevived1 = { at: Date.now(), n: r.n }; await A2.setMeta("cleanupRevived1", M.cleanupRevived1); if (r.n) { toast("戻ってしまったもの " + r.n + "件を消した(その他 › ごみ箱 から戻せる)"); SYNC.again = true; if (!V.rv && !V.sheet) render(); } } catch (e) { console.error(e); if (typeof logErr === "function") logErr("同期のあとの片づけ:" + (e.message || e)); } }
