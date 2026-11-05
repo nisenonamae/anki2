@@ -102,7 +102,12 @@ A2.readPackage = async (file, onStep) => { const step = t => onStep && onStep(t)
     Object.entries(map).forEach(([k, name]) => { if (zip[k]) out.media.push({ name, blob: new Blob([unz(zip[k])]) }); }); }
   return out; };
 /* 読み込んだものを足す。同じ番号のものは1つにまとめ、新しいほうを残す。復習の記録は足すだけ */
-A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t), S = A2.S, res = { notes: 0, newNotes: 0, cards: 0, revlog: 0, media: 0, notetypes: 0, decks: 0 }; if (Number.isFinite(pkg.roll)) await A2.setMeta("roll", pkg.roll);
+A2.mergePackage = async (pkg, onStep) => { const step = t => onStep && onStep(t), S = A2.S, res = { notes: 0, newNotes: 0, cards: 0, revlog: 0, media: 0, notetypes: 0, decks: 0, revived: 0 };
+  /* 前に消したもの(消した印があるもの)をもう一度読み込んだら、「わざと戻した」として扱う:消した印を外し、新しい時刻にする(どの端末でも、古い消した印に勝つ) */
+  const tombs = S.meta.tombs || {}; let revived = 0;
+  const revive = (st, list) => list.forEach(r => { if (tombs[st] && tombs[st][r.id] && !S[st].has(r.id)) { delete tombs[st][r.id]; r.mod = A2.tick(); revived++; } });
+  revive("notes", pkg.notes); revive("cards", pkg.cards); revive("revlog", pkg.revlog); revive("decks", pkg.decks); revive("notetypes", pkg.notetypes);
+  if (revived) { await A2.setMeta("tombs", tombs); res.revived = revived; } if (Number.isFinite(pkg.roll)) await A2.setMeta("roll", pkg.roll);
   step("保存している");
   const nts = pkg.notetypes.map(nt => { const old = S.notetypes.get(nt.id); return old ? Object.assign({}, nt, { use: old.use, auto: old.auto, dupKeys: old.dupKeys }) : nt; });
   await A2.save("notetypes", nts); res.notetypes = nts.length;
@@ -239,5 +244,5 @@ A2.autoBackup = async () => { const day = A2.today(); if (A2.S.meta.lastBackupDa
   await A2.put("backups", [{ id: "b" + day, day, at: Date.now(), cards: A2.S.cards.size, data: JSON.stringify(A2.snapshot()) }]); const old = list.sort((a, b) => b.day - a.day).slice(6); if (old.length) await A2.del("backups", old.map(b => b.id)); await A2.setMeta("lastBackupDay", day); };
 /* 控えの中身に戻す(消した印は作らない。戻した中身は新しい変更として同期される) */
 A2.restore = async data => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { const keep = new Set((data[n] || []).map(x => x.id)); await A2.remove(n, [...A2.S[n].keys()].filter(id => !keep.has(id)), { noTomb: false }); await A2.save(n, data[n] || []); } };
-A2.VER = "r4.8";
+A2.VER = "r4.11";
 window.A2 = A2;
