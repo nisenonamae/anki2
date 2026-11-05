@@ -721,7 +721,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.35";
+A2.VER = "r4.36";
 window.A2 = A2;
 
 </script>
@@ -729,7 +729,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.35"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.36"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -895,7 +895,7 @@ function rvOv(){ const c = rvCur(); if (!c) return ""; const n = A2.S.notes.get(
 function rvCtl(){ const r = V.rv, c = rvCur(), ivs = A2.nextWaits(c);
   return `${r.back ? `<div class="ansbar">${["もう一度", "難しい", "正解", "簡単"].map((x, k) => `<button class="ans a${k + 1}${r.sug === k + 1 ? " sug" : ""}" data-grade="${k + 1}"><small>${r.sug === k + 1 ? "おすすめ・" : ""}${A2.fmtWait(ivs[k].wait)}</small>${x}</button>`).join("")}</div><div class="fliprow"><button class="linkx" data-toface>表に戻る</button></div>` : `<button class="btn showans" data-showans>答えを見る</button>`}
     <div class="rvtools2"><button class="tl" data-rvundo${r.hist.length ? "" : " disabled"}><i>↶</i>元に戻す</button><button class="tl" data-rvedit><i>✎</i>直す</button><button class="tl${VOICE.on ? " on" : ""}" data-voice><i>🎤</i>声 ${VOICE.on ? "入" : VOICE.idle ? "休み中" : "切"}</button><button class="tl" data-rvmore><i>⋯</i>その他</button></div>
-    ${VOICE.on ? `<div class="vstat"><span class="dot"></span>聞いています:${["show", "g1", "g2", "g3", "g4"].map(k => "「" + esc(String(((A2.S.meta.voiceWords || {})[k]) || VOICE_WORDS[k]).split(/[,、]/)[0].trim()) + "」").join("")}${VOICE.last ? `<b class="vheard">聞き取った「${esc(VOICE.last)}」</b>` : ""}</div>` : ""}
+    ${VOICE.on ? `<div class="vstat"><span class="dot"></span>${VOICE.lat ? "<b>前回 " + (VOICE.lat / 1000).toFixed(2) + "秒</b>(話し始めてから動くまで)・" : ""}${VOICE.local === "available" ? "端末で聞き取り・" : "ネット越しに聞き取り・"}${VOICE.local === "downloadable" ? '<button class="linkx" data-vinstall>端末で聞き取る(速い)を入れる</button>・' : ""}聞いています:${["show", "g1", "g2", "g3", "g4"].map(k => "「" + esc(String(((A2.S.meta.voiceWords || {})[k]) || VOICE_WORDS[k]).split(/[,、]/)[0].trim()) + "」").join("")}${VOICE.last ? `<b class="vheard">聞き取った「${esc(VOICE.last)}」</b>` : ""}</div>` : ""}
     <p class="note" style="text-align:center;margin-top:.5rem">キーボード:スペースで答え・B で表に戻る・1〜4で判定・Z で元に戻す・E で直す。リモコン(矢印):→ 答え・正解、← もう一度、↑ 簡単、↓ 難しい</p>`; }
 /* 復習の画面の骨組み:#rv-box(カードの枠)は、その回の復習が終わるまで一度も作り直さない・動かさない */
 function review(){ const r = V.rv; rvEnsure(); if (r.wait) return `<div id="rv-top">${rvTop()}</div><div class="result" style="margin-top:1rem"><b>今出せるカードは、ここまで</b><div class="note">次の学習中のカードは <span id="rvwait">${rvWaitText(r.wait)}</span> に出る。時間になれば、そのまま出てくる。</div></div><div class="row"><button class="btn" data-rvnow>今すぐ出す</button><button class="btn ghost" data-rvend>やめる</button>${r.hist.length ? '<button class="btn ghost" data-rvundo>元に戻す</button>' : ""}</div>`;
@@ -971,9 +971,13 @@ function voiceStart(){ const SR = window.SpeechRecognition || window.webkitSpeec
       else if (hit) { VOICE.lastText = txt; VOICE.fired = key; voiceDo(hit); }   // 聞こえた瞬間に動く(待たない)
       else if (res.isFinal) { VOICE.finalKey = key; render(); } else paintVoice(); } };
   rr.onstart = () => { VOICE.sess = (VOICE.sess || 0) + 1; };
+  rr.onspeechstart = () => { VOICE.t0 = performance.now(); };
   rr.onend = () => { if (!VOICE.on) return; if (!V.rv || Date.now() - (VOICE.heard || VOICE.since) > 60000) { VOICE.idle = true; VOICE.on = false; VOICE.rec = null; render(); return; } try { rr.start(); } catch (e) {} };   // 1分なにも聞こえなければ休む
   rr.onerror = e => { if (/not-allowed|service-not-allowed|audio-capture/.test(e.error)) { VOICE.on = false; toast("マイクが使えない(ブラウザの許可が必要)"); render(); } };
-  VOICE.rec = rr; VOICE.on = true; VOICE.idle = false; VOICE.last = ""; VOICE.since = Date.now(); VOICE.heard = 0; try { rr.start(); } catch (e) {} render(); }
+  VOICE.rec = rr; VOICE.on = true; VOICE.idle = false; VOICE.last = ""; VOICE.since = Date.now(); VOICE.heard = 0;
+  const go = () => { try { rr.start(); } catch (e) {} render(); };
+  /* 端末の中で聞き取る(ネットに送らないので速い)。Chrome が日本語を端末で聞き取れるときだけ */
+  if (SR.available && "processLocally" in rr) SR.available({ langs: ["ja-JP"], processLocally: true }).then(st => { VOICE.local = st; if (st === "available") rr.processLocally = true; go(); }).catch(() => go()); else { VOICE.local = "unsupported"; go(); } }
 function voiceStop(quiet){ VOICE.on = false; try { VOICE.rec && VOICE.rec.stop(); } catch (e) {} VOICE.rec = null; if (!quiet) render(); }
 /* 聞こえた文字から、どの操作か(言葉がまるごと入っているときだけ) */
 /* 声の言葉:判定ごとに、受け付ける言葉(設定で書き換えられる)。比べるときは、空白・記号を取り、カタカナはひらがなに、数字は半角に */
@@ -981,13 +985,16 @@ const VOICE_WORDS = { g1: "ダメ, だめ, 駄目, 忘れた, わすれた, も�
   show: "こたえ, 答え, 答, 裏, うら", face: "おもて, 表, 表に戻る", undo: "元に戻す, もとにもどす, 戻して, もどして", end: "やめる, やめて, おわり, 終わり" };
 const VOICE_LABEL = { g1: "もう一度", g2: "難しい", g3: "正解", g4: "簡単", show: "答えを見る", face: "表に戻る", undo: "元に戻す", end: "やめる" };
 const vnorm = t => String(t || "").normalize("NFKC").replace(/[\s。、!！?？・,，.]/g, "").replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60)).toLowerCase();
-const voiceWords = () => { const o = {}; Object.keys(VOICE_WORDS).forEach(k => { o[k] = String(((A2.S.meta.voiceWords || {})[k]) || VOICE_WORDS[k]).split(/[,、\n]/).map(vnorm).filter(Boolean); }); return o; };
+/* 同じ音の書き方と、言い終わる前に届く途中の書き方(これで、漢字が決まるのを待たずに動ける) */
+const VOICE_SAME = [["せいかい", "正解", "政界", "盛会", "せいか", "成果", "製菓"], ["こたえ", "答え", "応え", "堪え", "答", "こたえる"], ["らくしょう", "楽勝", "らくしょ", "楽章"], ["だめ", "駄目", "ダメ"], ["ぎりぎり", "ギリギリ", "ぎりぎ"], ["かんたん", "簡単", "感嘆"], ["むずかしい", "難しい", "むずかし"], ["おもて", "表"], ["うら", "裏"], ["わすれた", "忘れた"]].map(g => g.map(x => String(x).normalize("NFKC").replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60)).toLowerCase()));
+const voiceWords = () => { const o = {}; Object.keys(VOICE_WORDS).forEach(k => { const base = String(((A2.S.meta.voiceWords || {})[k]) || VOICE_WORDS[k]).split(/[,、\n]/).map(vnorm).filter(Boolean), set = new Set(base);
+    base.forEach(w => VOICE_SAME.forEach(g => { if (g.includes(w)) g.forEach(x => set.add(x)); })); o[k] = [...set]; }); return o; };
 const voiceWhole = () => A2.S.meta.voiceWhole !== false;   // 初めは「言葉だけを言ったとき」
-function voiceMatch(t){ const s = vnorm(t), W = voiceWords(); if (!s) return null;
+function voiceMatch(t){ const s = vnorm(t).replace(/(ですね|です|でした|だね|だよ|ね|よ|ー)+$/, ""), W = voiceWords(); if (!s) return null;
   for (const k of ["end", "undo", "face", "g1", "g2", "g4", "g3", "show"]) { if (W[k].some(w => w && (voiceWhole() ? s.endsWith(w) : s.includes(w)))) return k; } return null; }   // 最後がその言葉で終わったら(話したあとに続けて言ってもよい)
 /* 聞こえている文字を、その場で書き換える(画面全体は描き直さない) */
 function paintVoice(){ const el = document.querySelector(".vstat b.vheard"); if (el) el.textContent = "聞こえている「" + (VOICE.last || "") + "」"; else { const v = document.querySelector(".vstat"); if (v) { const b = document.createElement("b"); b.className = "vheard"; b.textContent = "聞こえている「" + (VOICE.last || "") + "」"; v.appendChild(b); } } }
-function voiceDo(cmd){ const r = V.rv; if (!r || !rvCur()) { render(); return; }
+function voiceDo(cmd){ const r = V.rv; if (!r || !rvCur()) { render(); return; } if (VOICE.t0) { VOICE.lat = performance.now() - VOICE.t0; VOICE.t0 = 0; }
   const now = Date.now(); if (now - (VOICE.lastAt || 0) < 700) return; VOICE.lastAt = now;   // 同じ発言が遅れて届くのは1秒もかからない。続けて答えても邪魔しない長さ
   if (cmd === "end") { endStudy(); return; } if (cmd === "undo") { undo(); return; }
   if (cmd === "face") { if (r.back) { r.back = false; se("flip"); render(); } return; }
@@ -1266,6 +1273,7 @@ async function doRestore(file){ try { const d = JSON.parse(await file.text()); i
 document.addEventListener("click", async e => { if (e.target.closest(".lka")) return; const x = e.target.closest("[data-x]"); if (x) { V.sheet = null; render(); return; } const b = e.target.closest("button"); if (!b || b.disabled) return; const d = b.dataset;
   if (d.bot) { go({ mode: d.bot, sheet: null }); return; }
   if (b.hasAttribute("data-todayopen")) { V.sheet = { k: "today" }; render(); return; }
+  if (b.hasAttribute("data-vinstall")) { const SR = window.SpeechRecognition || window.webkitSpeechRecognition; try { toast("日本語の聞き取りを端末に入れている(少し時間がかかる)"); const ok = await SR.install({ langs: ["ja-JP"], processLocally: true }); if (ok) { toast("入れた。端末で聞き取る"); if (VOICE.rec) { VOICE.on = false; try { VOICE.rec.stop(); } catch (e) {} } voiceStart(); } else toast("入れられなかった"); } catch (e) { toast("入れられなかった:" + e.message); } return; }
   if (b.hasAttribute("data-vwreset")) { await A2.setMeta("voiceWords", {}); toast("初めの言葉に戻した"); render(); return; }
   if (b.hasAttribute("data-errok")) { A2.S.meta.lastErr = null; const eb = $("errbar"); if (eb) eb.remove(); return; }
   if (b.hasAttribute("data-reload")) { location.reload(); return; }
@@ -1427,7 +1435,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.35";
+window.APP_VER_EX = "r4.36";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -1662,7 +1670,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.35";
+window.APP_VER_SYNC = "r4.36";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
