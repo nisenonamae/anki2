@@ -324,3 +324,5 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 #app{padding-bottom:7.5rem}
 .dtoday{display:block;font-size:.7rem;color:var(--sub);font-weight:400;line-height:1.3;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sfh .nm{flex:1;min-width:0}.sfh .nm b{display:block}
+
+.rvtop .cnt .cur{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
