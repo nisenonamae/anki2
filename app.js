@@ -1,6 +1,6 @@
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.16"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.19"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -273,7 +273,7 @@ function browser(){ let xs = [...A2.S.cards.values()].filter(c => bfMatch(c) && 
   const bar = bfBar();
   return `<div class="bsearch"><input id="bq" placeholder="言葉で探す(表・裏・欄の中身)" value="${esc(V.bq)}"></div>${bar}
     <details class="syn"><summary>くわしい書き方(使わなくてよい)</summary>書き方:<code>deck:英語*</code> <code>tag:単語帳</code> <code>is:due</code> <code>is:new</code> <code>is:suspended</code> <code>flag:1</code> <code>prop:ivl&gt;20</code> <code>rated:1</code> <code>-tag:xx</code>(除く)</details>
-    <div class="bsort">並べ方 <select id="bsort">${[["due", "次の復習"], ["ivl", "間隔の長い順"], ["lapses", "忘れた回数"], ["deck", "デッキ"], ["front", "表の文字"]].map(([k, t]) => `<option value="${k}"${V.bsort === k ? " selected" : ""}>${t}</option>`).join("")}</select><span style="margin-left:auto">${xs.length}枚${sel.length ? "・" + sel.length + "枚を選んでいる" : ""}</span></div>
+    <div class="bsort">並べ方 <select id="bsort">${[["due", "次の復習"], ["ivl", "間隔の長い順"], ["lapses", "忘れた回数"], ["deck", "デッキ"], ["front", "表の文字"]].map(([k, t]) => `<option value="${k}"${V.bsort === k ? " selected" : ""}>${t}</option>`).join("")}</select><span style="margin-left:auto">${xs.length}枚${sel.length ? "・" + sel.length + "枚を選んでいる" : ""}</span>${xs.length ? (sel.length === xs.length ? '<button class="linkx" data-bact="none" style="margin-left:.6rem">選ぶのをやめる</button>' : `<button class="linkx" data-ball style="margin-left:.6rem">全部選ぶ(${xs.length}枚)</button>`) : ""}</div>
     ${sel.length ? `<div class="bact"><button class="btn sm" data-bact="deck">デッキを変える</button><button class="btn ghost sm" data-bact="tag">タグを足す</button><button class="btn ghost sm" data-bact="susp">一時停止の切り替え</button><button class="btn ghost sm" data-bact="flag">旗</button><button class="btn ghost sm" data-bact="reset">新規に戻す</button><button class="btn ghost sm" data-bact="del" style="color:var(--shu)">消す</button><button class="linkx" data-bact="none">選ぶのをやめる</button></div>` : ""}
     <div class="btable">${shown.map(c => { const d = A2.S.decks.get(c.deck), n = A2.S.notes.get(c.nid), nt = A2.S.notetypes.get(n.nt), st = c.susp ? "一時停止" : c.st;
       return `<div class="brow"><input type="checkbox" data-bsel="${c.id}"${V.bsel[c.id] ? " checked" : ""} aria-label="選ぶ"><button data-card="${c.id}" style="border:0;background:none;text-align:left;padding:0"><b>${esc(cardFront(c)) || "(表が空)"}</b><span class="stt s-${st === "復習" ? "習熟" : st === "新規" ? "新規" : "復習中"}">${st}</span>${c.flag ? ` <span class="fl" style="background:${FL[c.flag]}"></span>` : ""}<div class="meta">${esc(d.name)}・${esc(nt ? nt.name : "")}</div></button><span class="due">${c.st === "新規" ? "まだ" : c.dueDay != null ? (c.dueDay - today <= 0 ? "今日" : (c.dueDay - today) + "日後") : "今日"}<br>間隔 ${c.ivl || 0}日</span></div>`; }).join("") || '<p class="note" style="padding:.5rem .7rem;margin:0">見つからない。</p>'}</div>
@@ -364,7 +364,7 @@ function stats(){ const today = A2.today(), sc = V.stScope || "all";
 /* ───── 下から出る画面 ───── */
 function sheetHtml(){ const sh = V.sheet; if (!sh) return ""; const xs = window.exSheet && exSheet(sh); if (xs != null) return xs;
   if (sh.k === "sync") return window.syncSheet ? syncSheet() : "";
-  if (sh.k === "more") return `<h3>その他</h3><div class="mlist">${[["sync", "同期", "スマホ・Chromebook・Mac で同じデータを使う"], ["import", "読み込み", "Ankiの書き出し(.apkg・.colpkg)"], ["backup", "書き出し(控え)", "暗記と演習の全部を1つのファイルに保存する"], ["restore", "控えから戻す", "書き出した控えのファイルから"], ["autobk", "自動の控え", "毎日1回、この端末に取っている控え(7日分)から戻す"], ["check", "データの点検", "おかしなところを探して直す"], ["errlog", "起きた問題の記録", "エラーの内容(直すときの手がかり)"], ["nts", "ノートタイプ", "欄・重複を見る欄・自動で書き換える欄・テンプレート"], ["prefs", "設定", "効果音・音声の自動再生"]].map(([k, t, d]) => `<button data-more="${k}"><b>${t}</b><small>${d}</small></button>`).join("")}</div><p class="note">Anki2 ${APP_VERSION}・カード ${A2.S.cards.size}枚・ノート ${A2.S.notes.size}・記録 ${A2.S.revlog.size}${A2.S.meta.persisted ? "・この端末に保存(消されにくい設定)" : ""}</p>`;
+  if (sh.k === "more") return `<h3>その他</h3><div class="mlist">${[["sync", "同期", "スマホ・Chromebook・Mac で同じデータを使う"], ["import", "読み込み", "Ankiの書き出し(.apkg・.colpkg)"], ["backup", "書き出し(控え)", "暗記と演習の全部を1つのファイルに保存する"], ["restore", "控えから戻す", "書き出した控えのファイルから"], ["autobk", "自動の控え", "毎日1回、この端末に取っている控え(7日分)から戻す"], ["empty", "空のカード", "表に欄の中身が1つも出ないカードを探して消す(ノートは消さない)"], ["check", "データの点検", "おかしなところを探して直す"], ["errlog", "起きた問題の記録", "エラーの内容(直すときの手がかり)"], ["nts", "ノートタイプ", "欄・重複を見る欄・自動で書き換える欄・テンプレート"], ["prefs", "設定", "効果音・音声の自動再生"]].map(([k, t, d]) => `<button data-more="${k}"><b>${t}</b><small>${d}</small></button>`).join("")}</div><p class="note">Anki2 ${APP_VERSION}・カード ${A2.S.cards.size}枚・ノート ${A2.S.notes.size}・記録 ${A2.S.revlog.size}${A2.S.meta.persisted ? "・この端末に保存(消されにくい設定)" : ""}</p>`;
   if (sh.k === "import") return `<h3>Ankiから読み込む</h3><p class="note" style="margin-top:0">Ankiで「書き出す」→「スケジュール情報を含める」「メディアを含める」にして作ったファイルを選ぶ。何度読み込んでも重ならない(同じノート・カードは1つにまとめ、新しいほうを残す。記録は足すだけ)。</p><div class="imp"><label class="btn shu" style="cursor:pointer">ファイルを選ぶ<input type="file" id="imp-file" accept=".apkg,.colpkg,application/zip" hidden></label><div class="steplog" id="imp-log"></div></div>`;
   if (sh.k === "prefs") return `<h3>設定</h3><label class="chk" style="border:0"><input type="checkbox" id="pf-se"${A2.S.meta.se === false ? "" : " checked"}> 効果音を鳴らす</label><label class="chk" style="border:0"><input type="checkbox" id="pf-ap"${A2.S.meta.autoplay === false ? "" : " checked"}> 音声を自動で再生する</label>`;
   if (sh.k === "dopt") { const d = A2.S.decks.get(sh.id), o = Object.assign(A2.defaultOpt(), d.opt || {}); const f = (k, t, v, s) => `<div class="f"><label>${t}</label><input data-opt="${k}" value="${esc(v)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">${s ? `<div class="note">${s}</div>` : ""}</div>`;
@@ -418,9 +418,12 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return ""; const xs = window.
       <h2>そのほか</h2>${row("一時停止", cnt(c => c.susp) + "枚")}${row("延期(今日)", cnt(c => c.bury && c.buryDay === today) + "枚")}${row("Anki2 で復習した回数", "今日 " + rt + "・昨日 " + ry)}${row("最後の同期", A2.S.meta.lastSync ? new Date(A2.S.meta.lastSync).toLocaleString("ja-JP") : "まだ")}
       <p class="note">Anki と数が合わないときは、この画面をそのまま見せてもらえれば、原因が分かる。</p>`; }
   if (sh.k === "today") return todaySheet();
+  if (sh.k === "empty") { const es = A2.emptyCards(), g = new Map(); es.forEach(c => { const n = A2.S.notes.get(c.nid), nt = A2.S.notetypes.get(n.nt), k = nt.name + " › " + ((nt.tmpls[c.ord] || {}).name || "カード " + (c.ord + 1)); (g.get(k) || g.set(k, []).get(k)).push(c); });
+    return `<h3>空のカード</h3><p class="note" style="margin-top:0">表をそのノートの欄で描いたとき、欄の中身が1つも出ないカード(Anki の「空のカード」と同じ決まり)。消すのはカードだけで、ノートは消さない。すべてのカードが空になるノートは、最初の1枚を残す。</p>
+      ${es.length ? [...g.entries()].map(([k, cs]) => `<div class="pkv"><span class="k">${esc(k)}</span><span class="v">${cs.length}枚<br><small class="note">${cs.slice(0, 3).map(c => esc(String(A2.S.notes.get(c.nid).f[A2.S.notetypes.get(A2.S.notes.get(c.nid).nt).fields[0]] || "").replace(/<[^>]*>/g, "").slice(0, 20))).join("・")}${cs.length > 3 ? "…" : ""}</small></span></div>`).join("") + `<div class="row" style="margin-top:.6rem"><button class="btn" data-emptydel style="background:var(--shu)">${es.length}枚を消す</button></div>` : '<p class="note">空のカードは見つからなかった。</p>'}`; }
   if (sh.k === "msg") return `<h3>${esc(sh.t)}</h3><p>${esc(sh.b)}</p>`;
   if (sh.k === "autobk") return `<h3>自動の控え</h3><p class="note" style="margin-top:0">毎日はじめて開いたときに、この端末の中に控えを取っている(7日分)。戻すと、その日の中身に置き換わり、同期しているならほかの端末にも伝わる。</p><div class="mlist" id="bklist"><p class="note" style="padding:.5rem">読み込み中…</p></div>`;
-  if (sh.k === "check") return `<h3>データの点検</h3><div id="chkres" class="note">点検中…</div>`;
+  if (sh.k === "check") return `<h3>データの点検</h3><div id="chkres" class="note">点検中…</div><p class="note">同期の途中だと、届く途中のカードが「ノートがない」と出ることがある。そのときは同期が「同期済み」になってから、もう一度開く。</p>`;
   if (sh.k === "errlog") { const L = A2.S.meta.errors || []; return `<h3>起きた問題の記録</h3>${L.length ? L.slice().reverse().map(x => `<div class="pkv"><span class="k">${new Date(x.t).toLocaleString("ja-JP")}</span><span class="v" style="font-size:.78rem;word-break:break-all">${esc(x.m)}</span></div>`).join("") + '<button class="linkx" data-errclear>記録を消す</button>' : '<p class="note">まだない。</p>'}`; }
   return ""; }
 
@@ -476,8 +479,9 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-todayopen")) { V.sheet = { k: "today" }; render(); return; }
   if (b.hasAttribute("data-errok")) { A2.S.meta.lastErr = null; const eb = $("errbar"); if (eb) eb.remove(); return; }
   if (b.hasAttribute("data-reload")) { location.reload(); return; }
-  if (b.hasAttribute("data-chkfix")) { const p = await A2.check(true); toast(p.length ? "直した:" + p.join("・") : "直すところはなかった"); V.sheet = null; render(); return; }
+  if (b.hasAttribute("data-chkfix")) { if (window.SYNC && SYNC.busy) { toast("同期中は直さない。「同期済み」になってから押してください"); render(); return; } if (!confirm("見つかったところを直す?(ノートのないカードは消える)")) return; const p = await A2.check(true); toast(p.length ? "直した:" + p.join("・") : "直すところはなかった"); V.sheet = null; render(); return; }
   if (b.hasAttribute("data-moreopen")) { V.sheet = { k: "more" }; render(); return; }
+  if (b.hasAttribute("data-emptydel")) { const es = A2.emptyCards(); if (!es.length || !confirm(es.length + "枚の空のカードを消す?(ノートは消さない。自動の控えから戻せる)")) return; await A2.remove("cards", es.map(c => c.id)); V.sheet = null; toast(es.length + "枚の空のカードを消した"); render(); return; }
   if (b.hasAttribute("data-errclear")) { await A2.setMeta("errors", []); render(); return; }
   if (d.bkgo) { const b0 = await A2.getOne("backups", d.bkgo); if (!b0 || !confirm(A2.dayStr(b0.day) + " の控え(カード " + b0.cards + "枚)に戻す?今の中身は、この控えの中身に置き換わる")) return; await A2.restore(JSON.parse(b0.data)); V.sheet = null; toast("戻した"); render(); return; }
   if (d.more) { if (d.more === "backup") { V.sheet = null; doBackup(); return; } if (d.more === "restore") { const i = document.createElement("input"); i.type = "file"; i.accept = ".json"; i.onchange = () => i.files[0] && doRestore(i.files[0]); i.click(); return; } V.sheet = { k: d.more }; render(); return; }
@@ -529,7 +533,10 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (d.card) { V.sheet = { k: "card", id: d.card }; render(); return; }
   if (d.pvside) { V.sheet.back = d.pvside === "裏"; render(); return; }
   if (d.pvnav) { const list = V.blist || [], i = list.indexOf(V.sheet.id) + (+d.pvnav); if (list[i]) { V.sheet = { k: "card", id: list[i], back: V.sheet.back }; render(); } return; }
-  if (d.esave) { const n = A2.S.notes.get(d.esave); Object.assign(n.f, V.sheet.draft || {}); n.tags = ($("ed-tags").value || "").split(/\s+/).filter(Boolean); n.mod = Date.now(); await A2.save("notes", [n]); V.sheet = null; se("add"); toast("直した"); if (V.rv && rvFrameEl) { rvFrameEl.dataset.k = ""; } render(); return; }
+  if (d.esave) { const n = A2.S.notes.get(d.esave); Object.assign(n.f, V.sheet.draft || {}); n.tags = ($("ed-tags").value || "").split(/\s+/).filter(Boolean); n.mod = Date.now(); await A2.save("notes", [n]);
+    { const nt = A2.S.notetypes.get(n.nt), mine = [...A2.S.cards.values()].filter(c => c.nid === n.id), have = new Set(mine.map(c => c.ord)), add = A2.genOrds(n, nt).filter(o => !have.has(o));
+      if (add.length && mine.length) { let pos = Math.max(0, ...[...A2.S.cards.values()].map(c => c.pos || 0)) + 1; await A2.save("cards", add.map(o => ({ id: "c" + Date.now() + "_" + o + Math.floor(Math.random() * 1000), nid: n.id, deck: mine[0].deck, ord: o, st: "新規", pos: pos++, ivl: 0, reps: 0, lapses: 0, flag: 0 }))); toast("欄が増えたので、カードを " + add.length + "枚足した"); } } V.sheet = null; se("add"); toast("直した"); if (V.rv && rvFrameEl) { rvFrameEl.dataset.k = ""; } render(); return; }
+  if (b.hasAttribute("data-ball")) { V.bsel = {}; (V.blist || []).forEach(id => V.bsel[id] = true); render(); return; }
   if (d.bchip) { V.bf = V.bf || { chips: {} }; V.bf.chips = V.bf.chips || {}; V.bf.chips[d.bchip] = !V.bf.chips[d.bchip]; V.bsel = {}; render(); return; }
   if (b.hasAttribute("data-bfclear")) { V.bf = { chips: {} }; V.bq = ""; render(); return; }
   if (b.hasAttribute("data-bmore")) { V.bmax = (V.bmax || 200) + 400; render(); return; }
@@ -606,7 +613,9 @@ window.addEventListener("unhandledrejection", e => logErr("(非同期) " + ((e.r
 async function boot(){ shownDay = null; const vers = { core: (window.A2 || {}).VER, app: APP_VERSION, ex: window.APP_VER_EX, sync: window.APP_VER_SYNC };
   if (Object.values(vers).some(v => v !== APP_VERSION)) { $("app").innerHTML = `<p class="notice">ファイルの版がそろっていない(${Object.entries(vers).map(([k, v]) => k + ":" + (v || "なし")).join("・")})。置き換えの途中かもしれないので、少し待ってから再読み込みしてください。データはそのまま残っている。</p><button class="btn" data-reload>再読み込み</button>`; return; }
   try { await A2.open(); await A2.loadAll(); } catch (e) { $("app").innerHTML = '<p class="notice">この端末のブラウザに保存できない:' + esc(e.message) + "</p>"; return; } render();
-  setTimeout(async () => { try { await pruneSubjects(); await A2.autoBackup(); const p = await A2.check(true); if (p.length) { toast("データを点検して直した:" + p.join("・")); render(); } } catch (e) { logErr(e.message); } }, 3000);
+  /* 開いたときの点検は、知らせるだけで、何も変えない(同期の途中だと、届く途中のカードを消してしまうため) */
+  setTimeout(async () => { try { await pruneSubjects(); await A2.autoBackup(); } catch (e) { logErr(e.message); } }, 3000);
+  setTimeout(async () => { try { if (window.SYNC && SYNC.busy) return; const p = await A2.check(false); if (p.length) { toast("データの点検で気になるところがある(その他 › データの点検)"); render(); } } catch (e) { logErr(e.message); } }, 60000);
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {}); }
 /* 全部のファイルを読み終えてから始める(版がそろっているかを確かめるため) */
 let booted = false; const boot1 = () => { if (!booted) { booted = true; boot(); } };
