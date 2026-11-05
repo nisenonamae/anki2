@@ -721,7 +721,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.34";
+A2.VER = "r4.35";
 window.A2 = A2;
 
 </script>
@@ -729,7 +729,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.34"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.35"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -949,8 +949,9 @@ async function answer(k){ const r = V.rv, c = rvCur(); if (!c) return; const now
   rl.src = "a2"; if (r.px) rl.x = Object.assign({}, r.px); if (r.pSec) { rl.x = Object.assign(rl.x || {}, { shownSec: Math.round(sec) }); rl.ms = Math.round(r.pSec * 1000); } snap.px = r.px; snap.pSec = r.pSec; snap.sug = r.sug; r.px = null; r.pSec = null; r.sug = null;
   Object.values(nt.auto || {}).forEach(r0 => { const [rr, arg] = String(r0 || "").split("|"); if (rr === "pagelog") { const v = pageValue(arg).replace(/^[\s,、]+/, ""); if (v) rl.x = Object.assign(rl.x || {}, { page: v }); } });
   snap.rl = rl.id; r.hist.push(snap);
-  await A2.save("cards", [c].concat(snap.sibs.map(x => A2.S.cards.get(x.id)))); await A2.save("notes", [note]); await A2.save("revlog", [rl]);
-  r.answered.add(c.id); if (r.curMain) r.mi++; r.cur = null; r.done++; r.back = false; se("g" + k); rvEnsure(); if (!r.cur && !r.wait) se("done"); render(); }
+  const saving = Promise.all([A2.save("cards", [c].concat(snap.sibs.map(x => A2.S.cards.get(x.id)))), A2.save("notes", [note]), A2.save("revlog", [rl])]);
+  r.answered.add(c.id); if (r.curMain) r.mi++; r.cur = null; r.done++; r.back = false; se("g" + k); rvEnsure(); if (!r.cur && !r.wait) se("done"); render();
+  saving.catch(e => logErr("保存:" + (e && e.message || e))); }
 async function undo(){ const r = V.rv, h = r && r.hist.pop(); if (!h) return; const c = A2.S.cards.get(h.c.id), note = A2.S.notes.get(c.nid); if (rvFrameEl) rvFrameEl.dataset.k = "";
   Object.keys(c).forEach(k => { if (!(k in h.c)) delete c[k]; }); Object.assign(c, h.c); note.f = h.f; h.sibs.forEach(s => A2.S.cards.set(s.id, s));
   r.px = h.px || null; r.pSec = h.pSec || null; r.sug = h.sug || null; r.answered.delete(c.id); r.mi = h.mi; r.cur = h.cur; r.curMain = h.curMain; r.wait = null; r.done = h.done; r.again = h.again; r.back = true; r.cardT0 = Date.now();
@@ -964,10 +965,10 @@ function voiceStart(){ const SR = window.SpeechRecognition || window.webkitSpeec
       const alts = [...Array(res.length)].map((_, k) => res[k].transcript.trim()).filter(Boolean); if (!alts.length) continue; VOICE.last = alts[0]; VOICE.heard = Date.now();
       if (VOICE.finalKey === key) { VOICE.fired = null; VOICE.finalKey = null; }   // 確定したあとに同じ番号で来たら、それは次の発言(Android はこうなる)
       if (VOICE.fired === key) { if (res.isFinal) VOICE.finalKey = key; continue; }
-      const hit = alts.map(voiceMatch).find(Boolean); if (hit && VOICE.lastText === vnorm(alts[0]) && Date.now() - (VOICE.lastAt || 0) < 3000) { VOICE.fired = key; if (res.isFinal) VOICE.finalKey = key; continue; }   // 同じ言葉が遅れて届いたものは無視
+      const hit = alts.map(voiceMatch).find(Boolean); if (hit && VOICE.lastText === vnorm(alts[0]) && Date.now() - (VOICE.lastAt || 0) < 700) { VOICE.fired = key; if (res.isFinal) VOICE.finalKey = key; continue; }   // 同じ言葉が遅れて届いたものは無視
       clearTimeout(VOICE.wait); const txt = vnorm(alts[0]);
       if (hit && res.isFinal) { VOICE.lastText = txt; VOICE.fired = key; VOICE.finalKey = key; voiceDo(hit); }
-      else if (hit) { VOICE.wait = setTimeout(() => { if (VOICE.fired === key) return; VOICE.lastText = txt; VOICE.fired = key; voiceDo(hit); }, voiceWhole() ? 400 : 0); paintVoice(); }   // 続きの言葉が来たら取り消す
+      else if (hit) { VOICE.lastText = txt; VOICE.fired = key; voiceDo(hit); }   // 聞こえた瞬間に動く(待たない)
       else if (res.isFinal) { VOICE.finalKey = key; render(); } else paintVoice(); } };
   rr.onstart = () => { VOICE.sess = (VOICE.sess || 0) + 1; };
   rr.onend = () => { if (!VOICE.on) return; if (!V.rv || Date.now() - (VOICE.heard || VOICE.since) > 60000) { VOICE.idle = true; VOICE.on = false; VOICE.rec = null; render(); return; } try { rr.start(); } catch (e) {} };   // 1分なにも聞こえなければ休む
@@ -987,7 +988,7 @@ function voiceMatch(t){ const s = vnorm(t), W = voiceWords(); if (!s) return nul
 /* 聞こえている文字を、その場で書き換える(画面全体は描き直さない) */
 function paintVoice(){ const el = document.querySelector(".vstat b.vheard"); if (el) el.textContent = "聞こえている「" + (VOICE.last || "") + "」"; else { const v = document.querySelector(".vstat"); if (v) { const b = document.createElement("b"); b.className = "vheard"; b.textContent = "聞こえている「" + (VOICE.last || "") + "」"; v.appendChild(b); } } }
 function voiceDo(cmd){ const r = V.rv; if (!r || !rvCur()) { render(); return; }
-  const now = Date.now(); if (now - (VOICE.lastAt || 0) < 1500) return; VOICE.lastAt = now;
+  const now = Date.now(); if (now - (VOICE.lastAt || 0) < 700) return; VOICE.lastAt = now;   // 同じ発言が遅れて届くのは1秒もかからない。続けて答えても邪魔しない長さ
   if (cmd === "end") { endStudy(); return; } if (cmd === "undo") { undo(); return; }
   if (cmd === "face") { if (r.back) { r.back = false; se("flip"); render(); } return; }
   if (cmd === "show") { if (!r.back) { r.back = true; se("flip"); render(); } return; }
@@ -1426,7 +1427,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.34";
+window.APP_VER_EX = "r4.35";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -1661,7 +1662,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.34";
+window.APP_VER_SYNC = "r4.35";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
