@@ -312,3 +312,5 @@ pre.mermaid{background:#fff;text-align:center}pre.mermaid svg{max-width:100%;hei
 .bfchips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:700}
 details.syn summary{cursor:pointer;color:var(--wave)}
 .stscope{display:flex;gap:.4rem;margin:0 0 .6rem}.stscope select{flex:1;padding:.35rem .45rem;border:1px solid var(--rule);border-radius:6px;background:var(--white)}.stscope select#st-days{flex:0 0 6.5rem}
+
+.ans.sug{outline:3px solid var(--wave);outline-offset:2px;transform:translateY(-2px);box-shadow:0 4px 10px rgba(0,0,0,.12)}
