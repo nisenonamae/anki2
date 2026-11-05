@@ -670,7 +670,7 @@ A2.cleanupRevived = async () => { const hit = await A2.findRevivedAll(), del = {
   let n = 0; const tombs = A2.S.meta.tombs || {};
   for (const st of ["cards", "notes", "decks", "notetypes", "exsub", "subjects"]) { const ids = del[st] || []; if (!ids.length) continue; ids.forEach(id => { if (tombs[st]) delete tombs[st][id]; }); await A2.remove(st, ids, { why: "戻ってしまったもの(指示どおり自動で消した)" }); n += ids.length; }
   return { n, del }; };
-A2.VER = "r4.23";
+A2.VER = "r4.24";
 window.A2 = A2;
 
 </script>
@@ -678,7 +678,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.23"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.24"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1040,7 +1040,16 @@ function stats(){ const today = A2.today(), sc = V.stScope || "all";
     <div class="chart"><h4>予測は当たっているか<small>自分の復習の記録から</small></h4>${cal.length >= 2 ? lineChart([{ pts: [[.6, .6], [1, 1]], c: "var(--rule)", dash: "4 3", w: 1.5 }, { pts: cal, c: "var(--ok)", dots: true }], { xmax: 1, ymin: .55, ymax: 1, yt: [.6, .7, .8, .9, 1], xt: [[.6, "予測 60%"], [.8, "80%"], [1, "100%"]] }) + '<p class="note" style="margin:.2rem 0 0">点が点線に近いほど、FSRSの予測が当たっている。</p>' : '<p class="note">まだ記録が少ないので描けない(復習の記録つきで読み込むか、しばらく使うと出る)。</p>'}</div>`; }
 
 /* ───── 下から出る画面 ───── */
-function sheetHtml(){ const sh = V.sheet; if (!sh) return ""; const xs = window.exSheet && exSheet(sh); if (xs != null) return xs;
+/* 開いている画面の対象が、同期や片づけで消えていたら、エラーにせずに閉じて知らせる */
+function sheetTargetGone(sh){ const need = { subedit: "subjects", dopt: "decks", card: "cards", info: "cards", rvmore: "cards", nt: "notetypes", ntpaste: "notetypes" }[sh.k];
+  if (need && sh.id && !A2.S[need].has(sh.id)) return true;
+  if ((sh.k === "card" || sh.k === "info" || sh.k === "rvmore") && sh.id) { const c = A2.S.cards.get(sh.id), n = c && A2.S.notes.get(c.nid); if (!n || !A2.S.notetypes.get(n.nt)) return true; }
+  if (sh.k === "newdeck" && sh.sid && !A2.S.subjects.has(sh.sid)) return true;
+  if (/^x-/.test(sh.k) && typeof EXV !== "undefined" && EXV.sub && !A2.S.subjects.has(EXV.sub)) return true;
+  return false; }
+function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
+  if (sheetTargetGone(sh)) { V.sheet = null; setTimeout(() => { toast("開いていたものは、もうない(同期か片づけで消えた)"); render(); }, 0); return ""; }
+  const xs = window.exSheet && exSheet(sh); if (xs != null) return xs;
   if (sh.k === "sync") return window.syncSheet ? syncSheet() : "";
   if (sh.k === "held") return window.heldSheet ? heldSheet() : "";
   if (sh.k === "more") return `<h3>その他</h3><div class="mlist">${[["sync", "同期", "スマホ・Chromebook・Mac で同じデータを使う"], ["import", "読み込み", "Ankiの書き出し(.apkg・.colpkg)"], ["backup", "書き出し(控え)", "暗記と演習の全部を1つのファイルに保存する"], ["restore", "控えから戻す", "書き出した控えのファイルから"], ["trash", "ごみ箱", "消したもの・ほかの端末で消したもの(30日残る)"], ["revived", "復活したもの", "まとめて戻したもの・前に消したのに戻ってきたものを、もう一度消す"], ["autobk", "自動の控え", "毎日1回、この端末に取っている控え(7日分)。消えたものだけ戻せる"], ["empty", "空のカード", "表に欄の中身が1つも出ないカードを探して消す(ノートは消さない)"], ["check", "データの点検", "おかしなところを探して直す"], ["errlog", "起きた問題の記録", "エラーの内容(直すときの手がかり)"], ["nts", "ノートタイプ", "欄・重複を見る欄・自動で書き換える欄・テンプレート"], ["prefs", "設定", "効果音・音声の自動再生"]].map(([k, t, d]) => `<button data-more="${k}"><b>${t}</b><small>${d}</small></button>`).join("")}</div><p class="note">Anki2 ${APP_VERSION}・カード ${A2.S.cards.size}枚・ノート ${A2.S.notes.size}・記録 ${A2.S.revlog.size}${A2.S.meta.persisted ? "・この端末に保存(消されにくい設定)" : ""}</p>`;
@@ -1127,7 +1136,8 @@ function render(){ shownDay = A2.today(); const y = window.scrollY, exFull = V.m
   afterRender(y); }
 function afterRender(y){ const old = $("sheetwrap");
   if (V.sheet) { const keep = old && old.dataset.k === V.sheet.k + "|" + (V.sheet.id || "") + "|" + (V.sheet.back ? 1 : 0) + "|" + (V.sheet.ti || 0) + (V.sheet.side || "") && V.sheet.k === "card";
-    if (!keep) { if (old) old.remove(); const w = document.createElement("div"); w.id = "sheetwrap"; w.dataset.k = V.sheet.k + "|" + (V.sheet.id || "") + "|" + (V.sheet.back ? 1 : 0) + "|" + (V.sheet.ti || 0) + (V.sheet.side || ""); w.innerHTML = `<div class="sheetbg" data-x></div><div class="sheet${V.sheet.k === "card" ? " wide" : ""}"><button class="close" data-x>閉じる</button>${sheetHtml()}</div>`; document.body.appendChild(w);
+    const html0 = sheetHtml(); if (!V.sheet) { if (old) old.remove(); } else
+    if (!keep) { if (old) old.remove(); const w = document.createElement("div"); w.id = "sheetwrap"; w.dataset.k = V.sheet.k + "|" + (V.sheet.id || "") + "|" + (V.sheet.back ? 1 : 0) + "|" + (V.sheet.ti || 0) + (V.sheet.side || ""); w.innerHTML = `<div class="sheetbg" data-x></div><div class="sheet${V.sheet.k === "card" ? " wide" : ""}"><button class="close" data-x>閉じる</button>${html0}</div>`; document.body.appendChild(w);
       if (V.sheet.k === "card") { const c = A2.S.cards.get(V.sheet.id); showInFrame($("pv-frame"), c, !!V.sheet.back, V.sheet.draft); } } }
   else if (old) old.remove();
   if (V.toast) { const t = document.createElement("div"); t.className = "toast"; t.textContent = V.toast; document.body.appendChild(t); setTimeout(() => t.remove(), 2000); V.toast = ""; }
@@ -1323,7 +1333,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.23";
+window.APP_VER_EX = "r4.24";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -1558,7 +1568,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.23";
+window.APP_VER_SYNC = "r4.24";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
