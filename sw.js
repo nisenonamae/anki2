@@ -1,5 +1,5 @@
-/* Anki2 r4.14:電波がなくても開けるように、アプリと部品をとっておく */
-const CACHE = "anki2-r4.14";
+/* Anki2 r4.15:電波がなくても開けるように、アプリと部品をとっておく */
+const CACHE = "anki2-r4.15";
 const FILES = ["./", "index.html", "style.css", "core.js", "app.js", "exercise.js", "sync.js", "manifest.webmanifest",
   "https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js", "https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.wasm",
   "https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js", "https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js", "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"];
