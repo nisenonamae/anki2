@@ -189,19 +189,45 @@ A2.queue = (prefix, filter) => { const ids = new Set(A2.deckIds(prefix)), now = 
 
 /* ───── カードを描く(Ankiと同じ決まり) ───── */
 A2.emptyField = v => /^(?:\s|<\/?(?:br|div)\s?\/?>)*$/i.test(String(v == null ? "" : v));
-A2.renderTmpl = (tmpl, note, nt, ord, back, front) => {
-  const F = note.f, sec = str => { const re = /\{\{([#^])([^}]+)\}\}([\s\S]*?)\{\{\/\2\}\}/; let m; while ((m = re.exec(str))) { const key = m[2].trim(); let has = !A2.emptyField(F[key]); if (key === "Tags") has = note.tags.length > 0; const keep = m[1] === "#" ? has : !has; str = str.slice(0, m.index) + (keep ? sec(m[3]) : "") + str.slice(m.index + m[0].length); } return str; };
-  let s = sec(tmpl).replace(/\{\{FrontSide\}\}/g, front || "");
-  return s.replace(/\{\{([^}#/^]+)\}\}/g, (all, key) => { key = key.trim(); if (/^A2:/.test(key)) return F[key] != null ? String(F[key]) : ""; const parts = key.split(":"), name = parts.pop(), filters = parts;
-    if (name === "Tags") return note.tags.join(" "); if (name === "Deck") return ""; if (name === "Card") return (nt.tmpls[Math.min(ord, nt.tmpls.length - 1)] || {}).name || ""; if (name === "Type") return nt.name;
+/* ───── テンプレートを読む(Anki と同じ決まり) ─────
+   ・{{#欄}}…{{/欄}}(中身があるとき)、{{^欄}}…{{/欄}}(空のとき)。入れ子も、同じ名前の入れ子も、内側から正しく組にする
+   ・名前の前後の空白、{{ }} の中にエディタが入れた HTML は無視する
+   ・text: / tts …: / cloze: / type: / hint: / furigana: / kana: / kanji: を扱う
+   ・ノートタイプにない欄、閉じ忘れ・閉じすぎ・組にならない閉じは、{{ }} の文字を画面に出さない
+   ・nonEmpty:中身のある欄を1つでも表示したか(Anki はこれでカードを作るか決める。決まった文字や HTML だけなら作らない) */
+const SPECIAL = new Set(["FrontSide", "Tags", "Deck", "Subdeck", "Card", "CardFlag", "Type"]);
+A2.parseTmpl = tmpl => { const t = String(tmpl || ""), root = { kids: [] }, stack = [root], re = /\{\{([\s\S]*?)\}\}/g; let last = 0, m;
+  const top = () => stack[stack.length - 1];
+  while ((m = re.exec(t))) { if (m.index > last) top().kids.push({ text: t.slice(last, m.index) });
+    const inner = m[1].replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+    if (/^[#^]/.test(inner)) { const node = { sec: inner[0], name: inner.slice(1).trim(), kids: [] }; top().kids.push(node); stack.push(node); }
+    else if (inner[0] === "/") { const name = inner.slice(1).trim(); let k = stack.length - 1; while (k > 0 && stack[k].name !== name) k--; if (k > 0) stack.length = k; }   // いちばん近い同じ名前の開きと組にする。組にならない閉じは捨てる
+    else if (inner[0] !== "!" && inner) top().kids.push({ v: inner });
+    last = re.lastIndex; }
+  if (last < t.length) top().kids.push({ text: t.slice(last) }); return root; };
+const tmplCache = new Map();
+A2.tmplInfo = (tmpl, note, nt, ord, back, front) => { let tree = tmplCache.get(tmpl); if (!tree) { tree = A2.parseTmpl(tmpl); if (tmplCache.size > 200) tmplCache.clear(); tmplCache.set(tmpl, tree); }
+  const F = note.f || {}, fields = new Set(nt.fields || []), ctx = { nonEmpty: false };
+  const has = name => { if (name === "Tags") return (note.tags || []).length > 0; if (SPECIAL.has(name)) return true; return !A2.emptyField(F[name]); };
+  const val = inner => { if (/^A2:/.test(inner)) return F[inner] != null ? String(F[inner]) : "";
+    const parts = inner.split(":"), name = parts.pop().trim(), filters = parts.map(x => x.trim().split(/\s+/)[0]);
+    if (name === "FrontSide") return back ? (front || "") : ""; if (name === "Tags") return (note.tags || []).join(" ");
+    if (name === "Deck" || name === "Subdeck" || name === "CardFlag") return ""; if (name === "Card") return (nt.tmpls[Math.min(ord, nt.tmpls.length - 1)] || {}).name || ""; if (name === "Type") return nt.name;
+    if (!fields.has(name) && F[name] == null) return "";   // ノートタイプにない欄は、何も出さない
     let v = F[name] != null ? String(F[name]) : "";
-    if (filters.includes("cloze")) { const c = ord + 1; v = v.replace(/\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g, (m, k, ans, hint) => +k === c ? (back ? `<span class="cloze">${ans}</span>` : `<span class="cloze">[${hint || "..."}]</span>`) : ans); }
+    if (filters.includes("cloze")) { const c = ord + 1; if (A2.clozeNums(v).includes(c)) ctx.nonEmpty = true;
+      return v.replace(/\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g, (mm, k, ans, hint) => +k === c ? (back ? `<span class="cloze">${ans}</span>` : `<span class="cloze">[${hint || "..."}]</span>`) : ans); }
+    if (!A2.emptyField(v) && fields.has(name)) ctx.nonEmpty = true;
     if (filters.includes("text")) v = v.replace(/<[^>]*>/g, "");
+    if (filters.includes("kanji")) v = v.replace(/\[[^\]]*\]/g, ""); if (filters.includes("kana")) v = v.replace(/([^\s\[\]]+)\[([^\]]*)\]/g, "$2");
+    if (filters.includes("furigana")) v = v.replace(/ ?([^\s\[\]<>]+)\[([^\]]*)\]/g, "<ruby><rb>$1</rb><rt>$2</rt></ruby>");
     if (filters.includes("hint")) v = A2.emptyField(v) ? "" : `<a class="hint" href="#" onclick="this.style.display='none';this.nextElementSibling.style.display='inline';return false;">${name}</a><span class="hint" style="display:none">${v}</span>`;
     if (filters.includes("type")) v = back ? `<div class="typed-ans">${v}</div>` : `<input class="typeans" id="typeans" autocomplete="off">`;
-    if (filters.some(f => /^tts/.test(f))) v = `<span class="tts" data-tts="${v.replace(/<[^>]*>/g, "").replace(/"/g, "")}">🔊</span>`;
-    return v; });
-};
+    if (filters.includes("tts")) v = `<span class="tts" data-tts="${v.replace(/<[^>]*>/g, "").replace(/"/g, "")}">🔊</span>`;
+    return v; };
+  const walk = node => node.kids.map(k => k.text != null ? k.text : k.v != null ? val(k.v) : ((k.sec === "#") === has(k.name) ? walk(k) : "")).join("");
+  return { html: walk(tree), nonEmpty: ctx.nonEmpty }; };
+A2.renderTmpl = (tmpl, note, nt, ord, back, front) => A2.tmplInfo(tmpl, note, nt, ord, back, front).html;
 /* 復習の記録から作る欄(表示のときだけ):ノートタイプの calc で決めた欄と、{{A2:…}} */
 /* カードごとの復習の記録(何万件あっても速いように、カードごとにまとめておく。記録が増えたら作り直す) */
 A2._rbc = null; A2._rbcKey = "";
@@ -224,8 +250,13 @@ A2.cardHtml = (card, back, fOver) => { const n0 = A2.S.notes.get(card.nid); if (
 A2.soundTags = html => String(html).replace(/\[sound:([^\]]+)\]/g, (m, f) => `<button class="a2-snd" data-snd="${f.replace(/"/g, "")}" type="button">▶</button>`);
 /* カードを作る(ノートから):テンプレートの表が空なら作らない。穴埋めは c1, c2… ごと */
 A2.clozeNums = text => [...new Set([...String(text).matchAll(/\{\{c(\d+)::/g)].map(m => +m[1]))].sort((a, b) => a - b);
-A2.genOrds = (note, nt) => { if (nt.use === "演習") return []; if (nt.cloze) { const field = (/\{\{cloze:([^}]+)\}\}/.exec(nt.tmpls[0].q) || [])[1]; return A2.clozeNums(note.f[field ? field.trim() : nt.fields[0]] || "").map(c => c - 1); }
-  return nt.tmpls.map((t, i) => i).filter(i => String(A2.renderTmpl(nt.tmpls[i].q, note, nt, i, false)).replace(/<[^>]*>/g, "").trim() || /<(img|svg|audio|video|iframe)/i.test(A2.renderTmpl(nt.tmpls[i].q, note, nt, i, false))); };
+/* カードを作るか:表を描いたとき、中身のある欄を1つでも表示するなら作る(Anki と同じ)。穴埋めは c1, c2… ごと */
+A2.genOrds = (note, nt) => { if (nt.use === "演習") return []; if (nt.cloze) { const field = (/\{\{\s*cloze:([^}]+)\}\}/.exec(nt.tmpls[0].q) || [])[1]; return A2.clozeNums(note.f[field ? field.trim() : nt.fields[0]] || "").map(c => c - 1); }
+  return nt.tmpls.map((t, i) => i).filter(i => A2.tmplInfo(nt.tmpls[i].q, note, nt, i, false).nonEmpty); };
+/* 空のカード:今の決まりで作られないはずのカード。ノートは消さず、すべてのカードが空になるノートは最初の1枚を残す(Anki と同じ) */
+A2.emptyCards = () => { const byNote = new Map(); for (const c of A2.S.cards.values()) (byNote.get(c.nid) || byNote.set(c.nid, []).get(c.nid)).push(c);
+  const out = []; byNote.forEach((cs, nid) => { const n = A2.S.notes.get(nid), nt = n && A2.S.notetypes.get(n.nt); if (!nt || nt.use === "演習") return; const ok = new Set(A2.genOrds(n, nt));
+    const empty = cs.filter(c => !ok.has(c.ord)); if (!empty.length) return; if (empty.length === cs.length) empty.sort((a, b) => a.ord - b.ord).shift(); out.push(...empty); }); return out; };
 /* 重複:ノートタイプの「重複を見る欄」がぜんぶ同じ */
 A2.dupKeys = nt => (nt.dupKeys && nt.dupKeys.length ? nt.dupKeys : [nt.fields[0]]);
 A2.norm = v => String(v || "").replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
@@ -246,5 +277,5 @@ A2.autoBackup = async () => { const day = A2.today(); if (A2.S.meta.lastBackupDa
   await A2.put("backups", [{ id: "b" + day, day, at: Date.now(), cards: A2.S.cards.size, data: JSON.stringify(A2.snapshot()) }]); const old = list.sort((a, b) => b.day - a.day).slice(6); if (old.length) await A2.del("backups", old.map(b => b.id)); await A2.setMeta("lastBackupDay", day); };
 /* 控えの中身に戻す(消した印は作らない。戻した中身は新しい変更として同期される) */
 A2.restore = async data => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub"]) { const keep = new Set((data[n] || []).map(x => x.id)); await A2.remove(n, [...A2.S[n].keys()].filter(id => !keep.has(id)), { noTomb: false }); await A2.save(n, data[n] || []); } };
-A2.VER = "r4.16";
+A2.VER = "r4.19";
 window.A2 = A2;
