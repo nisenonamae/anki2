@@ -521,10 +521,11 @@ const fac = W => Math.pow(0.9, -1 / W[20]) - 1;
 A2.R = (t, S, W) => { W = W || A2.W6; return Math.pow(1 + fac(W) * t / S, -W[20]); };
 A2.I = (S, r, W) => { W = W || A2.W6; return S / fac(W) * (Math.pow(r, -1 / W[20]) - 1); };
 const clampD = x => Math.min(10, Math.max(1, x)), fD0 = (G, W) => clampD(W[4] - Math.exp(W[5] * (G - 1)) + 1), fS0 = (G, W) => Math.max(0.001, W[G - 1]);
-const fDn = (D, G, W) => clampD(W[7] * fD0(4, W) + (1 - W[7]) * (D + (-W[6] * (G - 3)) * (10 - D) / 9));
+const fD0raw = (G, W) => W[4] - Math.exp(W[5] * (G - 1)) + 1;   // 公式と同じく、引き戻す先は切り詰めない値
+const fDn = (D, G, W) => clampD(W[7] * fD0raw(4, W) + (1 - W[7]) * (D + (-W[6] * (G - 3)) * (10 - D) / 9));
 const fSr = (D, S, r, G, W) => S * (Math.exp(W[8]) * (11 - D) * Math.pow(S, -W[9]) * (Math.exp(W[10] * (1 - r)) - 1) * (G === 2 ? W[15] : 1) * (G === 4 ? W[16] : 1) + 1);
 const fSf = (D, S, r, W) => Math.min(S / Math.exp(W[17] * W[18]), W[11] * Math.pow(D, -W[12]) * (Math.pow(S + 1, W[13]) - 1) * Math.exp(W[14] * (1 - r)));
-const fSs = (S, G, W) => { const v = S * Math.exp(W[17] * (G - 3 + W[18])) * Math.pow(S, -W[19]); return G >= 3 ? Math.max(v, S) : v; };
+const fSs = (S, G, W) => { let inc = Math.exp(W[17] * (G - 3 + W[18])) * Math.pow(S, -W[19]); if (G >= 2) inc = Math.max(inc, 1); return Math.max(0.001, S * inc); };   // 公式と同じく、難しい・正解・簡単では下がらない
 /* 復習の記録から、覚え具合を計算し直す(同じ日のうちは短期の式) */
 A2.replay = (revs, W) => { W = W || A2.W6; let S = null, D = null, last = null; revs.filter(r => r.g >= 1 && r.g <= 4 && r.kind !== 4).sort((a, b) => a.t - b.t).forEach(r => { const day = A2.dayOf(r.t);
     if (S == null) { S = fS0(r.g, W); D = fD0(r.g, W); } else if (day === last) { S = fSs(S, r.g, W); D = fDn(D, r.g, W); } else { const t = day - last, R = A2.R(t, S, W); S = r.g === 1 ? fSf(D, S, R, W) : fSr(D, S, R, r.g, W); D = fDn(D, r.g, W); }
@@ -721,7 +722,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.36";
+A2.VER = "r4.37";
 window.A2 = A2;
 
 </script>
@@ -729,7 +730,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.36"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.37"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1435,7 +1436,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.36";
+window.APP_VER_EX = "r4.37";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -1670,7 +1671,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.36";
+window.APP_VER_SYNC = "r4.37";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
