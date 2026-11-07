@@ -389,6 +389,7 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .stged input,.stged select,.card select[data-ntstage],select[data-cstage]{font:inherit;padding:.35rem .5rem;border:1px solid var(--rule);border-radius:4px;background:var(--white);width:100%}
 .stgedit{border:1px solid var(--rule);border-radius:8px;padding:.5rem .6rem;display:flex;flex-direction:column;gap:.4rem;background:var(--white)}.stgedit.fin{border-color:color-mix(in srgb,var(--wave) 45%,transparent);background:var(--wave-soft)}
 .stghead{display:flex;align-items:center;gap:.5rem}.stghead .no{display:inline-flex;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--ink);color:var(--paper);align-items:center;justify-content:center;font-weight:700;font-size:.85rem}.stgedit.fin .stghead .no{background:var(--wave)}
+.stgtm select{font:inherit;padding:.25rem .4rem;border:1px solid var(--rule);border-radius:4px;background:var(--white);max-width:60%}
 .stggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem}.stggrid .wide{grid-column:1/-1}.stggrid .f label,.stgrow2 .f label{font-size:.72rem;color:var(--sub)}
 
 .aichunks{display:flex;flex-wrap:wrap;gap:.4rem}.aichunks .btn{display:flex;flex-direction:column;align-items:flex-start;gap:0}.aichunks .btn small{font-weight:400;font-size:.7rem;opacity:.8}
@@ -608,8 +609,9 @@ A2.fmtWait = m => m < 60 ? Math.round(m) + "分" : m < 1440 ? Math.round(m / 60)
    ・最後の段階を初めてクリアしたら、記録に「ここから数え直す」印(kind 4, x.stage "reset")を残し、新しいカードの「正解」としてFSRSを0から始める */
 A2.STAGE_AGAIN_MS = 90e3;   // 今日のうちにもう一度:少しあと(この時間がたったら、ほかのカードのあいだに出る)
 A2.stageTypes = () => [...A2.S.stages.values()].sort((a, b) => (a.ord || 0) - (b.ord || 0) || String(a.name).localeCompare(String(b.name), "ja"));
-A2.stageTypeOf = c => { if (!c || c.sgo === "none") return null; if (c.sgo) return A2.S.stages.get(c.sgo) || null;
-  const n = A2.S.notes.get(c.nid), nt = n && A2.S.notetypes.get(n.nt); return nt && nt.stageType ? (A2.S.stages.get(nt.stageType) || null) : null; };
+A2.stageDefaultOf = c => { const n = c && A2.S.notes.get(c.nid), nt = n && A2.S.notetypes.get(n.nt); if (!nt) return null; const tm = (nt.tmpls || [])[c.ord];
+  const id = tm && tm.stage ? (tm.stage === "none" ? "" : tm.stage) : nt.stageType; return id ? (A2.S.stages.get(id) || null) : null; };   // カードの種類ごとの既定 → ノートタイプの既定
+A2.stageTypeOf = c => { if (!c || c.sgo === "none") return null; if (c.sgo) return A2.S.stages.get(c.sgo) || null; return A2.stageDefaultOf(c); };
 // 今、段階を踏んでいるか(新しいカードと、段階の途中のカード。FSRSに渡したあとのカードは、自分で戻さない限り段階には入らない)
 A2.stageOf = c => { if (!c || (c.st !== "新規" && c.st !== "段階")) return null; const t = A2.stageTypeOf(c); if (!t || !(t.stages || []).length) return null;
   const sg = c.sg || {}, last = t.stages.length - 1, i = Math.max(0, Math.min(+sg.i || 0, last)), today = A2.today(), reps = sg.rday === today ? (sg.reps || 0) : 0;
@@ -815,7 +817,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.42";
+A2.VER = "r4.43";
 window.A2 = A2;
 
 </script>
@@ -823,7 +825,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.42"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.43"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1333,12 +1335,12 @@ function stageSheet(sh){ const list = A2.stageTypes(); if (!sh.sel || !A2.S.stag
       最初の段階は届くまで今日のうちに繰り返す(上限まで)。中間で届かなかったら今日のうちにもう一度、1つ前にも届かなかったら1つ下へ。上がれるのは1日1段階まで、下がった日はその日のうちに元へ戻らない。<br>
       使っている所:${u.nts.length ? u.nts.map(n => esc(n.name)).join("、") + "(既定)" : "ノートタイプの既定にはなっていない"}${u.cards ? "・カードごとの設定 " + u.cards + "枚" : ""}。ノートタイプの既定は、その他 › ノートタイプ で選ぶ。</div></div>`; }
 /* カードの段階(このカードだけ変える・段階に戻す) */
-function cstageSheet(sh){ const c = A2.S.cards.get(sh.id); if (!c) return ""; const n = A2.S.notes.get(c.nid), nt = A2.S.notetypes.get(n.nt), def = nt && nt.stageType ? A2.S.stages.get(nt.stageType) : null, t = A2.stageTypeOf(c), S0 = A2.stageOf(c), today = A2.today();
+function cstageSheet(sh){ const c = A2.S.cards.get(sh.id); if (!c) return ""; const def = A2.stageDefaultOf(c), t = A2.stageTypeOf(c), S0 = A2.stageOf(c), today = A2.today();
   const where = S0 ? "段階を踏んでいる:" + t.name + " " + (S0.i + 1) + "/" + (S0.last + 1) + "「" + S0.st.name + "」・次は " + (c.dueMs != null ? "今日のうちに" : c.dueDay != null ? (c.dueDay <= today ? "今日" : A2.dayStr(c.dueDay)) : "今日") : t ? (c.st === "新規" ? "まだ出していない(段階から始まる)" : "FSRSで保っている(型:" + t.name + ")") : "段階なし(ふつうのカード)";
   const recs = [...A2.S.revlog.values()].filter(r => r.cid === c.id && (r.kind === 5 || (r.kind === 4 && r.x && r.x.stage))).sort((a, b) => b.t - a.t).slice(0, 10);
   const resL = { up: "クリア", stay: "まだ", down: "1つ下へ" };
   return `<h3>このカードの段階</h3><div class="pkv"><span class="k">今</span><span class="v">${esc(where)}</span></div>
-    <div class="f" style="margin-top:.6rem"><label>このカードの段階の型</label><select data-cstage="${c.id}"><option value=""${!c.sgo ? " selected" : ""}>ノートタイプの既定に従う(${esc(def ? def.name : "段階なし")})</option>${A2.stageTypes().map(x => `<option value="${x.id}"${c.sgo === x.id ? " selected" : ""}>${esc(x.name)}(このカードだけ)</option>`).join("")}<option value="none"${c.sgo === "none" ? " selected" : ""}>このカードは段階なし</option></select>
+    <div class="f" style="margin-top:.6rem"><label>このカードの段階の型</label><select data-cstage="${c.id}"><option value=""${!c.sgo ? " selected" : ""}>既定に従う(${esc(def ? def.name : "段階なし")})</option>${A2.stageTypes().map(x => `<option value="${x.id}"${c.sgo === x.id ? " selected" : ""}>${esc(x.name)}(このカードだけ)</option>`).join("")}<option value="none"${c.sgo === "none" ? " selected" : ""}>このカードは段階なし</option></select>
       <div class="note">${c.st === "新規" || c.st === "段階" ? "変えると、次に出るときからその型で数える(段階は名前で引き継ぎ、なければ近い段階へ)。" : "このカードはFSRSで保っているので、型を変えても段階には戻らない。戻すときは下のボタンで。"}</div></div>
     ${t && !S0 && c.st !== "新規" ? `<h2>段階に戻す<small>FSRSの値は脇に置く。もう一度最後の段階をクリアしたら、FSRSは0から</small></h2><div class="row" style="flex-wrap:wrap;gap:.4rem">${t.stages.map((x, i) => `<button class="btn ghost sm" data-cstback="${c.id}|${i}">${i + 1}「${esc(x.name)}」に戻す</button>`).join("")}</div>` : ""}
     ${S0 ? `<h2>段階を手で変える<small>判定を使わずに、今の段階を変える</small></h2><div class="row" style="flex-wrap:wrap;gap:.4rem">${t.stages.map((x, i) => `<button class="btn ghost sm" data-cstset="${c.id}|${i}"${i === S0.i ? " disabled" : ""}>${i + 1}「${esc(x.name)}」</button>`).join("")}</div>` : ""}
@@ -1389,7 +1391,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
     return `<h3>${esc(t.name)}</h3><button class="linkx" data-more="nts">‹ ノートタイプの一覧</button>
       <div class="row" style="margin:.5rem 0;gap:.5rem"><button class="btn sm shu" data-ntcopy>全部まとめてコピー</button><button class="btn ghost sm" data-ntfile>ファイルで保存</button><button class="btn ghost sm" data-ntpaste>AIが直したものを入れる</button></div>
       <p class="note" style="margin-top:0">欄・設定・全部のカードの種類の表と裏・CSS を1つにまとめる。AIに見せて、直したものを同じ形で返してもらえば、「AIが直したものを入れる」でそのまま入る。</p>
-      <h2>段階の既定<small>このノートタイプのカードが、何もしなければ従う段階の型</small></h2><div class="card"><select data-ntstage="${t.id}" style="width:100%"><option value=""${!t.stageType ? " selected" : ""}>段階なし(ふつうのカード)</option>${A2.stageTypes().map(x => `<option value="${x.id}"${t.stageType === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select><div class="note">まだ出していないカードから効く(FSRSで保っているカードは、そのまま)。型は その他 › 段階の型 で作る・直す。テンプレートには {{A2:段階}}(今の段階の名前)・{{#A2:段階1}}…{{/A2:段階1}}(1段目のときだけ)・{{#A2:段階なし}}…{{/A2:段階なし}}(段階を踏んでいないとき)を書ける。JavaScript からは window.A2CARD.stage。</div></div>
+      <h2>段階の既定<small>このノートタイプのカードが、何もしなければ従う段階の型</small></h2><div class="card"><select data-ntstage="${t.id}" style="width:100%"><option value=""${!t.stageType ? " selected" : ""}>段階なし(ふつうのカード)</option>${A2.stageTypes().map(x => `<option value="${x.id}"${t.stageType === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select>${t.tmpls.length > 1 ? `<div class="stgtm"><div class="note" style="margin:.5rem 0 .2rem">カードの種類ごと(ノートタイプの既定より優先)</div>${t.tmpls.map((tm, i) => `<div class="autorow"><span>${esc(tm.name)}</span><select data-tmstage="${t.id}|${i}"><option value=""${!tm.stage ? " selected" : ""}>上と同じ(${esc(t.stageType && A2.S.stages.get(t.stageType) ? A2.S.stages.get(t.stageType).name : "段階なし")})</option>${A2.stageTypes().map(x => `<option value="${x.id}"${tm.stage === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}<option value="none"${tm.stage === "none" ? " selected" : ""}>段階なし</option></select></div>`).join("")}</div>` : ""}<div class="note">まだ出していないカードから効く(FSRSで保っているカードは、そのまま)。型は その他 › 段階の型 で作る・直す。テンプレートには {{A2:段階}}(今の段階の名前)・{{#A2:段階1}}…{{/A2:段階1}}(1段目のときだけ)・{{#A2:段階なし}}…{{/A2:段階なし}}(段階を踏んでいないとき)を書ける。JavaScript からは window.A2CARD.stage。</div></div>
       <h2>重複を見る欄<small>選んだ欄がぜんぶ同じなら「もうある」</small></h2><div class="card dupk">${t.fields.map(f => `<label><input type="checkbox" data-dupk="${esc(f)}"${A2.dupKeys(t).includes(f) ? " checked" : ""}> ${esc(f)}</label>`).join("")}</div>
       <h2>自動で書き換える欄<small>判定したときに、アプリが書き換える</small></h2>${t.fields.includes("記録") && t.fields.includes("正誤") ? '<button class="btn sm shu" data-dojopreset style="margin-bottom:.4rem">dojo math の決まりを入れる</button><div class="note" style="margin:-.2rem 0 .4rem">正誤 ← 毎回の判定から ○×、記録 ← その回にカードに出た「方針/完答」の秒(どちらも復習の記録から作るので、手で書かなくてよい)</div>' : ""}<div class="card">${t.fields.map(f => { const cur = String((t.auto || {})[f] || ""), kind = cur.split("|")[0]; return `<div class="autorow"><span>${esc(f)}</span><select data-autof="${esc(f)}">${AUTO_RULES.map(([v, l]) => `<option value="${v}"${kind === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>${kind === "page" || kind === "pagelog" ? `<div class="autorow"><span class="note">読み取る場所</span><input data-autosel="${esc(f)}" value="${esc(cur.split("|")[1] || "#dojo-rec-input")}" style="max-width:60%;padding:.2rem .3rem;border:1px solid var(--rule);border-radius:4px"></div>` : ""}`; }).join("")}</div>
       <h2>欄を記録から作る<small>表示するたびに、復習の記録(判定・時間)から作る。保存してある中身は変えない</small></h2><div class="card">${t.fields.map(f => `<div class="autorow"><span>${esc(f)}</span><select data-calcf="${esc(f)}">${CALC_RULES.map(([v, l]) => `<option value="${v}"${((t.calc || {})[f] || "") === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>`).join("")}</div>
@@ -1633,6 +1635,7 @@ document.addEventListener("change", async e => { const t = e.target;
   if (t.dataset && (t.dataset.stf || t.dataset.sts) && V.sheet && V.sheet.k === "stages") { const st = A2.S.stages.get(V.sheet.sel); if (st) {
       if (t.dataset.stf) st[t.dataset.stf] = t.dataset.stf === "lim0" ? +t.value : t.value; else { const [i, k] = t.dataset.sts.split("|"); if (st.stages[+i]) st.stages[+i][k] = k === "gap" ? +t.value : t.value; }
       await A2.save("stages", [st]); render(); } return; }
+  if (t.dataset && t.dataset.tmstage) { const [ntId, i] = t.dataset.tmstage.split("|"), nt = A2.S.notetypes.get(ntId), tm = nt && nt.tmpls[+i]; if (tm) { if (t.value) tm.stage = t.value; else delete tm.stage; await A2.save("notetypes", [nt]); toast("「" + tm.name + "」の段階の既定を変えた"); render(); } return; }
   if (t.dataset && t.dataset.ntstage) { const nt = A2.S.notetypes.get(t.dataset.ntstage); if (nt) { if (t.value) nt.stageType = t.value; else delete nt.stageType; await A2.save("notetypes", [nt]); toast(t.value ? "このノートタイプの段階の既定を変えた" : "段階なしにした"); render(); } return; }
   if (t.dataset && t.dataset.cstage) { const c = A2.S.cards.get(t.dataset.cstage); if (c) { if (t.value) c.sgo = t.value; else delete c.sgo; if (c.sg && A2.stageTypeOf(c)) { const ty = A2.stageTypeOf(c); c.sg.i = Math.min(c.sg.i || 0, ty.stages.length - 1); } await A2.save("cards", [c]); toast("このカードの段階の型を変えた"); render(); } return; }
   if (t.id === "imp-file" && t.files[0]) doImport(t.files[0]);
@@ -1681,7 +1684,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.42";
+window.APP_VER_EX = "r4.43";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -1916,7 +1919,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.42";
+window.APP_VER_SYNC = "r4.43";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
