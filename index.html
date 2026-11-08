@@ -842,7 +842,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.50";
+A2.VER = "r4.51";
 window.A2 = A2;
 
 </script>
@@ -850,7 +850,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.50"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.51"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -946,7 +946,15 @@ window.a2 = { record: function (o) { parent.postMessage({ a2api: "record", arg: 
   suggest: function (g) { parent.postMessage({ a2api: "suggest", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, answer: function (g) { parent.postMessage({ a2api: "answer", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, flip: function () { parent.postMessage({ a2api: "flip", cid: (window.A2CARD || {}).id }, "*"); } };
 /* Anki のテンプレートのための代わり:pycmd などは何もしない。onUpdateHook / onShownHook は、Anki と同じく表示の前後に呼ぶ */
 window.pycmd = window.bridgeCommand = function () {}; window.onUpdateHook = []; window.onShownHook = [];
-window.a2show = function (html, css, cls) { document.getElementById("a2css").textContent = css; document.body.className = cls; var qa = document.getElementById("qa"); window.onUpdateHook = []; window.onShownHook = []; qa.innerHTML = html;
+(function () { var made = [], RA = window.Audio, lastTap = 0;
+  document.addEventListener("pointerdown", function () { lastTap = Date.now(); }, true);
+  var mapSrc = function (s) { try { var m = window.A2MEDIA || {}, k = String(s == null ? "" : s); if (m[k]) return m[k]; var d = decodeURIComponent(k); if (m[d]) return m[d]; } catch (x) {} return s; };
+  window.Audio = function (src) { var a = arguments.length ? new RA(mapSrc(src)) : new RA(); made.push(a); return a; }; window.Audio.prototype = RA.prototype;
+  var d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src"); if (d && d.set) Object.defineProperty(HTMLMediaElement.prototype, "src", { get: d.get, set: function (v) { d.set.call(this, mapSrc(v)); }, configurable: true });
+  var P = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { if (window.A2PREVIEW && Date.now() - lastTap > 1500) return Promise.reject(new DOMException("プレビューでは押したときだけ鳴らす", "NotAllowedError"));
+    window.__a2selfPlay = true; if (made.indexOf(this) < 0) made.push(this); return P.apply(this, arguments); };
+  window.__a2stopAll = function () { made.forEach(function (a) { try { a.pause(); } catch (x) {} }); made = []; window.__a2selfPlay = false; }; })();
+window.a2show = function (html, css, cls) { document.getElementById("a2css").textContent = css; document.body.className = cls; var qa = document.getElementById("qa"); window.onUpdateHook = []; window.onShownHook = []; try { window.__a2stopAll && window.__a2stopAll(); } catch (x) {} qa.innerHTML = html;
   Array.prototype.slice.call(qa.querySelectorAll("script")).forEach(function (old) { var s = document.createElement("script"); for (var i = 0; i < old.attributes.length; i++) s.setAttribute(old.attributes[i].name, old.attributes[i].value); s.text = old.textContent; old.parentNode.replaceChild(s, old); });
   try { (window.onUpdateHook || []).forEach(function (f) { try { f(); } catch (x) {} }); } catch (x) {} setTimeout(function () { try { (window.onShownHook || []).forEach(function (f) { try { f(); } catch (x) {} }); } catch (x) {} }, 0);
   var mj = function () { if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([qa]).then(fit).catch(function () {}); else setTimeout(mj, 300); }; mj(); fit(); setTimeout(fit, 200); setTimeout(fit, 800); };
@@ -973,10 +981,18 @@ async function cssWithMedia(css){ css = String(css || ""); const names = new Set
   const map = {}; for (const n of names) map[n] = await A2.mediaUrl(n); return css.replace(/url\(\s*["']?([^"')]+)["']?\s*\)/g, (m, n) => map[n.trim()] ? `url("${map[n.trim()]}")` : m); }
 async function showInFrame(frame, card, back, fOver){ if (!frame) return; const note = A2.S.notes.get(card.nid), nt = A2.S.notetypes.get(note.nt), html = await withMedia(A2.cardHtml(card, back, fOver)), css = await cssWithMedia(nt.css);
   const h = A2.history(card.id), info = { id: card.id, back: !!back, state: card.st, reps: card.reps || 0, lapses: card.lapses || 0, ivl: card.ivl || 0, stability: card.s || null, difficulty: card.d || null, history: h.map(r => ({ t: r.t, grade: r.g, sec: Math.round((r.ms || 0) / 1000), x: r.x || null, src: A2.revSrc(r) })), stage: A2.stageInfo(card) };
-  const go2 = () => { try { frame.contentWindow.A2CARD = info; } catch (e) {} frame.contentWindow.a2show(html, css, "card card" + (card.ord + 1)); };
+  const isRv = frame.id === "rv-frame", media = await fieldMedia(fOver || note.f);
+  const go2 = () => { try { frame.contentWindow.A2CARD = info; frame.contentWindow.A2MEDIA = media; frame.contentWindow.A2PREVIEW = !isRv; } catch (e) {} frame.contentWindow.a2show(html, css, "card card" + (card.ord + 1)); };
   if (frame.contentWindow && frame.contentWindow.a2show) go2(); else frame.addEventListener("load", go2, { once: true });
-  if (back) { const m = /\[sound:([^\]]+)\]/.exec(A2.cardHtml(card, true, fOver).slice(A2.cardHtml(card, false, fOver).length)) || null; if (m && A2.S.meta.autoplay !== false && !A2.optOf(card).noAuto) { const u = await A2.mediaUrl(m[1]); if (u) new Audio(u).play().catch(() => {}); } }
-  else { const m = /\[sound:([^\]]+)\]/.exec(A2.cardHtml(card, false, fOver)); if (m && A2.S.meta.autoplay !== false && !A2.optOf(card).noAuto) { const u = await A2.mediaUrl(m[1]); if (u) new Audio(u).play().catch(() => {}); } } }
+  if (!isRv || A2.S.meta.autoplay === false || A2.optOf(card).noAuto) return;   // 自動で鳴らすのは復習のときだけ
+  const m = back ? /\[sound:([^\]]+)\]/.exec(A2.cardHtml(card, true, fOver).slice(A2.cardHtml(card, false, fOver).length)) : /\[sound:([^\]]+)\]/.exec(A2.cardHtml(card, false, fOver)); if (!m) return;
+  const u = await A2.mediaUrl(m[1]); if (!u) return; const shown = V.rv && rvCur() === card;
+  setTimeout(() => { try { if (frame.contentWindow.__a2selfPlay) return; } catch (e) {} if (V.rv && shown && rvCur() !== card) return; try { rvAudio && rvAudio.pause(); } catch (e) {} rvAudio = new Audio(u); rvAudio.play().catch(() => {}); }, 450); }
+/* 欄に書いてある、名前だけの音声・画像(new Audio("x.mp3") などで使うもの)を、端末の中のファイルにする */
+async function fieldMedia(f){ const out = {}, names = new Set(), txt = Object.values(f || {}).join("\n").replace(/<[^>]*>/g, " ");
+  txt.replace(/\[sound:([^\]]+)\]/g, (m, n) => { names.add(n.trim()); return m; });
+  txt.split(/@@@|[\s,、]+/).forEach(t => { t = t.trim(); if (/^[^\s\/\\?#]+\.(mp3|m4a|aac|wav|ogg|oga|opus|webm|mp4|flac|png|jpe?g|gif|webp|svg)$/i.test(t)) names.add(t); });
+  for (const n of names) { if (!(await A2.getOne("media", n)) && !A2.fetchMedia) continue; const u = await A2.mediaUrl(n); if (u) out[n] = u; } return out; }
 /* 出す順番(本家の初めの設定と同じ):
    1. 期日になった学習中のカード(もう一度で1分後、など)を先に
    2. 今日の復習と新しいカードを混ぜて(復習は期日の古い順・同じ日はばらばら、新しいカードはデッキの順で、復習のあいだに均等に)
@@ -1171,7 +1187,7 @@ async function mediaDiag(cid){ const el = $("mdiag"); if (!el) return; const c =
     rows.push(`<div class="mdrow"><b>${esc(nm)}</b> ${b ? `<span class="ok">✓ ${esc(from)}にある</span>・${esc(ty)}・${kb}${/^(audio|video)\//.test(ty) ? `・${can === "no" ? '<span class="ng">この端末のブラウザでは鳴らせない形式かもしれない</span>' : "鳴らせる形式"} <button class="btn ghost sm" data-mdplay="${esc(nm)}">ここで鳴らす</button>` : ""}` : '<span class="ng">✗ この端末にも同期先にもない</span>'}</div>`); }
   el.innerHTML = rows.join(""); }
 /* 今の面の音を、頭から順に鳴らす(Anki の R) */
-let rvAudio = null;
+var rvAudio = null;
 async function rvReplay(){ const r = V.rv, c = rvCur(); if (!c) return; const f = A2.cardHtml(c, false), b = A2.cardHtml(c, true), src = r.back ? b.slice(f.length) : f, names = [...src.matchAll(/\[sound:([^\]]+)\]/g)].map(m => m[1]);
   if (!names.length) { toast("このカードには音がない"); return; } try { rvAudio && rvAudio.pause(); } catch (e) {}
   for (const n of names) { const u = await A2.mediaUrl(n); if (!u) continue; await new Promise(res => { rvAudio = new Audio(u); rvAudio.onended = res; rvAudio.onerror = res; rvAudio.play().catch(res); }); if (V.rv !== r || rvCur() !== c) return; } }
@@ -1706,7 +1722,11 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (d.mdplay) { const u = await A2.mediaUrl(d.mdplay); if (!u) { toast("ファイルがない"); return; } try { rvAudio && rvAudio.pause(); } catch (e) {} rvAudio = new Audio(u); rvAudio.onerror = () => toast("この形式は、このブラウザでは鳴らせない"); rvAudio.play().then(() => toast("鳴らしている")).catch(x => toast("鳴らせなかった(" + (x && x.name || "") + ")")); return; }
   if (b.hasAttribute("data-rvrec")) { rvRecToggle(); return; } if (b.hasAttribute("data-rvrecplay")) { rvRecPlay(); return; } if (b.hasAttribute("data-rvreplay")) { V.sheet = null; render(); rvReplay(); return; }
   if (d.mfile) { const [w, f] = d.mfile.split("|"), inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = "audio/*,video/mp4,image/*";
-    inp.onchange = async () => { let tags = ""; for (const file of inp.files) { const nm = await mediaSave(file, file.name); tags += mediaTag(nm, file); } if (!tags) return; mediaToField(w, f, tags); toast(inp.files.length + "個を付けた"); }; inp.click(); return; }
+    inp.onchange = async () => { const plain = /^(files?|ファイル)$/i.test(String(f).trim()); let tags = "", names = []; for (const file of inp.files) { const nm = await mediaSave(file, file.name); names.push(nm); tags += mediaTag(nm, file); } if (!names.length) return;
+      if (plain) { const cur = w === "a" ? (ADD.f[f] || "") : ((V.sheet && V.sheet.draft && V.sheet.draft[f]) || ""); const ta = document.querySelector(w === "a" ? `[data-afld="${CSS.escape(f)}"]` : `[data-efld="${CSS.escape(f)}"]`); const add = (String(cur).trim() ? " @@@ " : "") + names.join(" @@@ ");
+        if (ta) { ta.value = String(ta.value || "").replace(/\s+$/, "") + add; if (w === "a") { ADD.f[f] = ta.value; addPreview(); } else { V.sheet.draft[f] = ta.value; showInFrame($("pv-frame"), stagePvCard(A2.S.cards.get(V.sheet.id), V.sheet.pv), !!V.sheet.back, V.sheet.draft); } }
+        toast("ファイルの名前を「" + f + "」に入れた"); return; }
+      mediaToField(w, f, tags); toast(inp.files.length + "個を付けた"); }; inp.click(); return; }
   if (d.mrec) { const [w, f] = d.mrec.split("|"); if (REC.mr && REC.for === d.mrec) { const blob = await recStop(); if (blob && blob.size) { const nm = await mediaSave(blob, "rec-" + new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")); mediaToField(w, f, "[sound:" + nm + "]"); toast("録音を付けた"); } b.textContent = "録音"; if (w === "a") render(); return; }
     if (REC.mr) { toast("ほかの所で録音中"); return; } if (await recStart(d.mrec)) { b.textContent = "■ 録音を止める"; toast("録音中…もう一度押すと止める"); } return; }
   if (d.pvstage != null && V.sheet && V.sheet.k === "card") { V.sheet.pv = d.pvstage === "" ? null : d.pvstage === "none" ? "none" : +d.pvstage; render(); return; }
@@ -1868,7 +1888,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.50";
+window.APP_VER_EX = "r4.51";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2103,7 +2123,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.50";
+window.APP_VER_SYNC = "r4.51";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
