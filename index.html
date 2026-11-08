@@ -420,6 +420,8 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .skipbox{border:1px solid var(--shu);background:var(--shu-soft);border-radius:8px;padding:.5rem .7rem;margin:.4rem 0 .8rem;font-size:.85rem;line-height:1.6}
 
 .mkords{display:flex;flex-wrap:wrap;gap:.3rem;margin:.3rem 0}.mkords button{font:inherit;font-size:.74rem;padding:.2rem .55rem;border:1px solid var(--rule);border-radius:999px;background:var(--white);color:var(--ink);cursor:pointer}.mkords button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}.mkords button.nomake{opacity:.5;border-style:dashed}
+
+.stpv{border:1px solid var(--rule);border-radius:8px;padding:.5rem .7rem;margin:.4rem 0;background:var(--white);font-size:.85rem}.stpv ol{margin:.3rem 0 0;padding-left:1.3rem}.stpv li{margin:.2rem 0;line-height:1.5}.stpv li.ch{background:var(--wave-soft);border-radius:4px;padding:0 .3rem}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -844,7 +846,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.52";
+A2.VER = "r4.53";
 window.A2 = A2;
 
 </script>
@@ -852,7 +854,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.52"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.53"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1481,11 +1483,60 @@ async function recStart(forWhat){ if (REC.mr) return; let st; try { st = await n
 function recStop(){ return new Promise(res => { const mr = REC.mr; if (!mr) return res(null); mr.onstop = () => { const blob = new Blob(REC.chunks, { type: (mr.mimeType || "audio/webm").split(";")[0] }); mr.stream.getTracks().forEach(t => t.stop()); REC.mr = null; res(blob); }; mr.stop(); }); }
 /* ───── 段階の型の画面 ───── */
 const STG_GAPS = [[1, "翌日"], [2, "2日後"], [3, "3日後"], [5, "5日後"], [7, "1週間後"]];
+/* ───── 段階の型を文にする・文から読む(AIに作ってもらう・直してもらう) ───── */
+const STG_KIND_L = { "精度": "合格の基準が上がる", "範囲": "範囲が広がる", "支え": "支えが外れる" };
+function stageToText(list){ list = Array.isArray(list) ? list : [list];
+  return list.map(t => ["# 段階の型:" + t.name, "- 段階の上がり方:" + (STG_KIND_L[t.kind] || STG_KIND_L["精度"]), "- 最初の段階で今日のうちに出す上限:" + (+t.lim0 || 3) + "回", "",
+    ...t.stages.flatMap((x, i) => ["## 段階 " + (i + 1) + ":" + (x.name || ""), "- すること:" + (x.ask || ""), "- クリアの言葉:" + (x.pass || ""), "- 届かなかったときの言葉:" + (x.fail || ""), "- 次に出すまで:" + ((STG_GAPS.find(g => g[0] === (+x.gap || 1)) || STG_GAPS[0])[1]), ""])].join("\n")).join("\n")
+    + "\n## (参考)段階の型の決まり\n"
+    + ["- 段階の型は「# 段階の型:名前」から始め、型ごとに「## 段階 N:名前」を順に並べる。1つの文に型をいくつ並べてもよい",
+       "- 段階の上がり方:「合格の基準が上がる」「範囲が広がる」「支えが外れる」のどれか(見出しのための分類で、動きは変わらない)",
+       "- 最初の段階で今日のうちに出す上限:1〜5回。最初の段階は、届くまで今日のうちに何度も出す(この回数まで)",
+       "- 次に出すまで:「翌日」「2日後」「3日後」「5日後」「1週間後」のどれか(その段階の間隔。できなかったときも同じ)",
+       "- すること:カードの上の帯に出る、その段階でやることの説明(1文)",
+       "- クリアの言葉・届かなかったときの言葉:判定のボタンの文字になる。判定のボタンは「今の段階のクリアの言葉」「1つ前の段階のクリアの言葉」「1つ前の段階の届かなかったときの言葉」の3つ(最初の段階は2つ)なので、どの段階の言葉も、そのまま「どこまでできたか」として読める短い文にする",
+       "- 中間の段階で届かなかったら今日のうちにもう一度、1つ前にも届かなかったら1つ下へ。上がれるのは1日1段階まで。下がった日はその日のうちに元へ戻らない",
+       "- 最後の段階を初めてクリアしたら、そこからFSRS(ふつうの復習)で保つ。段階の数は2〜6くらい",
+       "- テンプレートでは {{A2:段階}}(今の段階の名前)・{{#A2:段階1}}…{{/A2:段階1}}(1段目のときだけ)・{{#A2:段階なし}}…{{/A2:段階なし}} が使える",
+       "- 直したもの・新しく作ったものは、この文と同じ形で返すと、Anki2 の「その他 › 段階の型 › AIが作った・直した型を入れる」でそのまま入る(同じ名前の型は書き換え、ない名前は新しく足す)"].join("\n"); }
+function parseStageText(text){ const out = []; let cur = null, st = null; const val = l => l.replace(/^\s*[-・*]\s*/, "").replace(/^[^:：]+[:：]\s*/, "").trim();
+  String(text || "").replace(/\r/g, "").split("\n").forEach(raw => { const l = raw.trim(); if (!l || /^```|^~~~/.test(l)) return;
+    let m = /^#\s*段階の型\s*[:：]\s*(.+)$/.exec(l); if (m) { cur = { name: m[1].trim(), kind: "精度", lim0: 3, stages: [] }; out.push(cur); st = null; return; }
+    if (/^##\s*\(?参考/.test(l) || /^##\s*（参考/.test(l)) { cur = null; st = null; return; }
+    if (!cur) return;
+    m = /^##\s*段階\s*\d*\s*[:：]\s*(.*)$/.exec(l); if (m) { st = { name: m[1].trim(), ask: "", pass: "", fail: "", gap: 1 }; cur.stages.push(st); return; }
+    const key = (/^\s*[-・*]?\s*([^:：]+)[:：]/.exec(l) || [])[1] || "", v = val(l);
+    if (!st) { if (/上がり方/.test(key)) { const k = Object.keys(STG_KIND_L).find(x => v.includes(STG_KIND_L[x]) || v === x); if (k) cur.kind = k; }
+      else if (/上限/.test(key)) { const n = parseInt(v.replace(/[^\d]/g, ""), 10); if (n >= 1 && n <= 5) cur.lim0 = n; } return; }
+    if (/すること/.test(key)) st.ask = v; else if (/クリア/.test(key)) st.pass = v; else if (/届かな/.test(key)) st.fail = v;
+    else if (/次に出す|間隔/.test(key)) { const g = STG_GAPS.find(x => v.includes(x[1])) || STG_GAPS.find(x => x[0] === parseInt(v, 10)) || (/週/.test(v) ? STG_GAPS.find(x => x[0] === 7) : null); if (g) st.gap = g[0]; } });
+  return out.filter(t => t.name && t.stages.length >= 1); }
+/* 入れる前の見比べ:同じ名前の型は書き換え、ない名前は新しく足す */
+function stagePastePlan(list){ return list.map(p => { const old = A2.stageTypes().find(x => x.name === p.name); let clamp = 0;
+  if (old && p.stages.length < old.stages.length) clamp = [...A2.S.cards.values()].filter(c => c.st === "段階" && c.sg && c.sg.i >= p.stages.length && (A2.stageTypeOf(c) || {}).id === old.id).length;
+  return { p, old, clamp }; }); }
+function stagePasteSheet(sh){ const list = parseStageText(sh.text || ""), plan = stagePastePlan(list);
+  const diff = plan.map(({ p, old, clamp }) => `<div class="stpv"><div><b>${esc(p.name)}</b> <span class="note">${old ? "今ある型を書き換える" : "新しく足す"}・${p.stages.length}段階${old && old.stages.length !== p.stages.length ? "(今は " + old.stages.length + "段階)" : ""}</span></div>
+      <ol>${p.stages.map((x, i) => { const o = old && old.stages[i], ch = !o || ["name", "ask", "pass", "fail", "gap"].some(k => String(o[k] || "") !== String(x[k] || "")); return `<li class="${ch && old ? "ch" : ""}"><b>${esc(x.name)}</b>(${esc((STG_GAPS.find(g => g[0] === x.gap) || STG_GAPS[0])[1])})<br><span class="note">すること:${esc(x.ask)}/クリア:${esc(x.pass)}/届かない:${esc(x.fail)}</span></li>`; }).join("")}</ol>
+      ${clamp ? `<div class="note" style="color:var(--shu)">段階が減るので、今その段階より先にいるカード ${clamp}枚は、最後の段階に移る。</div>` : ""}</div>`).join("");
+  return `<h3>AIが作った・直した型を入れる</h3><button class="linkx" data-more="stages">‹ 段階の型</button>
+    <p class="note">「全部まとめてコピー」と同じ形(「# 段階の型:名前」「## 段階 N:名前」と「- すること:…」など)の文を貼る。同じ名前の型は書き換え、ない名前は新しく足す。型を使っているカード・ノートタイプは、そのまま新しい中身に従う。</p>
+    <textarea id="stp-text" rows="10" style="width:100%" placeholder="# 段階の型:訳し分け型&#10;- 段階の上がり方:範囲が広がる&#10;- 最初の段階で今日のうちに出す上限:3回&#10;&#10;## 段階 1:訳1つ&#10;- すること:…">${esc(sh.text || "")}</textarea>
+    ${sh.text ? (list.length ? `<h2>読み取れたもの<small>型 ${list.length}つ</small></h2>${diff}<div class="row" style="margin:.5rem 0"><button class="btn sm" data-stpastego>入れる</button></div>` : '<p class="note" style="color:var(--shu)">型が読み取れなかった。「# 段階の型:名前」で始まり、「## 段階 1:名前」が1つ以上あるかを確かめる。</p>') : ""}`; }
+A2.applyStagePaste = async list => { const plan = stagePastePlan(list), undo = []; const now = Date.now();
+  for (const { p, old, clamp } of plan) { if (old) { undo.push(JSON.parse(JSON.stringify(old))); const t = Object.assign({}, old, { name: p.name, kind: p.kind, lim0: p.lim0, stages: p.stages }); await A2.save("stages", [t]);
+      if (clamp) { const cs = [...A2.S.cards.values()].filter(c => c.st === "段階" && c.sg && c.sg.i >= p.stages.length && (A2.stageTypeOf(c) || {}).id === old.id).map(c => Object.assign({}, c, { sg: Object.assign({}, c.sg, { i: p.stages.length - 1 }) })); await A2.save("cards", cs); } }
+    else { const t = { id: "SG" + now.toString(36) + Math.random().toString(36).slice(2, 6), name: p.name, kind: p.kind, lim0: p.lim0, stages: p.stages, ord: A2.stageTypes().length }; undo.push({ id: t.id, _new: true }); await A2.save("stages", [t]); } }
+  await A2.setMeta("stUndo", undo); return plan.length; };
+A2.undoStagePaste = async () => { const u = A2.S.meta.stUndo || []; for (const x of u) { if (x._new) { if (A2.S.stages.has(x.id)) await A2.remove("stages", [x.id], { why: "入れたのを戻した" }); } else await A2.save("stages", [x]); } await A2.setMeta("stUndo", null); return u.length; };
+
 function stageUse(id){ const nts = [...A2.S.notetypes.values()].filter(t => t.stageType === id), cards = [...A2.S.cards.values()].filter(c => c.sgo === id).length; return { nts, cards }; }
-function stageSheet(sh){ const list = A2.stageTypes(); if (!sh.sel || !A2.S.stages.has(sh.sel)) sh.sel = list[0] ? list[0].id : null; const t = sh.sel ? A2.S.stages.get(sh.sel) : null;
+function stageSheet(sh){ const list = A2.stageTypes(); if (!sh.sel || !A2.S.stages.has(sh.sel)) sh.sel = list[0] ? list[0].id : null; const t = sh.sel ? A2.S.stages.get(sh.sel) : null, t0 = t;
   const top = `<h3>段階の型</h3><p class="note" style="margin-top:0">目的の形でいきなりは練習できないカード(速いネイティブの音声をまねする、訳をいくつも言う など)に使う。段階を踏んでいる間はFSRSを使わず、決めた間隔で出す。最後の段階を初めてクリアしたら、そこからFSRSで保つ(FSRSは0から始める)。</p>
     <div class="mlist">${list.map(x => `<button data-stsel="${x.id}" aria-pressed="${x.id === sh.sel}"><b>${esc(x.name)}</b><small>${x.stages.length}段階・${esc({ "精度": "合格の基準が上がる", "範囲": "範囲が広がる", "支え": "支えが外れる" }[x.kind] || "")}${(() => { const u = stageUse(x.id); return u.nts.length || u.cards ? "・使っている:" + u.nts.map(n => n.name).join("、") + (u.cards ? (u.nts.length ? "、" : "") + "カード " + u.cards + "枚" : "") : ""; })()}</small></button>`).join("") || '<p class="note">まだ型がない。下の「おすすめの型を入れる」で、シャドーイング型・訳し分け型・支え外し型が入る。</p>'}</div>
-    <div class="row" style="margin:.5rem 0"><button class="btn sm" data-stnew>+ 新しい型</button>${list.length ? `<button class="btn ghost sm" data-stdup>この型を複製</button>` : ""}<button class="btn ghost sm" data-stpreset>おすすめの型を入れる</button></div>`;
+    <div class="row" style="margin:.5rem 0"><button class="btn sm" data-stnew>+ 新しい型</button>${list.length ? `<button class="btn ghost sm" data-stdup>この型を複製</button>` : ""}<button class="btn ghost sm" data-stpreset>おすすめの型を入れる</button></div>
+    <div class="row" style="margin:.2rem 0 .6rem;gap:.4rem">${t0 ? '<button class="btn sm shu" data-stcopy>この型を全部まとめてコピー</button>' : ""}${list.length > 1 ? '<button class="btn ghost sm" data-stcopyall>全部の型をまとめてコピー</button>' : ""}<button class="btn ghost sm" data-stpaste>AIが作った・直した型を入れる</button>${(A2.S.meta.stUndo || []).length ? '<button class="linkx" data-stundo>前に入れたものを戻す</button>' : ""}</div>
+    <p class="note" style="margin-top:0">コピーした文をAIに見せて、直したもの・新しく作ったものを同じ形で返してもらえば、「AIが作った・直した型を入れる」でそのまま入る。</p>`;
   if (!t) return top;
   const u = stageUse(t.id);
   return top + `<div class="card stged">
@@ -1554,6 +1605,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
       <div class="edf"><h2>欄<small>直すと、見た目がすぐ変わる</small></h2>${t.fields.map((f, i) => (i === 8 ? `<details class="morefld"><summary>ほかの欄(${t.fields.length - 8})</summary>` : "") + `<div class="f fld"><label>${esc(f)}</label><textarea data-efld="${esc(f)}" rows="2">${esc(sh.draft[f] || "")}</textarea><div class="fbtns"><button data-mfile="e|${esc(f)}">音声・画像</button><button data-mrec="e|${esc(f)}">録音</button></div></div>` + (i === t.fields.length - 1 && i >= 8 ? "</details>" : "")).join("")}
       <div class="f"><label>タグ</label><input id="ed-tags" value="${esc(n.tags.join(" "))}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"></div><div class="row"><button class="btn sm" data-esave="${n.id}">直す</button><button class="linkx" data-more2="info|${c.id}">カードの情報</button><button class="linkx" data-more2="cstage|${c.id}">段階</button></div></div></div>`; }
   if (sh.k === "stages") return stageSheet(sh);
+  if (sh.k === "stpaste") return stagePasteSheet(sh);
   if (sh.k === "aifix") return aifixSheet(sh);
   if (sh.k === "cstage") return cstageSheet(sh);
   if (sh.k === "nts") return `<h3>ノートタイプ</h3><div class="mlist">${[...A2.S.notetypes.values()].map(t => `<button data-ntopen="${t.id}"><b>${esc(t.name)}</b><small>欄 ${t.fields.length}・カード ${t.tmpls.length}・ノート ${[...A2.S.notes.values()].filter(n => n.nt === t.id).length}</small></button>`).join("") || '<p class="note">まだない。</p>'}</div>`;
@@ -1789,6 +1841,11 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
     toast("まとめて操作した"); render(); return; }
   /* 作る */
   if (d.adduse) { ADD.use = d.adduse; render(); return; }
+  if (b.hasAttribute("data-stcopy") || b.hasAttribute("data-stcopyall")) { const all = b.hasAttribute("data-stcopyall"), t = A2.S.stages.get(V.sheet.sel), txt = stageToText(all ? A2.stageTypes() : t);
+    const ok = () => toast((all ? "全部の型" : "「" + t.name + "」") + "をまとめてコピーした(" + txt.length.toLocaleString() + "文字)"); if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, () => prompt("コピーしてください", txt)); else prompt("コピーしてください", txt); return; }
+  if (b.hasAttribute("data-stpaste")) { V.sheet = { k: "stpaste", text: "" }; render(); return; }
+  if (b.hasAttribute("data-stpastego")) { const list = parseStageText(V.sheet.text); if (!list.length) return; const n = await A2.applyStagePaste(list); V.sheet = { k: "stages" }; toast(n + "つの型を入れた"); render(); return; }
+  if (b.hasAttribute("data-stundo")) { if (!confirm("前に入れた型を、入れる前に戻す?")) return; const n = await A2.undoStagePaste(); toast(n + "つを戻した"); render(); return; }
   if (d.mkord != null && b.hasAttribute("data-mkord")) { ADD.pvOrd = +d.mkord; addPreview(); return; }
   if (d.mkside) { ADD.side = d.mkside; document.querySelectorAll("[data-mkside]").forEach(z => z.setAttribute("aria-pressed", String(z === b))); addPreview(); return; }
   if (d.ains) { const ta = document.querySelector(`[data-afld="${CSS.escape(d.af)}"]`), [a1, z1] = d.ains.split("|"), s0 = ta.selectionStart, s1 = ta.selectionEnd; ta.value = ta.value.slice(0, s0) + a1 + ta.value.slice(s0, s1) + z1 + ta.value.slice(s1); ADD.f[d.af] = ta.value; addPreview(); ta.focus(); return; }
@@ -1838,6 +1895,7 @@ document.addEventListener("input", e => { const t = e.target;
   if (t.id === "ad-tags") ADD.tags = t.value;
   if (t.id === "ntp-t" && V.sheet && V.sheet.k === "ntpaste") { V.sheet.text = t.value; clearTimeout(window.__ntp); window.__ntp = setTimeout(() => { const p0 = t.selectionStart; const w = $("sheetwrap"); if (w) w.remove(); render(); const el = $("ntp-t"); if (el) { el.focus(); el.setSelectionRange(p0, p0); } }, 400); }
   if (t.dataset && t.dataset.efld && V.sheet && V.sheet.k === "card") { V.sheet.draft[t.dataset.efld] = t.value; clearTimeout(window.__ep); window.__ep = setTimeout(() => showInFrame($("pv-frame"), stagePvCard(A2.S.cards.get(V.sheet.id), V.sheet.pv), !!V.sheet.back, V.sheet.draft), 200); }
+  if (t.id === "stp-text" && V.sheet && V.sheet.k === "stpaste") { V.sheet.text = t.value; clearTimeout(window.__stp); window.__stp = setTimeout(() => { const ta = $("stp-text"), pos = ta ? ta.selectionStart : 0; render(); const tb = $("stp-text"); if (tb) { tb.focus(); try { tb.setSelectionRange(pos, pos); } catch (e) {} } }, 500); return; }
   if (t.id === "ai-out") { AI.out = t.value; clearTimeout(window.__ai); window.__ai = setTimeout(async () => { await aiMediaCheck(); const y = scrollY, p0 = t.selectionStart; render(); const el = $("ai-out"); if (el) { el.focus(); el.setSelectionRange(p0, p0); } scrollTo(0, y); }, 350); } });
 document.addEventListener("change", async e => { const t = e.target;
   if (t.id === "ai-media" && t.files.length) { let n = 0; for (const file of t.files) { await mediaSave(file, file.name, true); n++; } toast(n + "個のファイルを入れた"); await aiMediaCheck(); render(); return; }
@@ -1895,7 +1953,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.52";
+window.APP_VER_EX = "r4.53";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2130,7 +2188,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.52";
+window.APP_VER_SYNC = "r4.53";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
