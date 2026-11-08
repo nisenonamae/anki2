@@ -410,6 +410,8 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .aimedia{margin:.4rem 0;display:flex;flex-direction:column;gap:.3rem;align-items:flex-start}.aimedia span.ok{color:var(--ok)}.aimedia span.ng{color:var(--shu);font-weight:700}
 
 .fbtns{display:flex!important;flex-wrap:wrap;gap:.3rem}.fbtns button{flex:0 0 auto;width:auto!important;white-space:nowrap;padding:.25rem .55rem;font-size:.74rem;writing-mode:horizontal-tb}
+
+.mdrow{padding:.3rem 0;border-bottom:1px dashed var(--rule);line-height:1.6}.mdrow .ok{color:var(--ok)}.mdrow .ng{color:var(--shu);font-weight:700}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -833,7 +835,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.46";
+A2.VER = "r4.47";
 window.A2 = A2;
 
 </script>
@@ -841,7 +843,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.46"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.47"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -940,7 +942,8 @@ window.a2show = function (html, css, cls) { document.getElementById("a2css").tex
   var mj = function () { if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([qa]).then(fit).catch(function () {}); else setTimeout(mj, 300); }; mj(); fit(); setTimeout(fit, 200); setTimeout(fit, 800); };
 function fit(){ parent.postMessage({ a2h: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) }, "*"); }
 document.addEventListener("pointerdown", function () { try { parent.__a2unlock && parent.__a2unlock(); } catch (x) {} }, true);
-document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest(".a2-snd"); if (b && b.dataset.src) { new Audio(b.dataset.src).play(); } });
+document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest(".a2-snd"); if (!b) return; var say = function (t) { var n = b.nextElementSibling; if (!n || !n.classList || !n.classList.contains("a2-sndmsg")) { n = document.createElement("span"); n.className = "a2-sndmsg"; n.style.cssText = "font-size:.75rem;color:#b5432f;margin-left:.3rem"; b.after(n); } n.textContent = t; };
+  if (!b.dataset.src) { say("ファイルがない(" + (b.dataset.snd || "") + ")"); return; } var a = new Audio(b.dataset.src); a.onerror = function () { say("この形式は鳴らせない"); }; var p = a.play(); if (p && p.catch) p.catch(function (x) { say(x && x.name === "NotAllowedError" ? "もう一度押す" : "鳴らせなかった(" + (x && x.name || "") + ")"); }); });
 window.addEventListener("load", fit); new ResizeObserver(fit).observe(document.documentElement);
 <\/script></head><body class="card"><div id="qa"></div></body></html>`;
 /* カードからの働きかけ(a2.record / setTime / suggest / answer / flip)。今出ているカードからのものだけ受ける */
@@ -1114,6 +1117,14 @@ function mediaToField(w, f, tags){ if (w === "a") { const v = fieldInsert(`[data
 // 取り込み:貼ったものに出てくる音声・画像が、端末の中にあるか
 async function aiMediaCheck(){ const names = [...new Set([...String(AI.out || "").matchAll(/\[sound:([^\]]+)\]|src=["']([^"']+)["']/g)].map(m => (m[1] || m[2]).trim()))], have = {};
   for (const n of names) have[n] = !!(await A2.getOne("media", n)); AI.mhave = have; }
+/* 音声・画像の確かめ:欄に書いてある名前ごとに、端末の中にあるか・形式・大きさ。その場で鳴らして試せる */
+async function mediaDiag(cid){ const el = $("mdiag"); if (!el) return; const c = A2.S.cards.get(cid), n = c && A2.S.notes.get(c.nid); if (!n) return;
+  const all = Object.values(n.f || {}).join("\n"), names = [...new Set([...all.matchAll(/\[sound:([^\]]+)\]|src=["']([^"']+)["']/g)].map(m => (m[1] || m[2]).trim()).filter(x => x && !/^(https?:|data:|blob:)/.test(x)))];
+  if (!names.length) { el.innerHTML = "このノートの欄には、音声・画像が入っていない([sound:…] も &lt;img&gt; もない)。録画を付けたあと、カードの編集で「直す」を押したかを確かめる。"; return; }
+  const rows = []; for (const nm of names) { let m = await A2.getOne("media", nm), from = "この端末"; if (!m && A2.fetchMedia) { try { const b = await A2.fetchMedia(nm); if (b) { m = { name: nm, blob: b }; await A2.put("media", [m]); from = "同期から取ってきた"; } } catch (e) {} }
+    const b = m && m.blob, ty = b ? (b.type || "形式が分からない") : "", kb = b ? (b.size / 1024 < 1024 ? Math.round(b.size / 1024) + "KB" : (b.size / 1048576).toFixed(1) + "MB") : "", can = b && b.type ? (document.createElement("audio").canPlayType(b.type) || "no") : "";
+    rows.push(`<div class="mdrow"><b>${esc(nm)}</b> ${b ? `<span class="ok">✓ ${esc(from)}にある</span>・${esc(ty)}・${kb}${/^(audio|video)\//.test(ty) ? `・${can === "no" ? '<span class="ng">この端末のブラウザでは鳴らせない形式かもしれない</span>' : "鳴らせる形式"} <button class="btn ghost sm" data-mdplay="${esc(nm)}">ここで鳴らす</button>` : ""}` : '<span class="ng">✗ この端末にも同期先にもない</span>'}</div>`); }
+  el.innerHTML = rows.join(""); }
 /* 今の面の音を、頭から順に鳴らす(Anki の R) */
 let rvAudio = null;
 async function rvReplay(){ const r = V.rv, c = rvCur(); if (!c) return; const f = A2.cardHtml(c, false), b = A2.cardHtml(c, true), src = r.back ? b.slice(f.length) : f, names = [...src.matchAll(/\[sound:([^\]]+)\]/g)].map(m => m[1]);
@@ -1461,7 +1472,8 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
       <div class="bigacts"><button data-rvmark><i>★</i>${n.tags.includes("marked") ? "印を外す" : "印を付ける"}</button><button data-rvbury><i>⏭</i>明日へ延期</button><button data-rvsusp><i>⏸</i>一時停止</button><button data-rvinfo><i>ⓘ</i>カードの情報</button><button data-rvstg><i>▤</i>段階</button><button data-rvreplay><i>🔊</i>音をもう一度</button><button data-voice><i>🎤</i>声で操作 ${VOICE.on ? "入" : "切"}</button></div>`; }
   if (sh.k === "flag") return `<h3>旗</h3><div class="flgrid">${["なし", "赤", "橙", "緑", "青", "桃", "水", "紫"].map((t, i) => `<button data-setflag="${i}"><span class="fl" style="background:${FL[i] || "transparent"}"></span>${t}</button>`).join("")}</div>`;
   if (sh.k === "info") { const c = A2.S.cards.get(sh.id), n = A2.S.notes.get(c.nid), today = A2.today(), revs = [...A2.S.revlog.values()].filter(r => r.cid === c.id).sort((a, b) => b.t - a.t);
-    return `<h3>カードの情報</h3>${[["デッキ", (A2.S.decks.get(c.deck) || {}).name], ["ノートタイプ", (A2.S.notetypes.get(n.nt) || {}).name], ["状態", c.st + (c.susp ? "(一時停止)" : "")], ["次の復習", c.st === "新規" ? "まだ" : c.dueDay != null ? A2.dayStr(c.dueDay) : "今日"], ["間隔", (c.ivl || 0) + "日"], ["復習した回数", c.reps || 0], ["忘れた回数", c.lapses || 0], ["安定さ(FSRS)", c.s ? (Math.round(c.s * 10) / 10) + "日" : "まだ"], ["難しさ(FSRS)", c.d ? (Math.round(c.d * 10) / 10) + " / 10" : "まだ"], ["今、思い出せる確率", c.s && c.st === "復習" ? Math.round(A2.R(Math.max(0, today - (c.lastDay != null ? c.lastDay : today)), c.s) * 100) + "%" : "—"], ["タグ", n.tags.join(" ")]].map(([k, v]) => `<div class="pkv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`).join("")}
+    setTimeout(() => mediaDiag(c.id), 0);
+    return `<h3>カードの情報</h3><h2>音声・画像の確かめ<small>このカードのノートが使っているもの</small></h2><div id="mdiag" class="note">調べています…</div>${[["デッキ", (A2.S.decks.get(c.deck) || {}).name], ["ノートタイプ", (A2.S.notetypes.get(n.nt) || {}).name], ["状態", c.st + (c.susp ? "(一時停止)" : "")], ["次の復習", c.st === "新規" ? "まだ" : c.dueDay != null ? A2.dayStr(c.dueDay) : "今日"], ["間隔", (c.ivl || 0) + "日"], ["復習した回数", c.reps || 0], ["忘れた回数", c.lapses || 0], ["安定さ(FSRS)", c.s ? (Math.round(c.s * 10) / 10) + "日" : "まだ"], ["難しさ(FSRS)", c.d ? (Math.round(c.d * 10) / 10) + " / 10" : "まだ"], ["今、思い出せる確率", c.s && c.st === "復習" ? Math.round(A2.R(Math.max(0, today - (c.lastDay != null ? c.lastDay : today)), c.s) * 100) + "%" : "—"], ["タグ", n.tags.join(" ")]].map(([k, v]) => `<div class="pkv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`).join("")}
       ${(() => { const a = A2.auditCard(c); if (a.skip) return ""; const L = a.last, g = ["", "もう一度", "難しい", "正解", "簡単"][L.g] || "", when = new Date(L.t).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
         const res = L.ivl > 0 ? L.ivl + "日後(" + A2.dayStr(A2.dayOf(L.t) + L.ivl) + ")" : Math.round(-L.ivl / 60) + "分後"; return `<div class="auditbar ${a.ok ? "ok" : "bad"}" style="margin:.6rem 0">この間隔の理由:${when} に「${g}」→ ${res}。${a.ok ? "✓ 今の期日は記録と一致" : "記録とずれている(" + esc(a.why || "期日が違う") + ")"}</div>`; })()}
       <h2>このカードの移り変わり<small>毎日の自動の控えから</small></h2><div id="cardhist" data-cid="${c.id}" class="note">読み込み中…</div>
@@ -1643,6 +1655,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-toface")) { V.rv.back = false; se("flip"); render(); return; }
   if (d.grade) { answer(+d.grade); return; }
   if (d.sgrade) { stageAnswer(d.sgrade); return; }
+  if (d.mdplay) { const u = await A2.mediaUrl(d.mdplay); if (!u) { toast("ファイルがない"); return; } try { rvAudio && rvAudio.pause(); } catch (e) {} rvAudio = new Audio(u); rvAudio.onerror = () => toast("この形式は、このブラウザでは鳴らせない"); rvAudio.play().then(() => toast("鳴らしている")).catch(x => toast("鳴らせなかった(" + (x && x.name || "") + ")")); return; }
   if (b.hasAttribute("data-rvrec")) { rvRecToggle(); return; } if (b.hasAttribute("data-rvrecplay")) { rvRecPlay(); return; } if (b.hasAttribute("data-rvreplay")) { V.sheet = null; render(); rvReplay(); return; }
   if (d.mfile) { const [w, f] = d.mfile.split("|"), inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = "audio/*,video/mp4,image/*";
     inp.onchange = async () => { let tags = ""; for (const file of inp.files) { const nm = await mediaSave(file, file.name); tags += mediaTag(nm, file); } if (!tags) return; mediaToField(w, f, tags); toast(inp.files.length + "個を付けた"); }; inp.click(); return; }
@@ -1807,7 +1820,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.46";
+window.APP_VER_EX = "r4.47";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2042,7 +2055,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.46";
+window.APP_VER_SYNC = "r4.47";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
