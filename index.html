@@ -414,6 +414,10 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .mdrow{padding:.3rem 0;border-bottom:1px dashed var(--rule);line-height:1.6}.mdrow .ok{color:var(--ok)}.mdrow .ng{color:var(--shu);font-weight:700}
 
 .compat{display:flex;flex-direction:column;gap:.3rem;margin:.2rem 0 .7rem;font-size:.82rem;line-height:1.5}.compat>div{border:1px solid var(--rule);border-radius:6px;padding:.35rem .55rem}.compat .ng{border-color:var(--shu);background:var(--shu-soft)}.compat .part{border-color:color-mix(in srgb,var(--mid) 45%,transparent);background:var(--mid-soft)}
+
+.dprint{border:1px solid var(--rule);border-radius:8px;padding:.5rem .7rem;margin:.4rem 0 .8rem;background:var(--white);font-size:.85rem;line-height:1.6}.dprint .mk{font-family:ui-monospace,monospace;font-size:1.05rem;letter-spacing:.08em}
+
+.skipbox{border:1px solid var(--shu);background:var(--shu-soft);border-radius:8px;padding:.5rem .7rem;margin:.4rem 0 .8rem;font-size:.85rem;line-height:1.6}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -838,7 +842,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.48";
+A2.VER = "r4.50";
 window.A2 = A2;
 
 </script>
@@ -846,7 +850,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.48"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.50"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1126,6 +1130,23 @@ function mediaToField(w, f, tags){ if (w === "a") { const v = fieldInsert(`[data
 // 取り込み:貼ったものに出てくる音声・画像が、端末の中にあるか
 async function aiMediaCheck(){ const names = [...new Set([...String(AI.out || "").matchAll(/\[sound:([^\]]+)\]|src=["']([^"']+)["']/g)].map(m => (m[1] || m[2]).trim()))], have = {};
   for (const n of names) have[n] = !!(await A2.getOne("media", n)); AI.mhave = have; }
+/* ほかの端末で入れ直されたが、この端末で前に消していたため入れていないもの */
+const SKIPN = { notes: "ノート", cards: "カード", decks: "デッキ", notetypes: "ノートタイプ", subjects: "分野", stages: "段階の型", exsub: "演習" };
+function skippedCount(){ const k = A2.S.meta.skipT || {}, out = {}; let n = 0; Object.entries(k).forEach(([st, m]) => { const c = Object.keys(m || {}).filter(id => !A2.S[st] || !A2.S[st].has(id)).length; if (c) { out[st] = c; n += c; } }); return { n, out }; }
+function skippedHtml(){ const { n, out } = skippedCount(); if (!n) return "";
+  return `<div class="skipbox"><b>ほかの端末で入れ直されたが、この端末では前に消していたので、入れていないもの</b>:${Object.entries(out).map(([st, c]) => (SKIPN[st] || st) + " " + c).join("・")}
+    <div class="note">ほかの端末でもう一度読み込んだ(入れ直した)ものが、この端末で前に消したものと同じだったため、この端末では消したままにしている。どちらに合わせるか決める。</div>
+    <div class="row" style="gap:.4rem;margin-top:.3rem"><button class="btn sm" data-skipin>入れる(ほかの端末に合わせる)</button><button class="btn ghost sm" data-skipout>入れない(消したままにする)</button></div></div>`; }
+A2.reviveSkipped = async () => { const k = A2.S.meta.skipT || {}, tombs = A2.S.meta.tombs || {}; let n = 0;
+  for (const st of ["notetypes", "decks", "subjects", "stages", "notes", "cards", "exsub"]) { const recs = Object.values(k[st] || {}).filter(r => r && !(A2.S[st] && A2.S[st].has(r.id))); if (!recs.length) continue;
+    recs.forEach(r => { if (tombs[st]) delete tombs[st][r.id]; }); await A2.save(st, recs); n += recs.length; }   // 新しい時刻で入れる:ほかのどの端末の古い消した印にも勝つ
+  await A2.setMeta("tombs", tombs); await A2.setMeta("skipT", {}); return n; };
+/* 今あるデータの数と目印:同期が済んだ2つの端末で、この目印が同じなら、今あるデータは同じ */
+function dataPrint(){ const st = [["cards", "カード"], ["notes", "ノート"], ["decks", "デッキ"], ["subjects", "分野"], ["notetypes", "ノートタイプ"]];
+  let h = 5381; const cnt = st.map(([k, l]) => { const ids = [...A2.S[k].values()].map(x => x.id + ":" + (x.mod || 0)).sort(); ids.forEach(t => { for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; }); return l + " " + A2.S[k].size; });
+  return { cnt: cnt.join("・"), mark: (h >>> 0).toString(16).padStart(8, "0").slice(0, 6).toUpperCase() }; }
+function dataPrintHtml(){ const d = dataPrint(), st = (typeof SYNC !== "undefined" && SYNC.state) || "";
+  return `<div class="dprint"><div><b>今あるデータ</b>:${esc(d.cnt)}</div><div>目印 <b class="mk">${d.mark}</b></div><div class="note">2つの端末の両方で同期が済んでいるときに、この目印が同じなら、今あるデータはまったく同じ。違うときは、どちらかに送っていない変更がある(同期すればそろう)。</div></div>`; }
 /* Anki から持ってきたノートタイプが、そのまま動くか:テンプレートと CSS を見て、動かないもの・一部だけのものを出す */
 function ankiCompat(t){ const all = (t.tmpls || []).map(m => (m.q || "") + "\n" + (m.a || "")).join("\n"), css = t.css || "", out = [];
   const bad = (re, what, why) => { if (re.test(all)) out.push({ lv: "ng", what, why }); }, part = (re, what, why) => { if (re.test(all)) out.push({ lv: "part", what, why }); };
@@ -1562,8 +1583,8 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
       ${es.length ? [...g.entries()].map(([k, cs]) => `<div class="pkv"><span class="k">${esc(k)}</span><span class="v">${cs.length}枚<br><small class="note">${cs.slice(0, 3).map(c => esc(String(A2.S.notes.get(c.nid).f[A2.S.notetypes.get(A2.S.notes.get(c.nid).nt).fields[0]] || "").replace(/<[^>]*>/g, "").slice(0, 20))).join("・")}${cs.length > 3 ? "…" : ""}</small></span></div>`).join("") + `<div class="row" style="margin-top:.6rem"><button class="btn" data-emptydel style="background:var(--shu)">${es.length}枚を消す</button></div>` : '<p class="note">空のカードは見つからなかった。</p>'}`; }
   if (sh.k === "msg") return `<h3>${esc(sh.t)}</h3><p>${esc(sh.b)}</p>`;
   if (sh.k === "autobk") return `<h3>自動の控え</h3><p class="note" style="margin-top:0">毎日はじめて開いたときに、この端末の中に控えを取っている(7日分)。<b>消えたものだけ戻す</b>なら、今あるもの(今日の復習など)は変えずに、その日にあって今ないものだけが戻る。ほかの端末にも同期で届く。</p><div id="bklist"><p class="note" style="padding:.5rem">読み込み中…</p></div>`;
-  if (sh.k === "trash") return `<h3>ごみ箱</h3><p class="note" style="margin-top:0">消したもの・ほかの端末で消されたものが30日残る。戻すと、ほかの端末にも同期で戻る。</p><div id="trlist"><p class="note">読み込み中…</p></div>`;
-  if (sh.k === "check") return `<h3>データの点検</h3><div id="chkres" class="note">点検中…</div><p class="note">同期の途中だと、届く途中のカードが「ノートがない」と出ることがある。そのときは同期が「同期済み」になってから、もう一度開く。</p>`;
+  if (sh.k === "trash") return `<h3>この端末のごみ箱</h3><p class="note" style="margin-top:0">消したものが30日残る。<b>ごみ箱は端末ごとで、同期はしない</b>。この端末で消したものと、ほかの端末で消されたもののうち<b>この端末に入っていたもの</b>だけがここに入る(この端末に一度も来なかったものは入らない)。そのため、端末ごとに数が違って当たり前。戻すと、ほかの端末にも同期で戻る。</p>${dataPrintHtml()}${skippedHtml()}<div id="trlist"><p class="note">読み込み中…</p></div>`;
+  if (sh.k === "check") return `<h3>データの点検</h3>${dataPrintHtml()}${skippedHtml()}<div id="chkres" class="note">点検中…</div><p class="note">同期の途中だと、届く途中のカードが「ノートがない」と出ることがある。そのときは同期が「同期済み」になってから、もう一度開く。</p>`;
   if (sh.k === "errlog") { const L = A2.S.meta.errors || []; return `<h3>起きた問題の記録</h3>${L.length ? L.slice().reverse().map(x => `<div class="pkv"><span class="k">${new Date(x.t).toLocaleString("ja-JP")}</span><span class="v" style="font-size:.78rem;word-break:break-all">${esc(x.m)}</span></div>`).join("") + '<button class="linkx" data-errclear>記録を消す</button>' : '<p class="note">まだない。</p>'}`; }
   return ""; }
 
@@ -1680,6 +1701,8 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-toface")) { V.rv.back = false; se("flip"); render(); return; }
   if (d.grade) { answer(+d.grade); return; }
   if (d.sgrade) { stageAnswer(d.sgrade); return; }
+  if (b.hasAttribute("data-skipin")) { const n = await A2.reviveSkipped(); toast(n + "件を入れた。同期でほかの端末にも届く"); render(); if (window.syncSoon) syncSoon(); return; }
+  if (b.hasAttribute("data-skipout")) { if (!confirm("入れずに、消したままにする?(ほかの端末にあるものは、次にそちらで同期したときに消える)")) return; await A2.setMeta("skipT", {}); toast("消したままにした"); render(); return; }
   if (d.mdplay) { const u = await A2.mediaUrl(d.mdplay); if (!u) { toast("ファイルがない"); return; } try { rvAudio && rvAudio.pause(); } catch (e) {} rvAudio = new Audio(u); rvAudio.onerror = () => toast("この形式は、このブラウザでは鳴らせない"); rvAudio.play().then(() => toast("鳴らしている")).catch(x => toast("鳴らせなかった(" + (x && x.name || "") + ")")); return; }
   if (b.hasAttribute("data-rvrec")) { rvRecToggle(); return; } if (b.hasAttribute("data-rvrecplay")) { rvRecPlay(); return; } if (b.hasAttribute("data-rvreplay")) { V.sheet = null; render(); rvReplay(); return; }
   if (d.mfile) { const [w, f] = d.mfile.split("|"), inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = "audio/*,video/mp4,image/*";
@@ -1845,7 +1868,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.48";
+window.APP_VER_EX = "r4.50";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2080,7 +2103,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.48";
+window.APP_VER_SYNC = "r4.50";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
@@ -2110,9 +2133,9 @@ const rkSee = (st, id, mod) => { const m = RK()[st] = RK()[st] || {}; if (!(m[id
 const isEmptyF = v => A2.emptyField(v);
 async function applyRecs(recsBy, delBy){ let n = 0; const tombs = A2.S.meta.tombs || {}, M = A2.S.meta; M.held = M.held || [];
   for (const st of STORES_SYNC) { const put = [], gone = [];
-    ((recsBy || {})[st] || []).forEach(r => { rkSee(st, r.id, r.mod); const l = A2.S[st].get(r.id), t = (tombs[st] || {})[r.id]; if (t && t.seen != null && (r.mod || 0) <= t.seen) return;   // 前の版の消した印(seen なし)は、受け取りを邪魔しない
+    ((recsBy || {})[st] || []).forEach(r => { rkSee(st, r.id, r.mod); const l = A2.S[st].get(r.id), t = (tombs[st] || {})[r.id]; if (t && t.seen != null && (r.mod || 0) <= t.seen) { if (!l && st !== "revlog") { M.skipT = M.skipT || {}; (M.skipT[st] = M.skipT[st] || {})[r.id] = r; } return; }   // 前の版の消した印(seen なし)は、受け取りを邪魔しない
       if (!l || (r.mod || 0) > (l.mod || 0)) {
-        if (l) { SYNC.prevs.push({ st, rec: l }); SYNC.sum.up++; } else SYNC.sum.add++; put.push(r); if (t) delete tombs[st][r.id]; } });
+        if (l) { SYNC.prevs.push({ st, rec: l }); SYNC.sum.up++; } else SYNC.sum.add++; put.push(r); if (t) delete tombs[st][r.id]; if (M.skipT && M.skipT[st]) delete M.skipT[st][r.id]; } });
     Object.entries(((delBy || {})[st]) || {}).forEach(([id, dv]) => { if (typeof dv !== "object" || dv == null) return;   // 前の版の印(見ていた版が分からない)は当てはめない
       const mod = +dv.m || 0, seen = dv.s != null ? +dv.s : -1, l = A2.S[st].get(id); if (l && (l.mod || 0) > seen) return;   // 消した人が見ていなかった新しい版は消さない
       if (l) gone.push(id); tombs[st] = tombs[st] || {}; if (!tombs[st][id] || tombs[st][id].mod < mod) { let pth = null; try { pth = A2.pathOf(st, l || { id, t: 0 }); } catch (e) {} if (st === "revlog" && !l) pth = (tombs[st][id] || {}).p || null; tombs[st][id] = { mod, p: pth, seen }; } });
@@ -2185,7 +2208,7 @@ async function syncOnce(){ const c = conn(); SYNC.busy = true; SYNC.err = ""; if
     if (full) { M.rkReady = true; M.lastFull = Date.now(); }
     if (SYNC.prevs.length) M.lastPrev = { at: Date.now(), items: SYNC.prevs.slice(-5000) };
     M.lastSum = Object.assign({ at: Date.now() }, SYNC.sum, { held: (M.held || []).length });
-    for (const k of ["tombs", "baseSha", "applied", "lastHead", "mediaUp", "deviceId", "rk", "rkReady", "lastFull", "held", "lastPrev", "lastSum"]) await A2.setMeta(k, A2.S.meta[k]);
+    for (const k of ["tombs", "baseSha", "applied", "lastHead", "mediaUp", "deviceId", "rk", "rkReady", "lastFull", "held", "lastPrev", "lastSum", "skipT"]) await A2.setMeta(k, A2.S.meta[k]);
     try { const h = await A2.healFromRecords(); if (h) { toast("復習の記録と食い違っていた " + h + "枚を、記録どおりに直した"); SYNC.again = true; } } catch (e) { console.error(e); if (typeof logErr === "function") logErr("記録どおりに直す:" + (e.message || e)); }
     try { const back = await A2.repairStudied(); if (back) { toast("片づけで消してしまった、最近学習したカード " + back + "枚を戻した"); SYNC.again = true; if (!V.rv && !V.sheet) render(); } } catch (e) { console.error(e); if (typeof logErr === "function") logErr("同期のあとの片づけ:" + (e.message || e)); }
     /* 一度だけ:全部の中身がそろってから、戻ってしまったものを消す(あなたの指示) */
@@ -2208,7 +2231,7 @@ function syncBadge(){ const c = conn(); if (!c) return `<button class="hdbtn" da
 function paintSync(){ const b = $("syncb"); if (b) b.outerHTML = syncBadge(); const s = $("syncst"); if (s) s.innerHTML = syncStatus(); }
 function syncStatus(){ const c = conn(), last = SYNC.last || A2.S.meta.lastSync; return c ? `${SYNC.busy ? esc(SYNC.note || "同期中") : SYNC.err ? '<b style="color:var(--shu)">同期できなかった:' + esc(SYNC.err) + "</b>" : "最後の同期:" + (last ? new Date(last).toLocaleString("ja-JP") : "まだ")}・未送信 ${A2.pendingCount()}${(A2.S.meta.mediaUp || []).length ? "・送っていない画像と音声 " + A2.S.meta.mediaUp.length : ""}` : "つないでいない"; }
 function syncSheet(){ const c = conn() || { owner: "nisenonamae", repo: "notion-daily", branch: "main", base: "roadmap/apps/anki2", token: "" }; const f = (id, l, v, ph, type) => `<div class="f"><label>${l}</label><input id="${id}" type="${type || "text"}" value="${esc(v || "")}" placeholder="${esc(ph || "")}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px" autocomplete="off"></div>`;
-  return `<h3>同期</h3><p class="note" style="margin-top:0">notion-daily に置いて、スマホ・Chromebook・Mac で同じデータを使う。ほかのアプリと同じトークンでよい(端末ごとに1回入れる)。</p><div class="note" id="syncst">${syncStatus()}</div>
+  return `<h3>同期</h3><p class="note" style="margin-top:0">notion-daily に置いて、スマホ・Chromebook・Mac で同じデータを使う。ほかのアプリと同じトークンでよい(端末ごとに1回入れる)。</p><div class="note" id="syncst">${syncStatus()}</div>${typeof skippedHtml === "function" ? skippedHtml() : ""}
     ${f("sy-o", "持ち主(GitHubの名前)", c.owner)}${f("sy-r", "リポジトリ", c.repo)}${f("sy-b", "ブランチ", c.branch)}${f("sy-p", "置き場所", c.base)}${f("sy-t", "トークン", c.token, "github_pat_… / ghp_…", "password")}
     <div class="row"><button class="btn" data-syncsave>${conn() ? "保存して同期" : "つないで同期"}</button>${conn() ? '<button class="btn ghost sm" data-syncnow>今すぐ同期(しっかり確かめる)</button><button class="linkx" data-syncoff style="color:var(--shu);margin-left:auto">つなぐのをやめる</button>' : ""}</div>
     <p class="note">ふだんは変わった分だけを送るので、カードが多くても軽い。はじめての端末だけは、全体を受け取るのに少し時間がかかる。</p>
