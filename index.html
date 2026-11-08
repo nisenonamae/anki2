@@ -846,7 +846,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.53";
+A2.VER = "r4.54";
 window.A2 = A2;
 
 </script>
@@ -854,7 +854,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.53"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.54"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1102,6 +1102,22 @@ function parseNtText(text){ const out = { tmpls: [], css: null, fields: null }; 
     if (/^\s*###\s*表/.test(l)) { side = "q"; continue; } if (/^\s*###\s*裏/.test(l)) { side = "a"; continue; }
     if ((m = /^\s*(`{3,}|~{3,})/.exec(l)) && (side === "q" || side === "a" || side === "css")) { fence = m[1]; buf = []; continue; } }
   if (out.fields && !out.fields.length) out.fields = null; return out; }
+/* 文から新しいノートタイプを作る:「全部まとめてコピー」と同じ形(# ノートタイプ:名前/## 欄/## Anki2 の設定/## カードの種類 N/## CSS) */
+function parseNtNew(text){ const p = parseNtText(text), name = ((/^\s*#\s*ノートタイプ\s*[:：]\s*(.+?)\s*$/m.exec(String(text || "")) || [])[1] || "").trim();
+  const dup = ((/^\s*[-・*]\s*重複を見る欄\s*[:：]\s*(.+?)\s*$/m.exec(String(text || "")) || [])[1] || "").split(/[・、,，\s]+/).map(x => x.trim()).filter(Boolean);
+  const stage = ((/^\s*[-・*]\s*段階の既定\s*[:：]\s*(.+?)\s*$/m.exec(String(text || "")) || [])[1] || "").trim();
+  return { name, fields: p.fields || [], tmpls: p.tmpls.filter(m => m.q != null).map((m, i) => ({ name: m.name || "カード " + (i + 1), q: m.q || "", a: m.a || "" })), css: p.css || "", dup, stage }; }
+function ntNewSheet(sh){ const p = parseNtNew(sh.text || ""), same = p.name && [...A2.S.notetypes.values()].find(t => t.name === p.name), st = p.stage && A2.stageTypes().find(x => x.name === p.stage);
+  const okAll = p.name && p.fields.length && p.tmpls.length && !same;
+  return `<h3>文から新しく作る</h3><button class="linkx" data-more="nts">‹ ノートタイプの一覧</button>
+    <p class="note">「全部まとめてコピー」と同じ形の文を貼る(# ノートタイプ:名前/## 欄(この順)/## カードの種類 N:名前 の ### 表・### 裏/## CSS)。AIに新しく作ってもらったノートタイプは、ここで入れる。</p>
+    <textarea id="ntn-text" rows="10" style="width:100%" placeholder="# ノートタイプ:場面の瞬間英作文&#10;&#10;## 欄(この順)&#10;1. 英文&#10;2. 場面&#10;…">${esc(sh.text || "")}</textarea>
+    ${sh.text ? `<h2>読み取れたもの</h2><div class="card" style="font-size:.86rem;line-height:1.7">
+      <div>名前:${p.name ? "<b>" + esc(p.name) + "</b>" : '<span style="color:var(--shu)">読めない(「# ノートタイプ:名前」の行がない)</span>'}${same ? ' <span style="color:var(--shu)">同じ名前のノートタイプがもうある。直すなら、そのノートタイプの「AIが直したものを入れる」を使う</span>' : ""}</div>
+      <div>欄 ${p.fields.length}つ:${p.fields.map(esc).join("・") || '<span style="color:var(--shu)">読めない(「## 欄」の下に「1. 名前」の形で並べる)</span>'}</div>
+      <div>カードの種類 ${p.tmpls.length}つ:${p.tmpls.map(m => esc(m.name)).join("・") || '<span style="color:var(--shu)">読めない(「## カードの種類 1:名前」と「### 表」「### 裏」のコードブロック)</span>'}</div>
+      <div>CSS:${p.css ? "あり" : "なし"}・重複を見る欄:${esc((p.dup.length ? p.dup : p.fields.slice(0, 1)).join("・"))}${p.stage ? "・段階の既定:" + (st ? esc(st.name) : '<span style="color:var(--shu)">「' + esc(p.stage) + '」という段階の型がない(先に段階の型を入れる)</span>') : ""}</div></div>
+      ${okAll ? '<div class="row" style="margin:.5rem 0"><button class="btn sm" data-ntnewgo>このノートタイプを作る</button></div>' : ""}` : ""}`; }
 /* 今のノートタイプへの入れ方:名前が同じカードの種類 → なければ番号 → それもなければ新しく足す。欄は足すだけ(消さない) */
 function ntPastePlan(t, p){ const plan = { upd: [], add: [], fields: null, addFields: [], css: p.css != null && p.css !== (t.css || ""), _css: p.css, newCards: 0, read: { tmpls: p.tmpls.length, fields: p.fields ? p.fields.length : 0, css: p.css != null } }, used = new Set();
   p.tmpls.forEach(x => { let idx = x.name ? t.tmpls.findIndex((m, k) => !used.has(k) && m.name.trim() === x.name) : -1, how = "name";
@@ -1608,7 +1624,8 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
   if (sh.k === "stpaste") return stagePasteSheet(sh);
   if (sh.k === "aifix") return aifixSheet(sh);
   if (sh.k === "cstage") return cstageSheet(sh);
-  if (sh.k === "nts") return `<h3>ノートタイプ</h3><div class="mlist">${[...A2.S.notetypes.values()].map(t => `<button data-ntopen="${t.id}"><b>${esc(t.name)}</b><small>欄 ${t.fields.length}・カード ${t.tmpls.length}・ノート ${[...A2.S.notes.values()].filter(n => n.nt === t.id).length}</small></button>`).join("") || '<p class="note">まだない。</p>'}</div>`;
+  if (sh.k === "ntnew") return ntNewSheet(sh);
+  if (sh.k === "nts") return `<h3>ノートタイプ</h3><div class="row" style="margin:.2rem 0 .6rem"><button class="btn sm" data-ntnew>+ 文から新しく作る(AIが作ったノートタイプを入れる)</button></div><div class="mlist">${[...A2.S.notetypes.values()].map(t => `<button data-ntopen="${t.id}"><b>${esc(t.name)}</b><small>欄 ${t.fields.length}・カード ${t.tmpls.length}・ノート ${[...A2.S.notes.values()].filter(n => n.nt === t.id).length}</small></button>`).join("") || '<p class="note">まだない。</p>'}</div>`;
   if (sh.k === "nt") { const t = A2.S.notetypes.get(sh.id), ti = sh.ti || 0, side = sh.side || "表", tm = t.tmpls[ti] || t.tmpls[0];
     return `<h3>${esc(t.name)}</h3><button class="linkx" data-more="nts">‹ ノートタイプの一覧</button>
       <div class="row" style="margin:.5rem 0;gap:.5rem"><button class="btn sm shu" data-ntcopy>全部まとめてコピー</button><button class="btn ghost sm" data-ntfile>ファイルで保存</button><button class="btn ghost sm" data-ntpaste>AIが直したものを入れる</button>${A2.S.meta.ntUndo && A2.S.meta.ntUndo.id === t.id ? '<button class="linkx" data-ntundo>前に入れたものを戻す</button>' : ""}</div>
@@ -1841,6 +1858,10 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
     toast("まとめて操作した"); render(); return; }
   /* 作る */
   if (d.adduse) { ADD.use = d.adduse; render(); return; }
+  if (b.hasAttribute("data-ntnew")) { V.sheet = { k: "ntnew", text: "" }; render(); return; }
+  if (b.hasAttribute("data-ntnewgo")) { const p = parseNtNew(V.sheet.text); if (!p.name || !p.fields.length || !p.tmpls.length) return; if ([...A2.S.notetypes.values()].some(t => t.name === p.name)) { toast("同じ名前がもうある"); return; }
+    const st = p.stage && A2.stageTypes().find(x => x.name === p.stage), nt = { id: "NT" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: p.name, fields: p.fields, tmpls: p.tmpls, css: p.css, dupKeys: (p.dup.length ? p.dup.filter(f => p.fields.includes(f)) : []).length ? p.dup.filter(f => p.fields.includes(f)) : [p.fields[0]] };
+    if (st) nt.stageType = st.id; await A2.save("notetypes", [nt]); V.sheet = { k: "nt", id: nt.id }; toast("「" + nt.name + "」を作った"); render(); return; }
   if (b.hasAttribute("data-stcopy") || b.hasAttribute("data-stcopyall")) { const all = b.hasAttribute("data-stcopyall"), t = A2.S.stages.get(V.sheet.sel), txt = stageToText(all ? A2.stageTypes() : t);
     const ok = () => toast((all ? "全部の型" : "「" + t.name + "」") + "をまとめてコピーした(" + txt.length.toLocaleString() + "文字)"); if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, () => prompt("コピーしてください", txt)); else prompt("コピーしてください", txt); return; }
   if (b.hasAttribute("data-stpaste")) { V.sheet = { k: "stpaste", text: "" }; render(); return; }
@@ -1895,6 +1916,7 @@ document.addEventListener("input", e => { const t = e.target;
   if (t.id === "ad-tags") ADD.tags = t.value;
   if (t.id === "ntp-t" && V.sheet && V.sheet.k === "ntpaste") { V.sheet.text = t.value; clearTimeout(window.__ntp); window.__ntp = setTimeout(() => { const p0 = t.selectionStart; const w = $("sheetwrap"); if (w) w.remove(); render(); const el = $("ntp-t"); if (el) { el.focus(); el.setSelectionRange(p0, p0); } }, 400); }
   if (t.dataset && t.dataset.efld && V.sheet && V.sheet.k === "card") { V.sheet.draft[t.dataset.efld] = t.value; clearTimeout(window.__ep); window.__ep = setTimeout(() => showInFrame($("pv-frame"), stagePvCard(A2.S.cards.get(V.sheet.id), V.sheet.pv), !!V.sheet.back, V.sheet.draft), 200); }
+  if (t.id === "ntn-text" && V.sheet && V.sheet.k === "ntnew") { V.sheet.text = t.value; clearTimeout(window.__ntn); window.__ntn = setTimeout(() => { const ta = $("ntn-text"), pos = ta ? ta.selectionStart : 0; render(); const tb = $("ntn-text"); if (tb) { tb.focus(); try { tb.setSelectionRange(pos, pos); } catch (e) {} } }, 500); return; }
   if (t.id === "stp-text" && V.sheet && V.sheet.k === "stpaste") { V.sheet.text = t.value; clearTimeout(window.__stp); window.__stp = setTimeout(() => { const ta = $("stp-text"), pos = ta ? ta.selectionStart : 0; render(); const tb = $("stp-text"); if (tb) { tb.focus(); try { tb.setSelectionRange(pos, pos); } catch (e) {} } }, 500); return; }
   if (t.id === "ai-out") { AI.out = t.value; clearTimeout(window.__ai); window.__ai = setTimeout(async () => { await aiMediaCheck(); const y = scrollY, p0 = t.selectionStart; render(); const el = $("ai-out"); if (el) { el.focus(); el.setSelectionRange(p0, p0); } scrollTo(0, y); }, 350); } });
 document.addEventListener("change", async e => { const t = e.target;
@@ -1953,7 +1975,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.53";
+window.APP_VER_EX = "r4.54";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2188,7 +2210,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.53";
+window.APP_VER_SYNC = "r4.54";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
