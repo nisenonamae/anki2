@@ -422,6 +422,8 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .mkords{display:flex;flex-wrap:wrap;gap:.3rem;margin:.3rem 0}.mkords button{font:inherit;font-size:.74rem;padding:.2rem .55rem;border:1px solid var(--rule);border-radius:999px;background:var(--white);color:var(--ink);cursor:pointer}.mkords button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}.mkords button.nomake{opacity:.5;border-style:dashed}
 
 .stpv{border:1px solid var(--rule);border-radius:8px;padding:.5rem .7rem;margin:.4rem 0;background:var(--white);font-size:.85rem}.stpv ol{margin:.3rem 0 0;padding-left:1.3rem}.stpv li{margin:.2rem 0;line-height:1.5}.stpv li.ch{background:var(--wave-soft);border-radius:4px;padding:0 .3rem}
+
+.bstg{cursor:pointer;display:inline-block;border-bottom:1px dotted currentColor}.bstg.none{color:var(--mid)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -846,7 +848,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.54";
+A2.VER = "r4.55";
 window.A2 = A2;
 
 </script>
@@ -854,7 +856,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.54"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.55"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1206,6 +1208,8 @@ async function mediaDiag(cid){ const el = $("mdiag"); if (!el) return; const c =
     const b = m && m.blob, ty = b ? (b.type || "形式が分からない") : "", kb = b ? (b.size / 1024 < 1024 ? Math.round(b.size / 1024) + "KB" : (b.size / 1048576).toFixed(1) + "MB") : "", can = b && b.type ? (document.createElement("audio").canPlayType(b.type) || "no") : "";
     rows.push(`<div class="mdrow"><b>${esc(nm)}</b> ${b ? `<span class="ok">✓ ${esc(from)}にある</span>・${esc(ty)}・${kb}${/^(audio|video)\//.test(ty) ? `・${can === "no" ? '<span class="ng">この端末のブラウザでは鳴らせない形式かもしれない</span>' : "鳴らせる形式"} <button class="btn ghost sm" data-mdplay="${esc(nm)}">ここで鳴らす</button>` : ""}` : '<span class="ng">✗ この端末にも同期先にもない</span>'}</div>`); }
   el.innerHTML = rows.join(""); }
+/* ブラウザの一覧の段階の表示:押すと、そのカードの段階の画面(行を開くより先に受ける) */
+document.addEventListener("click", e => { const t = e.target.closest && e.target.closest("[data-cstg]"); if (!t) return; e.stopPropagation(); e.preventDefault(); V.sheet = { k: "cstage", id: t.dataset.cstg }; render(); }, true);
 /* 今の面の音を、頭から順に鳴らす(Anki の R) */
 var rvAudio = null;
 async function rvReplay(){ const r = V.rv, c = rvCur(); if (!c) return; const f = A2.cardHtml(c, false), b = A2.cardHtml(c, true), src = r.back ? b.slice(f.length) : f, names = [...src.matchAll(/\[sound:([^\]]+)\]/g)].map(m => m[1]);
@@ -1214,7 +1218,7 @@ async function rvReplay(){ const r = V.rv, c = rvCur(); if (!c) return; const f 
 async function rvRecToggle(){ const c = rvCur(); if (!c) return; if (REC.mr && REC.for === "rv") { const blob = await recStop(); if (blob) { if (REC.url) URL.revokeObjectURL(REC.url); REC.url = URL.createObjectURL(blob); REC.cid = c.id; toast("録音した。「自分の声」で聞き比べる"); } render(); return; }
   if (REC.mr) { toast("ほかの所で録音中"); return; } if (await recStart("rv")) { toast("録音中…もう一度押すと止める"); render(); } }
 function rvRecPlay(){ const c = rvCur(); if (!REC.url || REC.cid !== (c && c.id)) { toast("まだ録音していない"); return; } try { rvAudio && rvAudio.pause(); } catch (e) {} rvAudio = new Audio(REC.url); rvAudio.play().catch(() => {}); }
-const rvToolsHtml = (r, c) => { const recOn = REC.mr && REC.for === "rv", hasRec = REC.url && REC.cid === (c && c.id), stg = A2.stageTypeOf(c);
+const rvToolsHtml = (r, c) => { const recOn = REC.mr && REC.for === "rv", hasRec = REC.url && REC.cid === (c && c.id), stg = A2.stageTypeOf(c) || (c && c.sgo) || stageCfgOf(c);
   return `<div class="rvtools2 t${4 + (stg ? 1 : 0) + (hasRec ? 1 : 0)}"><button class="tl" data-rvundo${r.hist.length ? "" : " disabled"}><i>↶</i>元に戻す</button><button class="tl" data-rvedit><i>✎</i>直す</button>${stg ? `<button class="tl" data-rvstg><i>▤</i>段階</button>` : ""}<button class="tl${recOn ? " on" : ""}" data-rvrec><i>${recOn ? "■" : "●"}</i>${recOn ? "止める" : "録音"}</button>${hasRec ? `<button class="tl" data-rvrecplay><i>▶</i>自分の声</button>` : ""}<button class="tl" data-rvmore><i>⋯</i>その他</button></div>`; };
 /* 段階のカードの判定:記録には kind 5・g 0 で残す(FSRSは数えない)。最後の段階のクリアで、FSRSを0から始める */
 async function stageAnswer(kind){ const r = V.rv, c = rvCur(); if (!c) return; const S0 = A2.stageOf(c); if (!S0) return; const now = Date.now(), today = A2.dayOf(now), sec = (now - (r.cardT0 || r.t0)) / 1000, note = A2.S.notes.get(c.nid);
@@ -1323,9 +1327,9 @@ function browser(){ let xs = [...A2.S.cards.values()].filter(c => bfMatch(c) && 
   return `<div class="bsearch"><input id="bq" placeholder="言葉で探す(表・裏・欄の中身)" value="${esc(V.bq)}"></div>${bar}
     <details class="syn"><summary>くわしい書き方(使わなくてよい)</summary>書き方:<code>deck:英語*</code> <code>tag:単語帳</code> <code>is:due</code> <code>is:new</code> <code>is:suspended</code> <code>flag:1</code> <code>prop:ivl&gt;20</code> <code>rated:1</code> <code>-tag:xx</code>(除く)</details>
     <div class="bsort">並べ方 <select id="bsort">${[["due", "次の復習"], ["ivl", "間隔の長い順"], ["lapses", "忘れた回数"], ["deck", "デッキ"], ["front", "表の文字"]].map(([k, t]) => `<option value="${k}"${V.bsort === k ? " selected" : ""}>${t}</option>`).join("")}</select><span style="margin-left:auto">${xs.length}枚${sel.length ? "・" + sel.length + "枚を選んでいる" : ""}</span>${xs.length ? (sel.length === xs.length ? '<button class="linkx" data-bact="none" style="margin-left:.6rem">選ぶのをやめる</button>' : `<button class="linkx" data-ball style="margin-left:.6rem">全部選ぶ(${xs.length}枚)</button>`) : ""}</div>
-    ${sel.length ? `<div class="bact"><button class="btn sm" data-bact="deck">デッキを変える</button><button class="btn ghost sm" data-bact="tag">タグを足す</button><button class="btn ghost sm" data-bact="susp">一時停止の切り替え</button><button class="btn ghost sm" data-bact="flag">旗</button><button class="btn ghost sm" data-bact="aifix">AIで直す</button><button class="btn ghost sm" data-bact="reset">新規に戻す</button><button class="btn ghost sm" data-bact="del" style="color:var(--shu)">消す</button><button class="linkx" data-bact="none">選ぶのをやめる</button></div>` : ""}
+    ${sel.length ? `<div class="bact"><button class="btn sm" data-bact="deck">デッキを変える</button><button class="btn ghost sm" data-bact="tag">タグを足す</button><button class="btn ghost sm" data-bact="susp">一時停止の切り替え</button><button class="btn ghost sm" data-bact="flag">旗</button><button class="btn ghost sm" data-bact="aifix">AIで直す</button><button class="btn ghost sm" data-bact="reset">新規に戻す</button>${sel.some(id => (A2.S.cards.get(id) || {}).sgo) ? '<button class="btn ghost sm" data-bact="sgreset">段階を既定に戻す</button>' : ""}<button class="btn ghost sm" data-bact="del" style="color:var(--shu)">消す</button><button class="linkx" data-bact="none">選ぶのをやめる</button></div>` : ""}
     <div class="btable">${shown.map(c => { const d = A2.S.decks.get(c.deck), n = A2.S.notes.get(c.nid), nt = A2.S.notetypes.get(n.nt), st = c.susp ? "一時停止" : c.st;
-      return `<div class="brow"><input type="checkbox" data-bsel="${c.id}"${V.bsel[c.id] ? " checked" : ""} aria-label="選ぶ"><button data-card="${c.id}" style="border:0;background:none;text-align:left;padding:0"><b>${esc(cardFront(c)) || "(表が空)"}</b><span class="stt s-${st === "復習" ? "習熟" : st === "新規" ? "新規" : "復習中"}">${st}</span>${c.flag ? ` <span class="fl" style="background:${FL[c.flag]}"></span>` : ""}<div class="meta">${esc(d.name)}・${esc(nt ? nt.name : "")}</div><div class="bstg${A2.stageTypeOf(c) ? " on" : ""}">${esc(stageLabel(c))}</div></button><span class="due">${c.st === "新規" ? "まだ" : c.dueDay != null ? (c.dueDay - today <= 0 ? "今日" : (c.dueDay - today) + "日後") : "今日"}<br>間隔 ${c.ivl || 0}日</span></div>`; }).join("") || '<p class="note" style="padding:.5rem .7rem;margin:0">見つからない。</p>'}</div>
+      return `<div class="brow"><input type="checkbox" data-bsel="${c.id}"${V.bsel[c.id] ? " checked" : ""} aria-label="選ぶ"><button data-card="${c.id}" style="border:0;background:none;text-align:left;padding:0"><b>${esc(cardFront(c)) || "(表が空)"}</b><span class="stt s-${st === "復習" ? "習熟" : st === "新規" ? "新規" : "復習中"}">${st}</span>${c.flag ? ` <span class="fl" style="background:${FL[c.flag]}"></span>` : ""}<div class="meta">${esc(d.name)}・${esc(nt ? nt.name : "")}</div><div class="bstg${A2.stageTypeOf(c) ? " on" : ""}${c.sgo === "none" ? " none" : ""}" data-cstg="${c.id}" title="押すと、このカードの段階を見る・変える">${esc(stageLabel(c) + (c.sgo === "none" ? "(このカードだけ)" : ""))} ›</div></button><span class="due">${c.st === "新規" ? "まだ" : c.dueDay != null ? (c.dueDay - today <= 0 ? "今日" : (c.dueDay - today) + "日後") : "今日"}<br>間隔 ${c.ivl || 0}日</span></div>`; }).join("") || '<p class="note" style="padding:.5rem .7rem;margin:0">見つからない。</p>'}</div>
     ${xs.length > shown.length ? `<button class="madd" data-bmore>あと ${xs.length - shown.length} 枚を出す</button>` : ""}`; }
 
 /* ───── 作る ───── */
@@ -1572,7 +1576,8 @@ function cstageSheet(sh){ const c = A2.S.cards.get(sh.id); if (!c) return ""; co
   const where = S0 ? "段階を踏んでいる:" + t.name + " " + (S0.i + 1) + "/" + (S0.last + 1) + "「" + S0.st.name + "」・次は " + (c.dueMs != null ? "今日のうちに" : c.dueDay != null ? (c.dueDay <= today ? "今日" : A2.dayStr(c.dueDay)) : "今日") : t ? (c.st === "新規" ? "まだ出していない(段階から始まる)" : "FSRSで保っている(型:" + t.name + ")") : "段階なし(ふつうのカード)";
   const recs = [...A2.S.revlog.values()].filter(r => r.cid === c.id && (r.kind === 5 || (r.kind === 4 && r.x && r.x.stage))).sort((a, b) => b.t - a.t).slice(0, 10);
   const resL = { up: "クリア", stay: "まだ", down: "1つ下へ" };
-  return `<h3>このカードの段階</h3><div class="pkv"><span class="k">今</span><span class="v">${esc(where)}</span></div>
+  const undoNone = c.sgo === "none" ? `<div class="skipbox" style="border-color:var(--mid);background:var(--mid-soft)"><b>このカードは「段階なし」にしてある</b><div class="note">${def ? "段階なしをやめると、" + esc(def.name) + "に戻る" + (c.sg ? "(" + (Math.min(c.sg.i || 0, def.stages.length - 1) + 1) + "段目の続きから)" : "") + "。" : "このカードのノートタイプには段階の既定がないので、下の「このカードの段階の型」で型を選ぶ。"}</div>${def ? `<div class="row" style="margin-top:.35rem"><button class="btn sm" data-csrestore="${c.id}">段階なしをやめる(${esc(def.name)}に戻す)</button></div>` : ""}</div>` : "";
+  return `<h3>このカードの段階</h3>${undoNone}<div class="pkv"><span class="k">今</span><span class="v">${esc(where)}</span></div>
     <div class="f" style="margin-top:.6rem"><label>このカードの段階の型</label><select data-cstage="${c.id}"><option value=""${!c.sgo ? " selected" : ""}>既定に従う(${esc(def ? def.name : "段階なし")})</option>${A2.stageTypes().map(x => `<option value="${x.id}"${c.sgo === x.id ? " selected" : ""}>${esc(x.name)}(このカードだけ)</option>`).join("")}<option value="none"${c.sgo === "none" ? " selected" : ""}>このカードは段階なし</option></select>
       <div class="note">${c.st === "新規" || c.st === "段階" ? "変えると、次に出るときからその型で数える(段階は名前で引き継ぎ、なければ近い段階へ)。" : "このカードはFSRSで保っているので、型を変えても段階には戻らない。戻すときは下のボタンで。"}</div></div>
     ${t && !S0 && c.st !== "新規" ? `<h2>段階に戻す<small>FSRSの値は脇に置く。もう一度最後の段階をクリアしたら、FSRSは0から</small></h2><div class="row" style="flex-wrap:wrap;gap:.4rem">${t.stages.map((x, i) => `<button class="btn ghost sm" data-cstback="${c.id}|${i}">${i + 1}「${esc(x.name)}」に戻す</button>`).join("")}</div>` : ""}
@@ -1826,6 +1831,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
     await A2.save("stages", [t]); render(); return; }
   if (d.cstback) { const [cid, i] = d.cstback.split("|"), c = A2.S.cards.get(cid); if (!c) return; await stageBack(c, +i); render(); return; }
   if (d.cstset) { const [cid, i] = d.cstset.split("|"), c = A2.S.cards.get(cid); if (!c) return; const today = A2.today(); c.sg = Object.assign({}, c.sg || {}, { i: +i, reps: 0, rday: today }); if (c.st === "新規") { c.st = "段階"; delete c.pos; c.dueDay = today; } await A2.save("cards", [c]); toast("段階を変えた"); render(); return; }
+  if (d.csrestore) { const c = A2.S.cards.get(d.csrestore); if (!c) return; delete c.sgo; const ty = A2.stageTypeOf(c); if (c.sg && ty) c.sg.i = Math.min(c.sg.i || 0, ty.stages.length - 1); await A2.save("cards", [c]); toast("段階なしをやめた" + (ty ? "(" + ty.name + "に戻した)" : "")); render(); return; }
   if (b.hasAttribute("data-rvstg")) { V.sheet = { k: "cstage", id: rvCur().id }; render(); return; }
   if (b.hasAttribute("data-rvend")) { endStudy(); return; }
   if (b.hasAttribute("data-rvundo")) { undo(); return; }
@@ -1851,6 +1857,8 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-bmore")) { V.bmax = (V.bmax || 200) + 400; render(); return; }
   if (d.bact) { const ids = Object.keys(V.bsel).filter(k => V.bsel[k]), cs = ids.map(id => A2.S.cards.get(id)).filter(Boolean);
     if (d.bact === "aifix") { V.sheet = { k: "aifix", ids, ins: A2.S.meta.aifixLast || "", tmpl: false, size: 50, paste: "" }; render(); return; }
+  if (d.bact === "sgreset") { const cs = Object.keys(V.bsel).filter(id => V.bsel[id]).map(id => A2.S.cards.get(id)).filter(c => c && c.sgo); if (!cs.length) return;
+    if (!confirm(cs.length + "枚のカードの段階の型を、ノートタイプ(カードの種類)の既定に戻す?")) return; cs.forEach(c => { delete c.sgo; const ty = A2.stageTypeOf(c); if (c.sg && ty) c.sg.i = Math.min(c.sg.i || 0, ty.stages.length - 1); }); await A2.save("cards", cs); toast(cs.length + "枚を既定に戻した"); render(); return; }
     if (d.bact === "none") V.bsel = {}; else if (d.bact === "susp") { cs.forEach(c => c.susp = !c.susp); await A2.save("cards", cs); } else if (d.bact === "reset") { const now = Date.now(); cs.forEach(c => { Object.assign(c, { st: "新規", ivl: 0, s: null, d: null, pos: 0 }); delete c.dueDay; delete c.dueMs; }); await A2.save("cards", cs); await A2.save("revlog", cs.map((c, i) => ({ id: "rM" + now + "_" + i, cid: c.id, t: now + i, g: 0, ivl: 0, last: 0, ms: 0, kind: 4, src: "a2" })), { keepMod: true }); }
     else if (d.bact === "flag") { V.sheet = { k: "flag", ids }; render(); return; } else if (d.bact === "tag") { const t = prompt("足すタグ"); if (t) { const ns = [...new Set(cs.map(c => c.nid))].map(id => A2.S.notes.get(id)); ns.forEach(n => { if (!n.tags.includes(t)) n.tags.push(t); }); await A2.save("notes", ns); } }
     else if (d.bact === "deck") { const nm = prompt("移すデッキの名前(::で区切る)", ""); if (nm) { const dk = await ensureDeck(nm.trim()); cs.forEach(c => c.deck = dk.id); await A2.save("cards", cs); } }
@@ -1975,7 +1983,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.54";
+window.APP_VER_EX = "r4.55";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2210,7 +2218,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.54";
+window.APP_VER_SYNC = "r4.55";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
