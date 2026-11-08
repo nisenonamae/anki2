@@ -418,6 +418,8 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .dprint{border:1px solid var(--rule);border-radius:8px;padding:.5rem .7rem;margin:.4rem 0 .8rem;background:var(--white);font-size:.85rem;line-height:1.6}.dprint .mk{font-family:ui-monospace,monospace;font-size:1.05rem;letter-spacing:.08em}
 
 .skipbox{border:1px solid var(--shu);background:var(--shu-soft);border-radius:8px;padding:.5rem .7rem;margin:.4rem 0 .8rem;font-size:.85rem;line-height:1.6}
+
+.mkords{display:flex;flex-wrap:wrap;gap:.3rem;margin:.3rem 0}.mkords button{font:inherit;font-size:.74rem;padding:.2rem .55rem;border:1px solid var(--rule);border-radius:999px;background:var(--white);color:var(--ink);cursor:pointer}.mkords button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}.mkords button.nomake{opacity:.5;border-style:dashed}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -842,7 +844,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.51";
+A2.VER = "r4.52";
 window.A2 = A2;
 
 </script>
@@ -850,7 +852,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.51"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.52"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1323,9 +1325,13 @@ function make(){ if (!A2.S.decks.size) return '<div class="empty-big"><b>まだ�
         <div class="fbtns"><button data-ains="\\(|\\)" data-af="${esc(f)}">数式 \\( \\)</button><button data-ains="\\[|\\]" data-af="${esc(f)}">数式(行)</button>${t.cloze ? `<button data-acloze="${esc(f)}">穴 [...]</button>` : ""}<button data-ains="<b>|</b>" data-af="${esc(f)}">太字</button><button data-mfile="a|${esc(f)}">音声・画像</button><button data-mrec="a|${esc(f)}">${REC.mr && REC.for === "a|" + f ? "■ 録音を止める" : "録音"}</button></div></div>` + (i === t.fields.length - 1 && i >= 8 ? "</details>" : "")).join("")}
       <div class="f"><label>タグ(空白で区切る)</label><input id="ad-tags" value="${esc(ADD.tags)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"></div>
       <div class="row" style="margin-top:.7rem"><button class="btn" data-addnote>追加</button></div></div>
-    <div class="mkprev"><div class="mkph">出来上がり</div><div class="mksw">${["表", "裏"].map(k => `<button data-mkside="${k}" aria-pressed="${ADD.side === k}">${k}</button>`).join("")}</div><div id="ad-stage"></div><div class="cardbox rvf stg"><iframe class="rvframe" id="ad-frame" title="出来上がり" srcdoc="${esc(FRAME_DOC())}" style="min-height:10rem"></iframe></div><div class="note" id="ad-need"></div></div></div>`; }
+    <div class="mkprev"><div class="mkph">出来上がり</div><div class="mksw">${["表", "裏"].map(k => `<button data-mkside="${k}" aria-pressed="${ADD.side === k}">${k}</button>`).join("")}</div><div class="mkords" id="ad-ords"></div><div id="ad-stage"></div><div class="cardbox rvf stg"><iframe class="rvframe" id="ad-frame" title="出来上がり" srcdoc="${esc(FRAME_DOC())}" style="min-height:10rem"></iframe></div><div class="note" id="ad-need"></div></div></div>`; }
 function addPreview(){ const fr = $("ad-frame"); if (!fr) return; const t = A2.S.notetypes.get(ADD.nt), fake = { id: "pv", nid: "pvn", ord: 0, deck: ADD.deck }; A2.S.notes.set("pvn", { id: "pvn", nt: ADD.nt, f: ADD.f, tags: (ADD.tags || "").split(/\s+/).filter(Boolean) });
-  const ords = A2.genOrds(A2.S.notes.get("pvn"), t); fake.ord = ords[0] || 0; fake.st = "新規"; const sb = $("ad-stage"); if (sb) sb.innerHTML = stageBand(fake); showInFrame(fr, fake, ADD.side === "裏").then(() => { A2.S.notes.delete("pvn"); });
+  const ords = A2.genOrds(A2.S.notes.get("pvn"), t); if (ADD.pvNt !== ADD.nt) { ADD.pvNt = ADD.nt; ADD.pvOrd = null; }
+  const pick = ADD.pvOrd != null && (ords.includes(ADD.pvOrd) || !t.cloze && ADD.pvOrd < (t.tmpls || []).length) ? ADD.pvOrd : (ords[0] || 0); fake.ord = pick; fake.st = "新規";
+  // カードの種類を切り替える:作られるものは濃く、今の欄では作られないものは薄く(押せば、空のまま見られる)
+  const ob = $("ad-ords"); if (ob) { const list = t.cloze ? ords.map(o => ({ o, name: "穴 " + (o + 1), made: true })) : (t.tmpls || []).map((m, i) => ({ o: i, name: m.name || "カード " + (i + 1), made: ords.includes(i) }));
+    ob.innerHTML = list.length > 1 ? list.map(x => `<button data-mkord="${x.o}" aria-pressed="${x.o === pick}" class="${x.made ? "" : "nomake"}" title="${x.made ? "このカードは作られる" : "今の欄では作られない"}">${esc(x.name)}${x.made ? "" : "(作られない)"}</button>`).join("") : ""; } const sb = $("ad-stage"); if (sb) sb.innerHTML = stageBand(fake); showInFrame(fr, fake, ADD.side === "裏").then(() => { A2.S.notes.delete("pvn"); });
   const need = $("ad-need"); if (need) need.textContent = ords.length ? (ords.length > 1 ? "カードが " + ords.length + " 枚できる" : "") : "まだ表が空なので、カードができない(欄を入れると出る)"; }
 /* AIのツール:リンクと、出したもの(Ankiに読み込む形)の取り込み */
 const links = () => A2.S.meta.links || [ { id: "L1", name: "英単語カードづくり2", url: "https://claude.ai/artifact/2d5kf3gHiWHd25vmR6W7dF", memo: "英単語・瞬間英作文・文法。「全部コピー」して下に貼る" }, { id: "L2", name: "数学カードづくり", url: "https://claude.ai/artifact/BMVT7jZYvEozHWUNrQ9BUM", memo: "問題と解答の画像から、骨組みと dojo math。「全部コピー」して下に貼る" } ];
@@ -1783,6 +1789,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
     toast("まとめて操作した"); render(); return; }
   /* 作る */
   if (d.adduse) { ADD.use = d.adduse; render(); return; }
+  if (d.mkord != null && b.hasAttribute("data-mkord")) { ADD.pvOrd = +d.mkord; addPreview(); return; }
   if (d.mkside) { ADD.side = d.mkside; document.querySelectorAll("[data-mkside]").forEach(z => z.setAttribute("aria-pressed", String(z === b))); addPreview(); return; }
   if (d.ains) { const ta = document.querySelector(`[data-afld="${CSS.escape(d.af)}"]`), [a1, z1] = d.ains.split("|"), s0 = ta.selectionStart, s1 = ta.selectionEnd; ta.value = ta.value.slice(0, s0) + a1 + ta.value.slice(s0, s1) + z1 + ta.value.slice(s1); ADD.f[d.af] = ta.value; addPreview(); ta.focus(); return; }
   if (d.acloze) { const ta = document.querySelector(`[data-afld="${CSS.escape(d.acloze)}"]`), s0 = ta.selectionStart, s1 = ta.selectionEnd, n = Math.max(0, ...A2.clozeNums(ta.value)) + 1; ta.value = ta.value.slice(0, s0) + "{{c" + n + "::" + ta.value.slice(s0, s1) + "}}" + ta.value.slice(s1); ADD.f[d.acloze] = ta.value; addPreview(); return; }
@@ -1888,7 +1895,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.51";
+window.APP_VER_EX = "r4.52";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2123,7 +2130,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.51";
+window.APP_VER_SYNC = "r4.52";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
