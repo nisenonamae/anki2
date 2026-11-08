@@ -412,6 +412,8 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .fbtns{display:flex!important;flex-wrap:wrap;gap:.3rem}.fbtns button{flex:0 0 auto;width:auto!important;white-space:nowrap;padding:.25rem .55rem;font-size:.74rem;writing-mode:horizontal-tb}
 
 .mdrow{padding:.3rem 0;border-bottom:1px dashed var(--rule);line-height:1.6}.mdrow .ok{color:var(--ok)}.mdrow .ng{color:var(--shu);font-weight:700}
+
+.compat{display:flex;flex-direction:column;gap:.3rem;margin:.2rem 0 .7rem;font-size:.82rem;line-height:1.5}.compat>div{border:1px solid var(--rule);border-radius:6px;padding:.35rem .55rem}.compat .ng{border-color:var(--shu);background:var(--shu-soft)}.compat .part{border-color:color-mix(in srgb,var(--mid) 45%,transparent);background:var(--mid-soft)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -707,7 +709,7 @@ A2.tmplInfo = (tmpl, note, nt, ord, back, front) => { let tree = tmplCache.get(t
   const val = inner => { if (/^A2:/.test(inner)) return F[inner] != null ? String(F[inner]) : "";
     const parts = inner.split(":"), name = parts.pop().trim(), filters = parts.map(x => x.trim().split(/\s+/)[0]);
     if (name === "FrontSide") return back ? (front || "") : ""; if (name === "Tags") return (note.tags || []).join(" ");
-    if (name === "Deck" || name === "Subdeck" || name === "CardFlag") return ""; if (name === "Card") return (nt.tmpls[Math.min(ord, nt.tmpls.length - 1)] || {}).name || ""; if (name === "Type") return nt.name;
+    if (name === "Deck") return A2._deckName || ""; if (name === "Subdeck") return String(A2._deckName || "").split("::").pop(); if (name === "CardFlag") return ""; if (name === "Card") return (nt.tmpls[Math.min(ord, nt.tmpls.length - 1)] || {}).name || ""; if (name === "Type") return nt.name;
     if (!fields.has(name) && F[name] == null) return "";   // ノートタイプにない欄は、何も出さない
     let v = F[name] != null ? String(F[name]) : "";
     if (filters.includes("cloze")) { const c = ord + 1; if (A2.clozeNums(v).includes(c)) ctx.nonEmpty = true;
@@ -718,7 +720,8 @@ A2.tmplInfo = (tmpl, note, nt, ord, back, front) => { let tree = tmplCache.get(t
     if (filters.includes("furigana")) v = v.replace(/ ?([^\s\[\]<>]+)\[([^\]]*)\]/g, "<ruby><rb>$1</rb><rt>$2</rt></ruby>");
     if (filters.includes("hint")) v = A2.emptyField(v) ? "" : `<a class="hint" href="#" onclick="this.style.display='none';this.nextElementSibling.style.display='inline';return false;">${name}</a><span class="hint" style="display:none">${v}</span>`;
     if (filters.includes("type")) v = back ? `<div class="typed-ans">${v}</div>` : `<input class="typeans" id="typeans" autocomplete="off">`;
-    if (filters.includes("tts")) v = `<span class="tts" data-tts="${v.replace(/<[^>]*>/g, "").replace(/"/g, "")}">🔊</span>`;
+    if (filters.includes("tts")) { const tf = parts.find(x => /^\s*tts\b/.test(x)) || "", lang = (tf.trim().split(/\s+/)[1] || "").replace("_", "-"), sp = (/speed=([\d.]+)/.exec(tf) || [])[1] || "";
+      v = `<button type="button" class="tts a2-tts replay-button" data-tts="${v.replace(/<[^>]*>/g, "").replace(/"/g, "")}" data-lang="${lang}" data-speed="${sp}">🔊</button>`; }
     return v; };
   const walk = node => node.kids.map(k => k.text != null ? k.text : k.v != null ? val(k.v) : ((k.sec === "#") === has(k.name) ? walk(k) : "")).join("");
   return { html: walk(tree), nonEmpty: ctx.nonEmpty }; };
@@ -741,11 +744,11 @@ A2.virtual = (card, base) => { const nt = A2.S.notetypes.get((A2.S.notes.get(car
     if (rule === "okng") F[f] = ok.join(", "); else if (rule === "grades") F[f] = ev.join(", "); else if (rule === "count") F[f] = String(h.length); else if (rule === "last") F[f] = V2["A2:前回"];
     else if (rule === "laps") F[f] = join(keep, laps.join(", ")); else if (rule === "secs") F[f] = secs.join(", "); });
   return F; };
-A2.cardHtml = (card, back, fOver) => { const n0 = A2.S.notes.get(card.nid); if (!n0) return ""; fOver = A2.virtual(card, fOver || n0.f); const note = Object.assign({}, n0, { f: fOver }), nt = A2.S.notetypes.get(note.nt); if (!nt) return "";
+A2.cardHtml = (card, back, fOver) => { const n0 = A2.S.notes.get(card.nid); if (!n0) return ""; A2._deckName = (A2.S.decks.get(card.deck) || {}).name || ""; fOver = A2.virtual(card, fOver || n0.f); const note = Object.assign({}, n0, { f: fOver }), nt = A2.S.notetypes.get(note.nt); if (!nt) return "";
   const tm = nt.tmpls[nt.cloze ? 0 : card.ord] || nt.tmpls[0], fr = A2.renderTmpl(tm.q, note, nt, card.ord, false);
   return back ? A2.renderTmpl(tm.a, note, nt, card.ord, true, fr) : fr; };
 /* 音声 [sound:x.mp3] は再生ボタンに */
-A2.soundTags = html => String(html).replace(/\[sound:([^\]]+)\]/g, (m, f) => `<button class="a2-snd" data-snd="${f.replace(/"/g, "")}" type="button">▶</button>`);
+A2.soundTags = html => String(html).replace(/\[sound:([^\]]+)\]/g, (m, f) => `<button class="a2-snd replay-button soundLink" data-snd="${f.replace(/"/g, "")}" type="button">▶</button>`);
 /* カードを作る(ノートから):テンプレートの表が空なら作らない。穴埋めは c1, c2… ごと */
 A2.clozeNums = text => [...new Set([...String(text).matchAll(/\{\{c(\d+)::/g)].map(m => +m[1]))].sort((a, b) => a - b);
 /* カードを作るか:表を描いたとき、中身のある欄を1つでも表示するなら作る(Anki と同じ)。穴埋めは c1, c2… ごと */
@@ -835,7 +838,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.47";
+A2.VER = "r4.48";
 window.A2 = A2;
 
 </script>
@@ -843,7 +846,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.47"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.48"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -937,11 +940,15 @@ const FRAME_DOC = () => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta 
 <script>
 window.a2 = { record: function (o) { parent.postMessage({ a2api: "record", arg: o, cid: (window.A2CARD || {}).id }, "*"); }, setTime: function (sec) { parent.postMessage({ a2api: "setTime", arg: +sec, cid: (window.A2CARD || {}).id }, "*"); },
   suggest: function (g) { parent.postMessage({ a2api: "suggest", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, answer: function (g) { parent.postMessage({ a2api: "answer", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, flip: function () { parent.postMessage({ a2api: "flip", cid: (window.A2CARD || {}).id }, "*"); } };
-window.a2show = function (html, css, cls) { document.getElementById("a2css").textContent = css; document.body.className = cls; var qa = document.getElementById("qa"); qa.innerHTML = html;
+/* Anki のテンプレートのための代わり:pycmd などは何もしない。onUpdateHook / onShownHook は、Anki と同じく表示の前後に呼ぶ */
+window.pycmd = window.bridgeCommand = function () {}; window.onUpdateHook = []; window.onShownHook = [];
+window.a2show = function (html, css, cls) { document.getElementById("a2css").textContent = css; document.body.className = cls; var qa = document.getElementById("qa"); window.onUpdateHook = []; window.onShownHook = []; qa.innerHTML = html;
   Array.prototype.slice.call(qa.querySelectorAll("script")).forEach(function (old) { var s = document.createElement("script"); for (var i = 0; i < old.attributes.length; i++) s.setAttribute(old.attributes[i].name, old.attributes[i].value); s.text = old.textContent; old.parentNode.replaceChild(s, old); });
+  try { (window.onUpdateHook || []).forEach(function (f) { try { f(); } catch (x) {} }); } catch (x) {} setTimeout(function () { try { (window.onShownHook || []).forEach(function (f) { try { f(); } catch (x) {} }); } catch (x) {} }, 0);
   var mj = function () { if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([qa]).then(fit).catch(function () {}); else setTimeout(mj, 300); }; mj(); fit(); setTimeout(fit, 200); setTimeout(fit, 800); };
 function fit(){ parent.postMessage({ a2h: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) }, "*"); }
 document.addEventListener("pointerdown", function () { try { parent.__a2unlock && parent.__a2unlock(); } catch (x) {} }, true);
+document.addEventListener("click", function (e) { var t = e.target.closest && e.target.closest(".a2-tts"); if (t) { try { speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(t.dataset.tts || ""); if (t.dataset.lang) u.lang = t.dataset.lang; if (t.dataset.speed) u.rate = +t.dataset.speed; speechSynthesis.speak(u); } catch (x) {} return; } }, true);
 document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest(".a2-snd"); if (!b) return; var say = function (t) { var n = b.nextElementSibling; if (!n || !n.classList || !n.classList.contains("a2-sndmsg")) { n = document.createElement("span"); n.className = "a2-sndmsg"; n.style.cssText = "font-size:.75rem;color:#b5432f;margin-left:.3rem"; b.after(n); } n.textContent = t; };
   if (!b.dataset.src) { say("ファイルがない(" + (b.dataset.snd || "") + ")"); return; } var a = new Audio(b.dataset.src); a.onerror = function () { say("この形式は鳴らせない"); }; var p = a.play(); if (p && p.catch) p.catch(function (x) { say(x && x.name === "NotAllowedError" ? "もう一度押す" : "鳴らせなかった(" + (x && x.name || "") + ")"); }); });
 window.addEventListener("load", fit); new ResizeObserver(fit).observe(document.documentElement);
@@ -958,9 +965,11 @@ window.addEventListener("message", e => { if (e.data && e.data.a2h) document.que
 async function withMedia(html){ html = A2.soundTags(html); const names = new Set(); html.replace(/(src|data-snd)="([^"]+)"/g, (m, a, n) => { if (!/^(https?:|data:|blob:)/.test(n)) names.add(n); return m; });
   const map = {}; for (const n of names) map[n] = await A2.mediaUrl(n);
   return html.replace(/src="([^"]+)"/g, (m, n) => map[n] ? `src="${map[n]}"` : m).replace(/data-snd="([^"]+)"/g, (m, n) => map[n] ? `data-snd="${esc(n)}" data-src="${map[n]}"` : m); }
-async function showInFrame(frame, card, back, fOver){ if (!frame) return; const note = A2.S.notes.get(card.nid), nt = A2.S.notetypes.get(note.nt), html = await withMedia(A2.cardHtml(card, back, fOver));
+async function cssWithMedia(css){ css = String(css || ""); const names = new Set(); css.replace(/url\(\s*["']?([^"')]+)["']?\s*\)/g, (m, n) => { if (!/^(https?:|data:|blob:|#)/.test(n)) names.add(n.trim()); return m; }); if (!names.size) return css;
+  const map = {}; for (const n of names) map[n] = await A2.mediaUrl(n); return css.replace(/url\(\s*["']?([^"')]+)["']?\s*\)/g, (m, n) => map[n.trim()] ? `url("${map[n.trim()]}")` : m); }
+async function showInFrame(frame, card, back, fOver){ if (!frame) return; const note = A2.S.notes.get(card.nid), nt = A2.S.notetypes.get(note.nt), html = await withMedia(A2.cardHtml(card, back, fOver)), css = await cssWithMedia(nt.css);
   const h = A2.history(card.id), info = { id: card.id, back: !!back, state: card.st, reps: card.reps || 0, lapses: card.lapses || 0, ivl: card.ivl || 0, stability: card.s || null, difficulty: card.d || null, history: h.map(r => ({ t: r.t, grade: r.g, sec: Math.round((r.ms || 0) / 1000), x: r.x || null, src: A2.revSrc(r) })), stage: A2.stageInfo(card) };
-  const go2 = () => { try { frame.contentWindow.A2CARD = info; } catch (e) {} frame.contentWindow.a2show(html, nt.css || "", "card card" + (card.ord + 1)); };
+  const go2 = () => { try { frame.contentWindow.A2CARD = info; } catch (e) {} frame.contentWindow.a2show(html, css, "card card" + (card.ord + 1)); };
   if (frame.contentWindow && frame.contentWindow.a2show) go2(); else frame.addEventListener("load", go2, { once: true });
   if (back) { const m = /\[sound:([^\]]+)\]/.exec(A2.cardHtml(card, true, fOver).slice(A2.cardHtml(card, false, fOver).length)) || null; if (m && A2.S.meta.autoplay !== false && !A2.optOf(card).noAuto) { const u = await A2.mediaUrl(m[1]); if (u) new Audio(u).play().catch(() => {}); } }
   else { const m = /\[sound:([^\]]+)\]/.exec(A2.cardHtml(card, false, fOver)); if (m && A2.S.meta.autoplay !== false && !A2.optOf(card).noAuto) { const u = await A2.mediaUrl(m[1]); if (u) new Audio(u).play().catch(() => {}); } } }
@@ -1117,6 +1126,21 @@ function mediaToField(w, f, tags){ if (w === "a") { const v = fieldInsert(`[data
 // 取り込み:貼ったものに出てくる音声・画像が、端末の中にあるか
 async function aiMediaCheck(){ const names = [...new Set([...String(AI.out || "").matchAll(/\[sound:([^\]]+)\]|src=["']([^"']+)["']/g)].map(m => (m[1] || m[2]).trim()))], have = {};
   for (const n of names) have[n] = !!(await A2.getOne("media", n)); AI.mhave = have; }
+/* Anki から持ってきたノートタイプが、そのまま動くか:テンプレートと CSS を見て、動かないもの・一部だけのものを出す */
+function ankiCompat(t){ const all = (t.tmpls || []).map(m => (m.q || "") + "\n" + (m.a || "")).join("\n"), css = t.css || "", out = [];
+  const bad = (re, what, why) => { if (re.test(all)) out.push({ lv: "ng", what, why }); }, part = (re, what, why) => { if (re.test(all)) out.push({ lv: "part", what, why }); };
+  part(/pycmd\s*\(|\bbridgeCommand\b/, "pycmd(Anki 専用の命令)", "何もしない代わりを用意しているので、止まりはしない。ただ、それで Anki にさせていたこと(答えを出す など)は起きない");
+  bad(/AnkiDroidJS|\bankidroid\b|AnkiDroid\./i, "AnkiDroid の JavaScript", "AnkiDroid の中でしか動かない。その部分は何もしない");
+  part(/onUpdateHook|onShownHook/, "Anki の表示の合図(onShownHook など)", "Anki と同じく、表示の前後に呼ぶようにしてある。たいていは動くが、Anki の細かいタイミングまでは同じでない");
+  part(/\{\{\s*type:/, "{{type:…}}(打ち込んで答える)", "入力欄は出るが、Anki のように打った答えと正解の違いは色分けしない");
+  part(/\{\{\s*tts\b/, "{{tts …}}(読み上げ)", "🔊 を押すと端末の読み上げで読む。自動では読まない。声の種類の指定は使わない");
+  part(/\{\{\s*CardFlag\s*\}\}/, "{{CardFlag}}", "空になる");
+  if (/<script[^>]+src=["'](?!https?:)/.test(all)) out.push({ lv: "ok", what: "端末の中のファイルを読む <script src>", why: "読み込んだメディアの中にあれば動く" });
+  if (/url\(/.test(css)) out.push({ lv: "ok", what: "CSS の url(…)(フォント・画像)", why: "読み込んだメディアの中にあれば使う" });
+  if (/\[sound:/.test(all) || (t.fields || []).length) out.push({ lv: "ok", what: "[sound:…] の音声", why: "▶ で鳴る(Anki と同じ replay-button の名前も付けている)" });
+  return out; }
+function ankiCompatHtml(t){ const r = ankiCompat(t).filter(x => x.lv !== "ok"); if (!r.length) return '<div class="note" style="margin:.2rem 0 .6rem">Anki から持ってきたものとして見ても、動かない所は見つからない。</div>';
+  return `<div class="compat">${r.map(x => `<div class="${x.lv}"><b>${x.lv === "ng" ? "✗ 動かない" : "△ 一部だけ"}:${esc(x.what)}</b><br>${esc(x.why)}</div>`).join("")}</div>`; }
 /* 音声・画像の確かめ:欄に書いてある名前ごとに、端末の中にあるか・形式・大きさ。その場で鳴らして試せる */
 async function mediaDiag(cid){ const el = $("mdiag"); if (!el) return; const c = A2.S.cards.get(cid), n = c && A2.S.notes.get(c.nid); if (!n) return;
   const all = Object.values(n.f || {}).join("\n"), names = [...new Set([...all.matchAll(/\[sound:([^\]]+)\]|src=["']([^"']+)["']/g)].map(m => (m[1] || m[2]).trim()).filter(x => x && !/^(https?:|data:|blob:)/.test(x)))];
@@ -1493,6 +1517,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
   if (sh.k === "nt") { const t = A2.S.notetypes.get(sh.id), ti = sh.ti || 0, side = sh.side || "表", tm = t.tmpls[ti] || t.tmpls[0];
     return `<h3>${esc(t.name)}</h3><button class="linkx" data-more="nts">‹ ノートタイプの一覧</button>
       <div class="row" style="margin:.5rem 0;gap:.5rem"><button class="btn sm shu" data-ntcopy>全部まとめてコピー</button><button class="btn ghost sm" data-ntfile>ファイルで保存</button><button class="btn ghost sm" data-ntpaste>AIが直したものを入れる</button>${A2.S.meta.ntUndo && A2.S.meta.ntUndo.id === t.id ? '<button class="linkx" data-ntundo>前に入れたものを戻す</button>' : ""}</div>
+      ${ankiCompatHtml(t)}
       <p class="note" style="margin-top:0">欄・設定・全部のカードの種類の表と裏・CSS を1つにまとめる。AIに見せて、直したものを同じ形で返してもらえば、「AIが直したものを入れる」でそのまま入る。</p>
       <h2>段階の既定<small>このノートタイプのカードが、何もしなければ従う段階の型</small></h2><div class="card"><select data-ntstage="${t.id}" style="width:100%"><option value=""${!t.stageType ? " selected" : ""}>段階なし(ふつうのカード)</option>${A2.stageTypes().map(x => `<option value="${x.id}"${t.stageType === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select>${t.tmpls.length > 1 ? `<div class="stgtm"><div class="note" style="margin:.5rem 0 .2rem">カードの種類ごと(ノートタイプの既定より優先)</div>${t.tmpls.map((tm, i) => `<div class="autorow"><span>${esc(tm.name)}</span><select data-tmstage="${t.id}|${i}"><option value=""${!tm.stage ? " selected" : ""}>上と同じ(${esc(t.stageType && A2.S.stages.get(t.stageType) ? A2.S.stages.get(t.stageType).name : "段階なし")})</option>${A2.stageTypes().map(x => `<option value="${x.id}"${tm.stage === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}<option value="none"${tm.stage === "none" ? " selected" : ""}>段階なし</option></select></div>`).join("")}</div>` : ""}<div class="note">まだ出していないカードから効く(FSRSで保っているカードは、そのまま)。型は その他 › 段階の型 で作る・直す。テンプレートには {{A2:段階}}(今の段階の名前)・{{#A2:段階1}}…{{/A2:段階1}}(1段目のときだけ)・{{#A2:段階なし}}…{{/A2:段階なし}}(段階を踏んでいないとき)を書ける。JavaScript からは window.A2CARD.stage。</div></div>
       <h2>重複を見る欄<small>選んだ欄がぜんぶ同じなら「もうある」</small></h2><div class="card dupk">${t.fields.map(f => `<label><input type="checkbox" data-dupk="${esc(f)}"${A2.dupKeys(t).includes(f) ? " checked" : ""}> ${esc(f)}</label>`).join("")}</div>
@@ -1820,7 +1845,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.47";
+window.APP_VER_EX = "r4.48";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2055,7 +2080,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.47";
+window.APP_VER_SYNC = "r4.48";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
