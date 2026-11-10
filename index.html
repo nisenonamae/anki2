@@ -451,6 +451,11 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .fdup{font-size:.74rem;color:var(--shu);font-weight:700;margin-top:.2rem}
 .mkbar{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:.7rem 0 .3rem}.mkbar .note{flex:1;min-width:10em}
 @media (max-width:720px){.mkgrid{grid-template-columns:1fr!important}.mkprev{position:static!important;max-height:none!important}.fhd .ib{min-width:1.65rem}}
+
+/* 倉庫 */
+.whb{border:1px solid var(--rule);background:var(--white);border-radius:6px;padding:.15rem .4rem;font-size:.72rem;cursor:pointer;color:var(--ink)}.whb small{margin-left:.2rem;font-weight:700;color:var(--wave)}
+.whlist{display:flex;flex-direction:column;gap:.25rem;max-height:55vh;overflow:auto}.whrow{display:flex;gap:.5rem;align-items:flex-start;border:1px solid var(--rule);border-radius:8px;padding:.4rem .5rem;background:var(--white)}.whrow span{display:flex;flex-direction:column;min-width:0}.whrow small{color:var(--sub);font-size:.72rem}
+.seg2{display:flex;gap:.3rem;flex-wrap:wrap}.seg2 button{font:inherit;font-size:.82rem;padding:.35rem .7rem;border:1px solid var(--rule);border-radius:999px;background:var(--white);cursor:pointer}.seg2 button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -473,9 +478,9 @@ A2.dayStr = day => { const d = new Date(day * 86400e3); return (d.getUTCMonth() 
 A2.uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 /* ───── 保存(IndexedDB)。起動時に全部を読み、変えたものだけ書く ───── */
-const STORES = ["notes", "cards", "revlog", "notetypes", "decks", "media", "meta", "subjects", "exsub", "backups", "trash", "stages", "memos"];   // trash:ごみ箱(30日)   // exsub:分野ごとの演習(材料・地図・結果)
+const STORES = ["notes", "cards", "revlog", "notetypes", "decks", "media", "meta", "subjects", "exsub", "backups", "trash", "stages", "memos", "wh"];   // trash:ごみ箱(30日)   // exsub:分野ごとの演習(材料・地図・結果)
 A2.db = null;
-A2.open = () => new Promise((res, rej) => { const r = indexedDB.open("anki2", 6);   // 6:デッキのメモ   // 5:段階の型   // 4:ごみ箱   // 3:自動の控えの置き場所   // 2:演習の保存場所を足した
+A2.open = () => new Promise((res, rej) => { const r = indexedDB.open("anki2", 7);   // 7:デッキの倉庫   // 6:デッキのメモ   // 5:段階の型   // 4:ごみ箱   // 3:自動の控えの置き場所   // 2:演習の保存場所を足した
   r.onupgradeneeded = () => { const db = r.result; STORES.forEach(n => { if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: n === "media" ? "name" : n === "meta" ? "k" : "id" }); }); };
   r.onblocked = () => rej(new Error("ほかのタブで古い版の Anki2 が開いている。そちらを閉じてから開き直してください"));
   r.onsuccess = () => { A2.db = r.result; res(A2.db); }; r.onerror = () => rej(r.error); });
@@ -484,29 +489,29 @@ A2.put = (store, items) => new Promise((res, rej) => { if (!items.length) return
 A2.del = (store, keys) => new Promise((res, rej) => { if (!keys.length) return res(); const tx = A2.db.transaction(store, "readwrite"), os = tx.objectStore(store); keys.forEach(k => os.delete(k)); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
 A2.getOne = (store, key) => new Promise((res, rej) => { const q = A2.db.transaction(store).objectStore(store).get(key); q.onsuccess = () => res(q.result || null); q.onerror = () => rej(q.error); });
 /* 記憶の中の写し(画面はこれを読む) */
-A2.S = { notes: new Map(), cards: new Map(), revlog: new Map(), notetypes: new Map(), decks: new Map(), subjects: new Map(), exsub: new Map(), stages: new Map(), memos: new Map(), meta: {} };
-A2.loadAll = async () => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos"]) { A2.S[n] = new Map((await A2.all(n)).map(x => [x.id, x])); }
+A2.S = { notes: new Map(), cards: new Map(), revlog: new Map(), notetypes: new Map(), decks: new Map(), subjects: new Map(), exsub: new Map(), stages: new Map(), memos: new Map(), wh: new Map(), meta: {} };
+A2.loadAll = async () => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos", "wh"]) { A2.S[n] = new Map((await A2.all(n)).map(x => [x.id, x])); }
   (await A2.all("meta")).forEach(m => { A2.S.meta[m.k] = m.v; }); A2.dirty = new Set(A2.S.meta.dirty || []);
   A2.pending = Object.fromEntries(Object.entries(A2.S.meta.pending || {}).map(([k, v]) => [k, new Set(v)])); if (Number.isFinite(A2.S.meta.roll)) A2.ROLL = A2.S.meta.roll;
-  for (const st of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos"]) for (const x of A2.S[st].values()) A2.seen(x.mod);
+  for (const st of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos", "wh"]) for (const x of A2.S[st].values()) A2.seen(x.mod);
   try { const old = (await A2.all("trash")).filter(t => Date.now() - t.at > 30 * 86400e3).map(t => t.id); if (old.length) await A2.del("trash", old); } catch (e) {}
   try { if (navigator.storage && navigator.storage.persist) A2.S.meta.persisted = await navigator.storage.persist(); } catch (e) {} };
 /* 同期のために:保存するたびに「いつ変えたか(mod)」と「送る必要のあるファイル」を記録する。消したものは「消した印」を残す */
 const SMALL = ["notetypes", "decks", "subjects", "exsub", "stages", "memos"];
 const hashStr = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h >>> 0; };
-A2.pathOf = (store, rec) => SMALL.includes(store) ? store : store === "revlog" ? "revlog/" + new Date(rec.t).toISOString().slice(0, 7) : store === "notes" ? "notes/" + String(hashStr(rec.id) % 256).padStart(3, "0") : store === "cards" ? "cards/" + String(hashStr(rec.id) % 64).padStart(2, "0") : null;
+A2.pathOf = (store, rec) => SMALL.includes(store) ? store : store === "revlog" ? "revlog/" + new Date(rec.t).toISOString().slice(0, 7) : store === "notes" ? "notes/" + String(hashStr(rec.id) % 256).padStart(3, "0") : store === "cards" ? "cards/" + String(hashStr(rec.id) % 64).padStart(2, "0") : store === "wh" ? "wh/" + String(hashStr(rec.id) % 32).padStart(2, "0") : null;
 A2.dirty = new Set(); A2.onDirty = null;
 /* 変更の時刻:端末の時計と「今まで見た中でいちばん新しい時刻」の大きいほう +1。時計が遅れている端末でも、あとの変更があとになる */
 A2.clock = 0; A2.tick = () => { A2.clock = Math.max(Date.now(), A2.clock + 1); return A2.clock; }; A2.seen = t => { if (t && t > A2.clock && t < Date.now() + 365 * 86400e3) A2.clock = t; };
 A2.pending = {};   // { store: Set(id) } 送っていない変更
-A2.markPending = (store, ids) => { if (!["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos"].includes(store)) return; const set = A2.pending[store] = A2.pending[store] || new Set(); ids.forEach(id => set.add(id));
+A2.markPending = (store, ids) => { if (!["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos", "wh"].includes(store)) return; const set = A2.pending[store] = A2.pending[store] || new Set(); ids.forEach(id => set.add(id));
   clearTimeout(A2._pt); A2._pt = setTimeout(() => A2.put("meta", [{ k: "pending", v: Object.fromEntries(Object.entries(A2.pending).map(([k, v]) => [k, [...v]])) }]), 300); if (A2.onDirty) A2.onDirty(); };
 A2.pendingCount = () => Object.values(A2.pending).reduce((a, s) => a + s.size, 0);
 A2.markDirty = paths => { let n = 0; paths.forEach(p => { if (p && !A2.dirty.has(p)) { A2.dirty.add(p); n++; } }); if (n) { A2.put("meta", [{ k: "dirty", v: [...A2.dirty] }]); if (A2.onDirty) A2.onDirty(); } };
 A2.save = async (store, items, opt) => { if (store === "revlog") A2._rlTick = (A2._rlTick || 0) + 1; items = [].concat(items).filter(Boolean); if (!(opt && opt.keepMod)) items.forEach(x => { x.mod = A2.tick(); }); else items.forEach(x => A2.seen(x.mod)); items.forEach(x => A2.S[store].set(x.id, x)); await A2.put(store, items);
   if (!(opt && opt.fromSync) && store !== "media" && store !== "meta") A2.markPending(store, items.map(x => x.id)); };
 A2.remove = async (store, ids, opt) => { opt = opt || {}; ids = [].concat(ids); const recs = ids.map(id => A2.S[store].get(id)).filter(Boolean); ids.forEach(id => A2.S[store].delete(id)); await A2.del(store, ids);
-  if (!opt.noTrash && recs.length && ["notes", "cards", "decks", "notetypes", "subjects", "exsub", "stages", "memos"].includes(store)) { const at = Date.now(); await A2.put("trash", recs.map(r => ({ id: store + ":" + r.id, store, rec: r, at, why: opt.why || (opt.fromSync ? "ほかの端末で消された" : "消した") }))); }   // 消したものは30日ごみ箱に残す
+  if (!opt.noTrash && recs.length && ["notes", "cards", "decks", "notetypes", "subjects", "exsub", "stages", "memos", "wh"].includes(store)) { const at = Date.now(); await A2.put("trash", recs.map(r => ({ id: store + ":" + r.id, store, rec: r, at, why: opt.why || (opt.fromSync ? "ほかの端末で消された" : "消した") }))); }   // 消したものは30日ごみ箱に残す
   if (opt.fromSync || opt.noTomb) return; const tombs = A2.S.meta.tombs || {}, now = A2.tick(); tombs[store] = tombs[store] || {}; recs.forEach(r => { tombs[store][r.id] = { mod: now, p: A2.pathOf(store, r), seen: r.mod || 0 }; }); await A2.setMeta("tombs", tombs); A2.markPending(store, recs.map(r => r.id)); };
 /* ごみ箱から戻す:新しい時刻で戻すので、どの端末でも消した印に勝つ */
 A2.untrash = async items => { const by = {}; items.forEach(t => (by[t.store] = by[t.store] || []).push(t)); const tombs = A2.S.meta.tombs || {};
@@ -810,11 +815,11 @@ A2.check = async (fix) => { const S = A2.S, out = []; const decks = new Set(S.de
     if (badDue.length) { badDue.forEach(c => { Object.assign(c, { st: "新規", s: null, d: null, ivl: 0 }); delete c.dueDay; delete c.dueMs; }); await A2.save("cards", badDue); } }
   return out; };
 /* ───── 自動の控え:1日1回、端末の中に(7日分) ───── */
-A2.snapshot = () => { const d = { anki2: 1, at: Date.now() }; ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos"].forEach(n => d[n] = [...A2.S[n].values()]); d.meta = { links: A2.S.meta.links }; return d; };
+A2.snapshot = () => { const d = { anki2: 1, at: Date.now() }; ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos", "wh"].forEach(n => d[n] = [...A2.S[n].values()]); d.meta = { links: A2.S.meta.links }; return d; };
 A2.autoBackup = async () => { const day = A2.today(); if (A2.S.meta.lastBackupDay === day || !A2.S.cards.size) return; const list = await A2.all("backups");
   await A2.put("backups", [{ id: "b" + day, day, at: Date.now(), cards: A2.S.cards.size, data: JSON.stringify(A2.snapshot()) }]); const old = list.sort((a, b) => b.day - a.day).slice(6); if (old.length) await A2.del("backups", old.map(b => b.id)); await A2.setMeta("lastBackupDay", day); };
 /* 控えの中身に戻す(消した印は作らない。戻した中身は新しい変更として同期される) */
-A2.restore = async data => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos"]) { const keep = new Set((data[n] || []).map(x => x.id)); await A2.remove(n, [...A2.S[n].keys()].filter(id => !keep.has(id)), { noTomb: false }); await A2.save(n, data[n] || []); } };
+A2.restore = async data => { for (const n of ["notes", "cards", "revlog", "notetypes", "decks", "subjects", "exsub", "stages", "memos", "wh"]) { const keep = new Set((data[n] || []).map(x => x.id)); await A2.remove(n, [...A2.S[n].keys()].filter(id => !keep.has(id)), { noTomb: false }); await A2.save(n, data[n] || []); } };
 /* 控えから、今の端末にないものだけを戻す(今あるものは変えない)。新しい時刻にするので、どの端末でも消した印に勝つ */
 A2.restoreMissing = async data => { const tombs = A2.S.meta.tombs || {}; let n = 0; const ids = {};
   for (const st of ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub"]) { const recs = (data[st] || []).filter(r => !A2.S[st].has(r.id)).map(r => Object.assign({}, r)); if (!recs.length) continue; recs.forEach(r => { if (tombs[st]) delete tombs[st][r.id]; }); if (st === "revlog") recs.forEach(r => r.src = r.src || A2.revSrc(r)); await A2.save(st, recs); n += recs.length; ids[st] = recs.map(r => r.id); }
@@ -875,7 +880,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.59";
+A2.VER = "r4.60";
 window.A2 = A2;
 
 </script>
@@ -883,7 +888,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.59"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.60"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -913,7 +918,7 @@ const cntHtml = k => k.n + k.l + k.r + (k.s || 0) === 0 ? '<span class="donemk">
 function deckRows(sub){ const names = new Set(); [...A2.S.decks.values()].filter(d => d.name.split("::")[0] === sub.name).forEach(d => { const p = d.name.split("::").slice(1); p.forEach((_, i) => names.add(p.slice(0, i + 1).join("::"))); });
   const list = [...names].sort((a, b) => a.localeCompare(b, "ja")).filter(nm => { const p = nm.split("::"); for (let i = 1; i < p.length; i++) if (V.dopen[sub.name + "::" + p.slice(0, i).join("::")] === false) return false; return true; });
   return list.map(nm => { const full = sub.name + "::" + nm, lv = nm.split("::").length - 1, kid = [...names].some(x => x.startsWith(nm + "::")), k = A2.counts(full), leaf = [...A2.S.decks.values()].find(d => d.name === full);
-    return `<div class="deck${k.n + k.l + k.r === 0 ? " isdone" : ""}" style="--lv:${lv}">${kid ? `<button class="tg" data-dtog="${esc(full)}">${V.dopen[full] === false ? "▸" : "▾"}</button>` : '<span style="width:1.2rem"></span>'}<div class="nm"><b>${esc(nm.split("::").pop())}</b>${deckToday(full)}</div>${cntHtml(k)}<button class="btn sm" data-study="${esc(full)}">復習</button>${leaf ? `<button class="memob${memoOpenN(leaf.id) ? " has" : ""}" data-memo="${leaf.id}" aria-label="メモ">📝${memoOpenN(leaf.id) ? "<small>" + memoOpenN(leaf.id) + "</small>" : ""}</button>` : ""}${leaf ? `<button class="gear" data-dopt="${leaf.id}" aria-label="オプション">⚙</button>` : '<span style="width:2rem"></span>'}</div>`; }).join(""); }
+    return `<div class="deck${k.n + k.l + k.r === 0 ? " isdone" : ""}" style="--lv:${lv}">${kid ? `<button class="tg" data-dtog="${esc(full)}">${V.dopen[full] === false ? "▸" : "▾"}</button>` : '<span style="width:1.2rem"></span>'}<div class="nm"><b>${esc(nm.split("::").pop())}</b>${deckToday(full)}</div>${cntHtml(k)}<button class="btn sm" data-study="${esc(full)}">復習</button>${leaf && whOf(leaf.id).length ? `<button class="whb" data-whopen="${leaf.id}" aria-label="倉庫">倉庫<small>${whOf(leaf.id).length}</small></button>` : ""}${leaf ? `<button class="memob${memoOpenN(leaf.id) ? " has" : ""}" data-memo="${leaf.id}" aria-label="メモ">📝${memoOpenN(leaf.id) ? "<small>" + memoOpenN(leaf.id) + "</small>" : ""}</button>` : ""}${leaf ? `<button class="gear" data-dopt="${leaf.id}" aria-label="オプション">⚙</button>` : '<span style="width:2rem"></span>'}</div>`; }).join(""); }
 /* 今日の学習:表示回数(答えた回数。もう一度で何度出してもその分)・終えたカード(次の期日が明日以降になったもの)・新規(今日はじめて)・時間(1回1分で打ち切り) */
 let todayCache = null;
 function todayIdx(){ const today = A2.today(), key = today + ":" + A2.S.revlog.size + ":" + (A2._rlTick || 0) + ":" + A2.S.cards.size; if (todayCache && todayCache.key === key) return todayCache;
@@ -1294,6 +1299,21 @@ const memoBanner = () => { const m = ADD.memo && A2.S.memos.get(ADD.memo); retur
 
 document.addEventListener("input", e => { if (e.target && e.target.matches && e.target.matches(".fbox textarea")) { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight + 2, 420) + "px"; } });
 document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && e.target && e.target.matches && e.target.matches("[data-afld],#ad-tags")) { const b = document.querySelector("[data-addnote]"); if (b) { e.preventDefault(); b.click(); } } });
+
+/* ───── 倉庫:デッキごとの、まだカードにしていないノートの置き場。取り出すと、そのデッキの新規カードになる ───── */
+const whText = v => String(v == null ? "" : v).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+const whOf = deckId => [...A2.S.wh.values()].filter(w => w.deck === deckId).sort((a, b) => a.t - b.t);
+function whDup(nt, f){ const ks = A2.dupKeys(nt); return [...A2.S.wh.values()].some(w => w.nt === nt.id && ks.every(k => whText(w.f[k]) === whText(f[k]))); }
+async function whPut(ntId, deckId, f, tags, sgo, i){ const now = Date.now(); await A2.save("wh", [Object.assign({ id: "W" + now.toString(36) + (i || 0) + Math.random().toString(36).slice(2, 5), deck: deckId, nt: ntId, f: Object.assign({}, f), tags: tags || [], t: now + (i || 0) }, sgo ? { sgo } : {})]); }
+async function whPull(items, deckId){ let n = 0; for (const w of items) { const k = await addNoteNow(w.nt, deckId || w.deck, w.f, w.tags, w.sgo); if (k) n += k; } await A2.remove("wh", items.map(w => w.id), { why: "倉庫から取り出した" }); return n; }
+function whSheet(sh){ const d = A2.S.decks.get(sh.deck), xs = whOf(sh.deck), sel = V.whsel || {}, ns = Object.keys(sel).filter(k => sel[k]).length;
+  const row = w => { const nt = A2.S.notetypes.get(w.nt), f1 = nt ? whText(w.f[nt.fields[0]]) : "", f2 = nt && nt.fields[1] ? whText(w.f[nt.fields[1]]) : "";
+    return `<label class="whrow"><input type="checkbox" data-whsel="${w.id}"${sel[w.id] ? " checked" : ""}><span><b>${esc(f1.slice(0, 60) || "(空)")}</b><small>${esc(f2.slice(0, 80))}${nt ? "・" + esc(nt.name) : ""}</small></span></label>`; };
+  return `<h3>倉庫<small>${esc(d ? d.name : "")}・${xs.length}件</small></h3>
+    <p class="note">まだカードにしていないノートの置き場。取り出すと、このデッキの新規カードになり、新規カードの1日の上限に合わせて少しずつ出てくる。倉庫の中は、復習にも、デッキの数にも、統計にも出ない。</p>
+    ${xs.length ? `<div class="row" style="gap:.4rem;flex-wrap:wrap;margin:.3rem 0 .6rem"><span>上から</span><input type="number" id="wh-n" min="1" value="${V.whn || 10}" style="width:4.5rem"><span>件を</span><button class="btn sm" data-whtop>取り出す</button></div>
+      <div class="row" style="gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem"><button class="btn ghost sm" data-whall>${ns === xs.length ? "全部はずす" : "全部選ぶ"}</button>${ns ? `<button class="btn sm" data-whpick>選んだ${ns}件を取り出す</button><button class="linkx" data-whdel style="color:var(--shu)">選んだ${ns}件を消す</button>` : ""}</div>
+      <div class="whlist">${xs.map(row).join("")}</div>` : '<p class="note">倉庫は空。AIのツールで取り込むとき、「倉庫に入れる」を選ぶとここに入る。</p>'}`; }
 /* 今の面の音を、頭から順に鳴らす(Anki の R) */
 var rvAudio = null;
 async function rvReplay(){ const r = V.rv, c = rvCur(); if (!c) return; const f = A2.cardHtml(c, false), b = A2.cardHtml(c, true), src = r.back ? b.slice(f.length) : f, names = [...src.matchAll(/\[sound:([^\]]+)\]/g)].map(m => m[1]);
@@ -1464,6 +1484,7 @@ function parseImport(text){ const SEP = { pipe: "|", tab: "\t", comma: ",", semi
 function aiHtml(){ const ims = AI.out.trim() ? parseImport(AI.out) : [];
   return `<h2 style="margin-top:.6rem">AIのツール<small>claude.ai で自動で作ってくれるもの</small></h2><div class="links">${links().map(l => `<div class="lk"><a class="lka" href="${esc(l.url)}" target="_blank" rel="noopener"><b>${esc(l.name)}</b><span>${esc(l.memo || l.url)}</span><i>開く ↗</i></a><button class="mmore" data-lkedit="${l.id}" aria-label="直す">⋯</button></div>`).join("")}<button class="madd" data-lknew>+ ツールを足す</button></div>
     <h2>取り込む<small>ツールが出したもの(Ankiに読み込む形)を、そのまま貼る</small></h2><div class="aibox"><div class="f"><label>入れる先のデッキ(貼ったものにデッキが書いていないとき)</label><select id="ai-dk">${[...A2.S.decks.values()].sort((a, b) => a.name.localeCompare(b.name, "ja")).map(d => `<option value="${d.id}"${d.id === AI.deck ? " selected" : ""}>${esc(d.name)}</option>`).join("")}</select></div>
+    <div class="f"><label>入れる場所</label><div class="seg2" role="group"><button data-aidest="deck" aria-pressed="${AI.dest !== "wh"}">デッキ(すぐ新規カードに)</button><button data-aidest="wh" aria-pressed="${AI.dest === "wh"}">倉庫(あとで取り出す)</button></div></div>
     <textarea id="ai-out" rows="6" placeholder="#separator:Pipe&#10;#notetype:和訳&#10;#deck:…&#10;#columns:…">${esc(AI.out)}</textarea>
     ${(() => { const names = [...new Set([...String(AI.out || "").matchAll(/\[sound:([^\]]+)\]|src=["']([^"']+)["']/g)].map(m => (m[1] || m[2]).trim()).filter(n => n && !/^(https?:|data:)/.test(n)))]; if (!names.length) return "";
       const have = AI.mhave || {}; return `<div class="aimedia"><div class="note">貼ったものに出てくる音声・画像 ${names.length}個:${names.slice(0, 12).map(n => `<span class="${have[n] ? "ok" : "ng"}">${have[n] ? "✓" : "✗"} ${esc(n)}</span>`).join(" ")}${names.length > 12 ? " …" : ""}</div>
@@ -1471,7 +1492,7 @@ function aiHtml(){ const ims = AI.out.trim() ? parseImport(AI.out) : [];
     ${ims.map((im, bi) => `<div class="aiim"><div class="note">${ims.length > 1 ? (bi + 1) + "つ目:" : ""}ノートタイプ <b>${esc(im.nt.name)}</b>${im.ntName && im.ntName !== im.nt.name ? `(「${esc(im.ntName)}」がないので、これにする)` : ""}・デッキ ${im.deckNew && AI.mkDeck ? `<b>${esc(im.deckName)}</b>(新しく作る)<button class="linkx" data-aimkdeck="0">やめる(今あるデッキに入れる)</button>` : `<b>${esc(im.deck.name)}</b>${im.deckNew ? `(書いてある「${esc(im.deckName)}」はないので、${im.why === "same" ? "名前の最後が同じこのデッキ" : "上で選んだデッキ"}に入れる)<button class="linkx" data-aimkdeck="1">「${esc(im.deckName)}」を新しく作って入れる</button>` : ""}`}・${im.notes.length}枚${im.notes.filter(n => n.dup).length ? `・<b style="color:var(--shu)">もうあるもの ${im.notes.filter(n => n.dup).length}</b>` : ""}・重複は「${A2.dupKeys(im.nt).map(esc).join("と")}」が同じもの</div>
       ${im.warn.length ? `<div class="mkneed" style="margin:.3rem 0">${im.warn.slice(0, 4).map(esc).join("<br>")}</div>` : ""}
       <div class="aiil">${im.notes.slice(0, 40).map(n => `<div class="aiir${n.dup ? " dup" : ""}"><b>${esc(String(n.f[im.nt.fields[0]] || "").replace(/<[^>]*>/g, "").slice(0, 40))}</b><span>${esc(String(n.f[im.nt.fields[1]] || "").replace(/<[^>]*>/g, "").slice(0, 40))}</span>${n.dup ? "<em>もうある</em>" : ""}</div>`).join("")}</div></div>`).join("")}
-    ${ims.length ? `<div class="row" style="margin-top:.5rem"><button class="btn" data-aiimport>${ims.reduce((a, im) => a + im.notes.filter(n => !n.dup).length, 0)}枚を取り込む</button>${ims.some(im => im.notes.some(n => n.dup)) ? '<label class="note"><input type="checkbox" id="ai-dup"> もうあるものも取り込む</label>' : ""}</div>` : ""}</div>`; }
+    ${ims.length ? `<div class="row" style="margin-top:.5rem"><button class="btn" data-aiimport>${AI.dest === "wh" ? ims.reduce((a, im) => a + im.notes.filter(n => !n.dup && !whDup(im.nt, n.f)).length, 0) + "件を倉庫に入れる" : ims.reduce((a, im) => a + im.notes.filter(n => !n.dup).length, 0) + "枚を取り込む"}</button>${ims.some(im => im.notes.some(n => n.dup)) ? '<label class="note"><input type="checkbox" id="ai-dup"> もうあるものも取り込む</label>' : ""}</div>` : ""}</div>`; }
 async function addNoteNow(ntId, deckId, f, tags, sgo){ const nt = A2.S.notetypes.get(ntId), now = Date.now(), note = { id: "n" + now + Math.floor(Math.random() * 1000), guid: A2.uid(), nt: ntId, f: Object.assign({}, f), tags, mod: now };
   const ords = A2.genOrds(note, nt); if (!ords.length) return 0; let pos = Math.max(0, ...[...A2.S.cards.values()].map(c => c.pos || 0)) + 1;
   const cards = ords.map(o => Object.assign({ id: "c" + now + "_" + o + Math.floor(Math.random() * 1000), nid: note.id, deck: deckId, ord: o, st: "新規", pos: pos++, ivl: 0, reps: 0, lapses: 0, flag: 0, mod: now }, sgo ? { sgo } : {}));
@@ -1722,6 +1743,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
   if (sh.k === "cstage") return cstageSheet(sh);
   if (sh.k === "ntnew") return ntNewSheet(sh);
   if (sh.k === "memo") return memoSheet(sh);
+  if (sh.k === "wh") return whSheet(sh);
   if (sh.k === "nts") return `<h3>ノートタイプ</h3><div class="row" style="margin:.2rem 0 .6rem"><button class="btn sm" data-ntnew>+ 文から新しく作る(AIが作ったノートタイプを入れる)</button></div><div class="mlist">${[...A2.S.notetypes.values()].map(t => `<button data-ntopen="${t.id}"><b>${esc(t.name)}</b><small>欄 ${t.fields.length}・カード ${t.tmpls.length}・ノート ${[...A2.S.notes.values()].filter(n => n.nt === t.id).length}</small></button>`).join("") || '<p class="note">まだない。</p>'}</div>`;
   if (sh.k === "nt") { const t = A2.S.notetypes.get(sh.id), ti = sh.ti || 0, side = sh.side || "表", tm = t.tmpls[ti] || t.tmpls[0];
     return `<h3>${esc(t.name)}</h3><button class="linkx" data-more="nts">‹ ノートタイプの一覧</button>
@@ -1990,6 +2012,16 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-addnote")) { const t = A2.S.notetypes.get(ADD.nt); if (A2.emptyField(ADD.f[t.fields[0]])) { toast("最初の欄を入れてください"); render(); return; } const n = await addNoteNow(ADD.nt, ADD.deck, ADD.f, (ADD.tags || "").split(/\s+/).filter(Boolean)); if (!n) { toast("表が空になるので、カードができない"); render(); return; }
     await A2.setMeta("lastNt", ADD.nt); await A2.setMeta("lastDeck", ADD.deck); { const keep = {}; (t.sticky || []).forEach(f => { if (ADD.f[f] != null) keep[f] = ADD.f[f]; }); ADD.f = keep; } se("add");
     const mm = ADD.memo && A2.S.memos.get(ADD.memo); if (mm) { mm.done = true; mm.made = true; await A2.save("memos", [mm]); delete ADD.memo; } toast(n + "枚を追加した" + (mm ? "(メモは「カードにした」に)" : "")); render(); return; }
+  if (d.aidest) { AI.dest = d.aidest; render(); return; }
+  if (b.hasAttribute("data-aiimport") && AI.dest === "wh") { const ims = parseImport(AI.out), all = ($("ai-dup") || {}).checked; let n = 0, skip = 0, i = 0;
+    for (const im of ims) { const deck = im.deckNew && AI.mkDeck ? await ensureDeck(im.deckName) : im.deck; for (const x of im.notes) { if ((x.dup || whDup(im.nt, x.f)) && !all) { skip++; continue; } await whPut(im.nt.id, deck.id, x.f, x.tags, x.sgo, i++); n++; } }
+    AI.out = ""; se("done"); toast(n + "件を倉庫に入れた" + (skip ? "(デッキか倉庫にもうある" + skip + "件は入れなかった)" : "")); render(); return; }
+  if (d.whopen) { V.sheet = { k: "wh", deck: d.whopen }; V.whsel = {}; render(); return; }
+  if (b.hasAttribute("data-whall")) { const xs = whOf(V.sheet.deck), on = Object.keys(V.whsel || {}).filter(k => V.whsel[k]).length === xs.length; V.whsel = {}; if (!on) xs.forEach(w => V.whsel[w.id] = true); render(); return; }
+  if (b.hasAttribute("data-whtop") || b.hasAttribute("data-whpick")) { const xs = whOf(V.sheet.deck); let items;
+    if (b.hasAttribute("data-whtop")) { const k = Math.max(1, +(($("wh-n") || {}).value) || 10); V.whn = k; items = xs.slice(0, k); } else items = xs.filter(w => (V.whsel || {})[w.id]);
+    if (!items.length) return; const c = await whPull(items, V.sheet.deck); V.whsel = {}; se("add"); toast(items.length + "件を取り出した(" + c + "枚の新規カード)"); render(); return; }
+  if (b.hasAttribute("data-whdel")) { const items = whOf(V.sheet.deck).filter(w => (V.whsel || {})[w.id]); if (!items.length || !confirm(items.length + "件を倉庫から消す?")) return; await A2.remove("wh", items.map(w => w.id), { why: "倉庫から消した" }); V.whsel = {}; toast(items.length + "件を消した"); render(); return; }
   if (b.hasAttribute("data-aiimport")) { const ims = parseImport(AI.out), all = ($("ai-dup") || {}).checked; let n = 0; for (const im of ims) { const deck = im.deckNew && AI.mkDeck ? await ensureDeck(im.deckName) : im.deck; for (const x of im.notes) { if (x.dup && !all) continue; n += await addNoteNow(im.nt.id, deck.id, x.f, x.tags, x.sgo); } } AI.out = ""; se("done"); toast(n + "枚を取り込んだ"); render(); return; }
   if (b.hasAttribute("data-lknew")) { V.sheet = { k: "link", id: "L" + Date.now() }; render(); return; }
   if (d.lkedit) { V.sheet = { k: "link", id: d.lkedit }; render(); return; }
@@ -2046,6 +2078,7 @@ document.addEventListener("change", async e => { const t = e.target;
   if (t.dataset && t.dataset.tmstage) { const [ntId, i] = t.dataset.tmstage.split("|"), nt = A2.S.notetypes.get(ntId), tm = nt && nt.tmpls[+i]; if (tm) { if (t.value) tm.stage = t.value; else delete tm.stage; await A2.save("notetypes", [nt]); toast("「" + tm.name + "」の段階の既定を変えた"); render(); } return; }
   if (t.dataset && t.dataset.ntstage) { const nt = A2.S.notetypes.get(t.dataset.ntstage); if (nt) { if (t.value) nt.stageType = t.value; else delete nt.stageType; await A2.save("notetypes", [nt]); toast(t.value ? "このノートタイプの段階の既定を変えた" : "段階なしにした"); render(); } return; }
   if (t.matches && t.matches("[data-memodeck]") && V.sheet && V.sheet.k === "memo") { V.sheet.deck = t.value; render(); return; }
+  if (t.dataset && t.dataset.whsel) { V.whsel = V.whsel || {}; V.whsel[t.dataset.whsel] = t.checked; render(); return; }
   if (t.dataset && t.dataset.cstage) { const c = A2.S.cards.get(t.dataset.cstage); if (c) { if (t.value) c.sgo = t.value; else delete c.sgo; if (c.sg && A2.stageTypeOf(c)) { const ty = A2.stageTypeOf(c); c.sg.i = Math.min(c.sg.i || 0, ty.stages.length - 1); } await A2.save("cards", [c]); toast("このカードの段階の型を変えた"); render(); } return; }
   if (t.id === "imp-file" && t.files[0]) doImport(t.files[0]);
   if (t.dataset && t.dataset.bsel) { V.bsel[t.dataset.bsel] = t.checked; render(); }
@@ -2093,7 +2126,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.59";
+window.APP_VER_EX = "r4.60";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2328,9 +2361,9 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.59";
+window.APP_VER_SYNC = "r4.60";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
-const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
+const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
 const devId = () => A2.S.meta.deviceId || (A2.S.meta.deviceId = "d" + A2.uid());
 const gh = (c, path, opt) => fetch("https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(c.repo) + path, Object.assign({ cache: "no-store" }, opt || {}, { headers: Object.assign({ Authorization: "Bearer " + c.token, Accept: "application/vnd.github+json" }, (opt && opt.body) ? { "Content-Type": "application/json" } : {}) }));
