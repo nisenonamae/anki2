@@ -715,7 +715,8 @@ A2.isDue = (c, now) => { now = now || Date.now(); if (c.susp || (c.bury && c.bur
 A2.deckIds = prefix => [...A2.S.decks.values()].filter(d => d.name === prefix || d.name.startsWith(prefix + "::")).map(d => d.id);
 A2.counts = prefix => { const ids = new Set(A2.deckIds(prefix)), now = Date.now(), today = A2.dayOf(now); let n = 0, l = 0, r = 0, sg = 0; const newDone = A2.newDoneToday();
   const top = [...A2.S.decks.values()].find(d => d.name === prefix), opt = A2.optOf({ deck: top ? top.id : [...ids][0] }); for (const c of A2.S.cards.values()) { if (!ids.has(c.deck) || c.susp || (c.bury && c.buryDay === today)) continue;
-    if (c.st === "新規") n++; else if (A2.isDue(c, now)) { if (c.st === "復習") r++; else if (c.st === "段階") sg++; else l++; } }
+    if (c.st === "新規") n++; else if (A2.isDue(c, now)) { const sgT = c.st === "段階" && A2.stageTypeOf && A2.stageTypeOf(c);
+      if (c.st === "復習" || (c.st === "段階" && !sgT && c.dueMs == null)) r++; else if (sgT) sg++; else l++; } }   // 段階なしにした段階の途中のカードは、ふつうの復習として数える
   return { n: Math.max(0, Math.min(n, (+opt.newDay || 0) - (newDone[prefix] || 0))), l, r: Math.min(r, +opt.revDay || 9999), s: sg }; };
 /* 今日はじめて出した新しいカードの数(復習の記録から数える) */
 A2.newDoneToday = () => { const t = A2.today(), first = new Map(); for (const r of A2.S.revlog.values()) { const f = first.get(r.cid); if (!f || r.t < f) first.set(r.cid, r.t); }
@@ -880,7 +881,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.60";
+A2.VER = "r4.61";
 window.A2 = A2;
 
 </script>
@@ -888,7 +889,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.60"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.61"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -2126,7 +2127,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.60";
+window.APP_VER_EX = "r4.61";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2361,7 +2362,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.60";
+window.APP_VER_SYNC = "r4.61";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
