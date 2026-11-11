@@ -472,6 +472,8 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .tlab{display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:var(--sub);margin:.45rem 0 .2rem}.tlab #tposlab{color:#d9442f;font-weight:700;font-variant-numeric:tabular-nums}
 .tzoom{display:inline-flex;gap:.2rem}.tzoom button{font:inherit;font-size:.72rem;padding:.1rem .45rem;border:1px solid var(--rule);border-radius:999px;background:var(--white);cursor:pointer}.tzoom button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .tplay,.tset{display:flex;gap:.35rem;flex-wrap:wrap;margin:.5rem 0}.tplay #tpbtn{min-width:3rem}.tset .btn{flex:1}
+
+.tzoom{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;margin:.2rem 0 .35rem}.tzoom button{font:inherit;font-size:.8rem;padding:.25rem .55rem;border:1px solid var(--rule);border-radius:6px;background:var(--white);cursor:pointer}.tzoom b{min-width:3.4rem;text-align:center;font-size:.85rem}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -930,7 +932,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.73";
+A2.VER = "r4.74";
 window.A2 = A2;
 
 </script>
@@ -938,7 +940,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.73"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.74"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1713,7 +1715,15 @@ function tabRecBar(){ let el = $("tabrecbar"); if (!TABREC.mr) { if (el) el.remo
 /* 切り取り:短いもの(10分まで)はまるごと読み込む。長いもの(授業の録音など)は、再生は少しずつ読みながら、波形は粗く作り、切り取った所だけを元の音質で作り直す */
 const TRIM = { mode: "buf", buf: null, el: null, url: "", ctx: null, node: null, env: null, envRate: 4000, ov: null, dur: 0, a: 0, b: 0, pos: 0, zoom: 20, vf: 0, w: null, f: null, src: "", file: null,
   play: null, pfrom: 0, pto: null, pt0: 0, raf: 0, drag: null, busy: false };
-const fmtT = x => { x = Math.max(0, x || 0); const h = Math.floor(x / 3600), m = Math.floor(x % 3600 / 60), sec = (x % 60).toFixed(1).padStart(4, "0"); return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + sec; };
+const fmtT = (x, dp) => { x = Math.max(0, x || 0); dp = dp == null ? (TRIM.zoom <= 2.5 ? 2 : 1) : dp; const h = Math.floor(x / 3600), m = Math.floor(x % 3600 / 60), sec = (x % 60).toFixed(dp).padStart(dp + 3, "0"); return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + sec; };
+const ZLV = [0.25, 0.5, 1, 2, 5, 10, 20, 60, 180, 600];
+const zlab = z => z >= TRIM.dur - 1e-6 ? "全体" : z < 60 ? +(z < 10 ? z.toFixed(2) : z.toFixed(1)) + "秒" : +(z / 60).toFixed(1) + "分";
+const nstep = () => TRIM.zoom <= 0.5 ? 0.01 : TRIM.zoom <= 2 ? 0.02 : TRIM.zoom <= 10 ? 0.05 : 0.1;
+/* 拡大・縮小:押さえた所(frac:窓の中の割合)を動かさずに幅を変える */
+function trimZoomTo(z, at, frac){ const t = TRIM; z = Math.max(0.25, Math.min(t.dur, z)); if (at == null) { at = t.play ? trimNow() : t.pos; frac = 0.5; } t.zoom = z; t.vf = Math.max(0, Math.min(t.dur - z, at - frac * z)); trimZoomUi(); trimDraw(); }
+function trimZoomStep(dir){ const t = TRIM, lv = ZLV.filter(z => z < t.dur).concat([t.dur]); let i = lv.findIndex(z => z >= t.zoom - 1e-6); if (i < 0) i = lv.length - 1; i = Math.max(0, Math.min(lv.length - 1, i + dir)); trimZoomTo(lv[i]); }
+function trimPan(f){ const t = TRIM; t.vf = Math.max(0, Math.min(t.dur - t.zoom, t.vf + f * t.zoom)); trimDraw(); }
+function trimZoomUi(){ if ($("tzlab")) $("tzlab").textContent = zlab(TRIM.zoom); document.querySelectorAll("[data-tnudge]").forEach(b => { const [k, v] = b.dataset.tnudge.split("|"); const st = nstep() * Math.sign(+v); b.dataset.tnudge = k + "|" + st; b.textContent = (st > 0 ? "+" : "−") + Math.abs(st); }); trimLabels(); }
 async function trimOpen(blob, forWhat, src){ const [w, f] = String(forWhat).split("|"), t = TRIM; trimClose(); t.ctx = t.ctx || new (window.AudioContext || window.webkitAudioContext)();
   Object.assign(t, { w, f, src, file: blob, buf: null, el: null, env: null, ov: null, a: 0, b: 0, pos: 0, vf: 0, drag: null, play: null, pto: null });
   t.url = URL.createObjectURL(blob); const el = new Audio(); el.preload = "metadata"; el.src = t.url;
@@ -1735,13 +1745,14 @@ function trimSheet(){ const t = TRIM, long = t.mode === "el";
   return `<h3>音声を切り取る<small>全体 ${fmtT(t.dur)}${long ? "・長い音声" : ""}</small></h3>
     <div class="tlab"><span>全体</span><span id="tposlab">${fmtT(t.pos)}</span></div>
     <canvas id="trimov" width="900" height="46" class="tcv" style="height:40px;cursor:pointer"></canvas>
-    <div class="tlab"><span>拡大 <span id="tvlab">${fmtT(t.vf)} 〜 ${fmtT(t.vf + Math.min(t.zoom, t.dur))}</span></span><span class="tzoom">${[5, 20, 60].filter(z => z < t.dur + 5).map(z => `<button class="${t.zoom === z ? "on" : ""}" data-tzoom="${z}">${z}秒</button>`).join("")}</span></div>
+    <div class="tlab"><span>拡大 <span id="tvlab">${fmtT(t.vf)} 〜 ${fmtT(t.vf + Math.min(t.zoom, t.dur))}</span></span></div>
+    <div class="tzoom"><button data-tpan="-0.5" title="左へ">◀</button><button data-tzstep="1" title="縮小">− 縮小</button><b id="tzlab">${zlab(t.zoom)}</b><button data-tzstep="-1" title="拡大">＋ 拡大</button><button data-tpan="0.5" title="右へ">▶</button><button data-tzfit>選んだ所に合わせる</button></div>
     <canvas id="trimwave" width="900" height="140" class="tcv" style="height:120px;cursor:ew-resize"></canvas>
     <div class="tplay"><button class="btn sm" data-tplay="toggle" id="tpbtn">${t.play ? "❚❚" : "▶"}</button><button class="btn ghost sm" data-tjump="-5">−5秒</button><button class="btn ghost sm" data-tjump="-1">−1</button><button class="btn ghost sm" data-tjump="1">+1</button><button class="btn ghost sm" data-tjump="5">+5秒</button></div>
     <div class="tset"><button class="btn ghost sm" data-tmark="a">ここを始まりに</button><button class="btn ghost sm" data-tmark="b">ここを終わりに</button></div>
-    <div class="trimrow"><b>始まり</b> <span id="trima">${fmtT(t.a)}</span><button class="btn ghost sm" data-tnudge="a|-0.1">−0.1</button><button class="btn ghost sm" data-tnudge="a|0.1">+0.1</button></div>
-    <div class="trimrow"><b>終わり</b> <span id="trimb">${fmtT(t.b)}</span><button class="btn ghost sm" data-tnudge="b|-0.1">−0.1</button><button class="btn ghost sm" data-tnudge="b|0.1">+0.1</button></div>
-    <p class="note">上の帯を押すとそこへ飛ぶ。下の波形は「始」「終」の線を押したまま左右に引きずって合わせる(線から離れた所を押すと、そこへ飛ぶ)。▶で聞いて「ここを始まりに/終わりに」でも決められる。</p>
+    <div class="trimrow"><b>始まり</b> <span id="trima">${fmtT(t.a)}</span><button class="btn ghost sm" data-tnudge="a|-${nstep()}">−${nstep()}</button><button class="btn ghost sm" data-tnudge="a|${nstep()}">+${nstep()}</button></div>
+    <div class="trimrow"><b>終わり</b> <span id="trimb">${fmtT(t.b)}</span><button class="btn ghost sm" data-tnudge="b|-${nstep()}">−${nstep()}</button><button class="btn ghost sm" data-tnudge="b|${nstep()}">+${nstep()}</button></div>
+    <p class="note">上の帯を押すとそこへ飛ぶ。下の波形は「始」「終」の線を押したまま引きずって合わせる。線から離れた所は、押すとそこへ飛び、引きずると横へずれる。拡大・縮小は ＋/− のほか、2本指で広げる・つまむ(パソコンはピンチかホイール)。</p>
     <div class="row" style="gap:.4rem;flex-wrap:wrap"><button class="btn ghost sm" data-tplay="sel">▶ 選んだ所を聞く</button><button class="btn ghost sm" data-tplay="head">▶ 頭の2秒</button><button class="btn ghost sm" data-tplay="tail">▶ 終わりの2秒</button></div>
     <div class="row" style="gap:.4rem;margin-top:.7rem;flex-wrap:wrap"><button class="btn" data-tsave>切り取って入れる(<span id="trimlen">${(t.b - t.a).toFixed(1)}</span>秒)</button>${t.src === "file" && !long ? '<button class="btn ghost sm" data-traw>切り取らずにそのまま入れる</button>' : ""}</div>`; }
 function trimDraw(ph){ const t = TRIM, ov = $("trimov"), cv = $("trimwave"); if (!cv) return; const P = ph != null ? ph : t.pos;
@@ -1753,9 +1764,13 @@ function trimDraw(ph){ const t = TRIM, ov = $("trimov"), cv = $("trimwave"); if 
     g.fillStyle = "#d9442f"; g.fillRect(X(P) - 1, 0, 2, H - 12); }
   const g = cv.getContext("2d"), W = cv.width, H = cv.height, z = Math.min(t.zoom, t.dur), X = s => (s - t.vf) / z * W; g.clearRect(0, 0, W, H);
   g.fillStyle = "rgba(47,79,138,.13)"; g.fillRect(X(t.a), 0, X(t.b) - X(t.a), H);
-  if (t.env) { const per = z * t.envRate / W; for (let x = 0; x < W; x++) { const i0 = Math.floor((t.vf * t.envRate) + x * per), i1 = Math.max(i0 + 1, Math.floor(t.vf * t.envRate + (x + 1) * per)); let mx = 0; for (let i = i0; i < i1 && i < t.env.length; i++) if (t.env[i] > mx) mx = t.env[i];
+  if (t.buf && z <= 2.01) { const d = t.buf.getChannelData(0), sr = t.buf.sampleRate, per = z * sr / W, mid = H / 2; let top = 0; for (let i = Math.floor(t.vf * sr), e = Math.min(d.length, Math.floor((t.vf + z) * sr)); i < e; i++) { const v = d[i] < 0 ? -d[i] : d[i]; if (v > top) top = v; } top = top || 1;
+    for (let x = 0; x < W; x++) { const i0 = Math.floor(t.vf * sr + x * per), i1 = Math.max(i0 + 1, Math.floor(t.vf * sr + (x + 1) * per)); let lo = 0, hi = 0; for (let i = i0; i < i1 && i < d.length; i++) { if (d[i] < lo) lo = d[i]; if (d[i] > hi) hi = d[i]; }
+      const sec = t.vf + x / W * z; g.fillStyle = sec >= t.a && sec <= t.b ? "#3b4252" : "#a6abb5"; g.fillRect(x, mid - hi / top * mid * .86, 1, Math.max(1, (hi - lo) / top * mid * .86)); } }
+  else if (t.env) { const per = z * t.envRate / W; for (let x = 0; x < W; x++) { const i0 = Math.floor((t.vf * t.envRate) + x * per), i1 = Math.max(i0 + 1, Math.floor(t.vf * t.envRate + (x + 1) * per)); let mx = 0; for (let i = i0; i < i1 && i < t.env.length; i++) if (t.env[i] > mx) mx = t.env[i];
     const sec = t.vf + x / W * z, h = Math.max(1, mx * H * .84); g.fillStyle = sec >= t.a && sec <= t.b ? "#3b4252" : "#a6abb5"; g.fillRect(x, (H - h) / 2, 1, h); } }
-  g.fillStyle = "#999"; g.font = "11px sans-serif"; g.textBaseline = "top"; const tk = z <= 6 ? 1 : z <= 25 ? 5 : 10; for (let s0 = Math.ceil(t.vf / tk) * tk; s0 <= t.vf + z; s0 += tk) { g.fillRect(X(s0), H - 6, 1, 6); }
+  g.fillStyle = "#999"; g.font = "11px sans-serif"; g.textBaseline = "top"; g.textAlign = "left"; const tk = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30, 60, 300].find(v => z / v <= 12) || 600;
+  for (let s0 = Math.ceil(t.vf / tk - 1e-9) * tk; s0 <= t.vf + z + 1e-9; s0 += tk) { const xx = X(s0); g.fillRect(xx, H - 6, 1, 6); g.fillText(fmtT(s0, tk < 0.1 ? 2 : 1).replace(/^0:/, ""), xx + 2, H - 30); }
   const handle = (s0, lab) => { const x = X(s0); if (x < -12 || x > W + 12) return; g.fillStyle = "#2F4F8A"; g.fillRect(x - 1.5, 0, 3, H); g.beginPath(); g.arc(x, 10, 10, 0, Math.PI * 2); g.arc(x, H - 10, 10, 0, Math.PI * 2); g.fill(); g.fillStyle = "#fff"; g.font = "bold 11px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(lab, x, 10); g.fillText(lab, x, H - 10); };
   handle(t.a, "始"); handle(t.b, "終"); const px = X(P); if (px >= 0 && px <= W) { g.fillStyle = "#d9442f"; g.fillRect(px - 1, 0, 2, H); }
   if ($("tposlab")) $("tposlab").textContent = fmtT(P); if ($("tvlab")) $("tvlab").textContent = fmtT(t.vf) + " 〜 " + fmtT(t.vf + z); }
@@ -1999,10 +2014,18 @@ function afterRender(y){ if (!V.rv && WB.on) { WB.on = false; WB.pass = false; }
   if (V.sheet && V.sheet.k === "trim" && $("trimwave") && !$("trimwave").dataset.done) { const cv = $("trimwave"), ov = $("trimov"), t = TRIM; cv.dataset.done = 1; trimDraw();
     // 拡大の波形:「始」「終」の線の近く(画面で約22px以内)を押したら引きずる。離れた所なら、そこへ飛ぶ
     const at = e => { const r = cv.getBoundingClientRect(), z = Math.min(t.zoom, t.dur); return { s: Math.max(0, Math.min(t.dur, t.vf + (e.clientX - r.left) / r.width * z)), px: e.clientX - r.left, r }; };
-    cv.onpointerdown = e => { e.preventDefault(); const p0 = at(e), z = Math.min(t.zoom, t.dur), xa = (t.a - t.vf) / z * p0.r.width, xb = (t.b - t.vf) / z * p0.r.width, da = Math.abs(p0.px - xa), db = Math.abs(p0.px - xb);
-      if (Math.min(da, db) <= 22) { t.drag = da <= db ? "a" : "b"; try { cv.setPointerCapture(e.pointerId); } catch (er) {} trimSet(t.drag, p0.s); } else trimSeek(p0.s); };
-    cv.onpointermove = e => { if (t.drag) trimSet(t.drag, at(e).s); };
-    cv.onpointerup = cv.onpointercancel = () => { t.drag = null; };
+    const pts = new Map(); let pinch = null;
+    cv.onpointerdown = e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (er) {} pts.set(e.pointerId, e.clientX);
+      if (pts.size === 2) { const xs = [...pts.values()], r = cv.getBoundingClientRect(), mid = (xs[0] + xs[1]) / 2 - r.left; t.drag = null; pinch = { d: Math.abs(xs[0] - xs[1]) || 1, z: t.zoom, frac: mid / r.width, at: t.vf + mid / r.width * t.zoom }; return; }
+      if (pts.size > 2) return; const p0 = at(e), z = Math.min(t.zoom, t.dur), xa = (t.a - t.vf) / z * p0.r.width, xb = (t.b - t.vf) / z * p0.r.width, da = Math.abs(p0.px - xa), db = Math.abs(p0.px - xb);
+      if (Math.min(da, db) <= 22) { t.drag = da <= db ? "a" : "b"; trimSet(t.drag, p0.s); } else { t.tapAt = p0.s; t.tapX = e.clientX; } };
+    cv.onpointermove = e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, e.clientX);
+      if (pinch && pts.size === 2) { const xs = [...pts.values()], d = Math.abs(xs[0] - xs[1]) || 1; trimZoomTo(pinch.z * pinch.d / d, pinch.at, pinch.frac); return; }
+      if (t.drag) trimSet(t.drag, at(e).s); else if (t.tapAt != null && Math.abs(e.clientX - t.tapX) > 8) { const r = cv.getBoundingClientRect(); t.vf = Math.max(0, Math.min(t.dur - t.zoom, t.vf - (e.clientX - t.tapX) / r.width * t.zoom)); t.tapX = e.clientX; t.panned = true; trimDraw(); } };
+    cv.onpointerup = cv.onpointercancel = e => { pts.delete(e.pointerId); if (pinch) { if (pts.size < 2) pinch = null; t.tapAt = null; t.panned = false; return; } if (!t.drag && t.tapAt != null && !t.panned) trimSeek(t.tapAt); t.drag = null; t.tapAt = null; t.panned = false; };
+    cv.onwheel = e => { e.preventDefault(); const r = cv.getBoundingClientRect(), frac = (e.clientX - r.left) / r.width, atS = t.vf + frac * t.zoom;
+      if (e.ctrlKey || (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !e.shiftKey)) trimZoomTo(t.zoom * Math.exp(e.deltaY * (e.ctrlKey ? 0.012 : 0.0025)), atS, frac);
+      else trimPan((e.shiftKey ? e.deltaY : e.deltaX) / r.width); };
     // 全体の帯:押したところへ飛ぶ(引きずると続けて動く)
     if (ov) { const atO = e => { const r = ov.getBoundingClientRect(); return Math.max(0, Math.min(t.dur, (e.clientX - r.left) / r.width * t.dur)); };
       ov.onpointerdown = e => { e.preventDefault(); try { ov.setPointerCapture(e.pointerId); } catch (er) {} ov._d = 1; trimView(atO(e)); trimSeek(atO(e)); };
@@ -2114,10 +2137,12 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-rvrec")) { rvRecToggle(); return; } if (b.hasAttribute("data-rvrecplay")) { rvRecPlay(); return; } if (b.hasAttribute("data-rvreplay")) { V.sheet = null; render(); rvReplay(); return; }
   if (d.mtab) { await tabRecStart(d.mtab); return; }
   if (b.hasAttribute("data-tabstop")) { tabRecStop(); return; }
-  if (d.tnudge) { const [k, v] = d.tnudge.split("|"); trimSet(k, TRIM[k] + +v); trimView(TRIM[k]); trimDraw(); return; }
+  if (d.tnudge) { const [k, v] = d.tnudge.split("|"), t = TRIM; trimSet(k, Math.round((t[k] + +v) * 1000) / 1000); if (t[k] < t.vf || t[k] > t.vf + t.zoom) trimView(t[k]); trimDraw(); return; }
   if (d.tjump) { trimSeek(TRIM.pos + +d.tjump); return; }
   if (d.tmark) { const t = TRIM, now = t.play ? trimNow() : t.pos; if (d.tmark === "a") { if (now >= t.b) t.b = Math.min(t.dur, now + 5); trimSet("a", now); } else { if (now <= t.a) t.a = Math.max(0, now - 5); trimSet("b", now); } return; }
-  if (d.tzoom) { TRIM.zoom = +d.tzoom; trimView(TRIM.play ? trimNow() : (TRIM.a + TRIM.b) / 2); render(); return; }
+  if (d.tzstep) { trimZoomStep(+d.tzstep); return; }
+  if (d.tpan) { trimPan(+d.tpan); return; }
+  if (b.hasAttribute("data-tzfit")) { const t = TRIM, len = t.b - t.a; trimZoomTo(Math.max(0.25, len * 1.25), (t.a + t.b) / 2, 0.5); return; }
   if (d.tplay) { const t = TRIM; if (d.tplay === "toggle") { if (t.play) { t.pos = trimNow(); trimStopPlay(); } else trimPlay(t.pos, null); } else if (d.tplay === "sel") { trimView(t.a); trimPlay(t.a, t.b); } else if (d.tplay === "head") { trimView(t.a); trimPlay(t.a, Math.min(t.b, t.a + 2)); } else { trimView(t.b); trimPlay(Math.max(t.a, t.b - 2), t.b); } return; }
   if (b.hasAttribute("data-traw")) { trimStopPlay(); const nm = await mediaSave(TRIM.file, TRIM.file.name || "audio"); mediaToField(TRIM.w, TRIM.f, mediaTag(nm, TRIM.file)); trimClose(); V.sheet = null; toast("そのまま付けた"); render(); return; }
   if (b.hasAttribute("data-tsave")) { if (TRIM.busy) return; TRIM.busy = true; trimStopPlay(); b.disabled = true; const len = TRIM.b - TRIM.a; let k = 0; const tm = setInterval(() => { k += .5; b.textContent = "作っている… " + Math.min(len, k).toFixed(1) + " / " + len.toFixed(1) + "秒"; }, 500);
@@ -2345,7 +2370,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.73";
+window.APP_VER_EX = "r4.74";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2580,7 +2605,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.73";
+window.APP_VER_SYNC = "r4.74";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
