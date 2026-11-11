@@ -840,19 +840,21 @@ A2.restoreMissing = async data => { const tombs = A2.S.meta.tombs || {}; let n =
    控えより後に Anki2 で復習したカードは今のまま(復習を守る)。控えにない新しいもの(増えたノートタイプなど)はそのまま */
 A2.repairPlan = (data, trashed) => { const t0 = data.at || 0, imp = new Set(A2.S.meta.imported || []), same = (a, b) => { const x = Object.assign({}, a), y = Object.assign({}, b); delete x.mod; delete y.mod; return JSON.stringify(x) === JSON.stringify(y); };
   const rv = new Set(); for (const r of A2.S.revlog.values()) if (r.t > t0 && A2.revSrc(r) === "a2") rv.add(r.cid);
-  const tr = new Map((trashed || []).map(t => [t.store + ":" + t.id.split(":").slice(1).join(":"), t.rec]));
-  const changed = (st, x) => { const c = A2.S[st].get(x.id); if (!c) return true; if (same(c, x)) return false; return (c.mod || 0) > t0 || imp.has(st + ":" + x.id); };
+  const today0 = (() => { const d0 = A2.today(); let t = Date.now(); while (A2.dayOf(t - 600e3) === d0) t -= 600e3; return t - 600e3; })();   // Anki2 の「今日」の始まり(10分きざみ)
+  const tr = new Map((trashed || []).map(t => [t.store + ":" + t.id.split(":").slice(1).join(":"), t]));
+  const goneToday = (st, id) => { const t = tr.get(st + ":" + id); return !!(t && t.at >= Math.max(t0, today0)); };
+  const changed = (st, x) => { const c = A2.S[st].get(x.id); if (!c) return goneToday(st, x.id); if (same(c, x)) return false; return imp.has(st + ":" + x.id); };
   const plan = { notetypes: [], decks: [], subjects: [], stages: [], notes: [], cards: [], keptReviewed: 0 };
   const inBk = new Set((data.notes || []).map(n => n.id)); plan.splits = [];
-  (data.notetypes || []).forEach(x => { const c = A2.S.notetypes.get(x.id); if (!c || !same(c, x)) { plan.notetypes.push(x);
-    if (c) { const fresh = [...A2.S.notes.values()].filter(n => n.nt === x.id && !inBk.has(n.id)).map(n => n.id); if (fresh.length) plan.splits.push({ cur: JSON.parse(JSON.stringify(c)), notes: fresh }); } } });
+  (data.notetypes || []).forEach(x => { const c = A2.S.notetypes.get(x.id); if (c ? (!same(c, x) && imp.has("notetypes:" + x.id)) : goneToday("notetypes", x.id)) { plan.notetypes.push(x);
+    if (c) { const fresh = [...A2.S.notes.values()].filter(n => n.nt === x.id && !inBk.has(n.id) && imp.has("notes:" + n.id)).map(n => n.id); if (fresh.length) plan.splits.push({ cur: JSON.parse(JSON.stringify(c)), notes: fresh }); } } });
   (data.decks || []).forEach(x => { if (changed("decks", x)) plan.decks.push(x); });
-  (data.subjects || []).forEach(x => { if (!A2.S.subjects.has(x.id)) plan.subjects.push(x); });
-  (data.stages || []).forEach(x => { if (!A2.S.stages.has(x.id)) plan.stages.push(x); });
+  (data.subjects || []).forEach(x => { if (!A2.S.subjects.has(x.id) && goneToday("subjects", x.id)) plan.subjects.push(x); });
+  (data.stages || []).forEach(x => { if (!A2.S.stages.has(x.id) && goneToday("stages", x.id)) plan.stages.push(x); });
   (data.notes || []).forEach(x => { if (changed("notes", x)) plan.notes.push(x); });
   // 自分で作ったデッキ(控えにも、取り込みにもないデッキ)に移したカードは、そのデッキのまま戻す
   const bkDecks = new Set((data.decks || []).map(d => d.id)), ownDeck = id => id && A2.S.decks.has(id) && !bkDecks.has(id) && !imp.has("decks:" + id); plan.keptMoved = 0;
-  (data.cards || []).forEach(x => { const c = A2.S.cards.get(x.id); if (rv.has(x.id)) { if (!c) { const t = tr.get("cards:" + x.id); if (t) plan.cards.push(t); } else plan.keptReviewed++; return; }
+  (data.cards || []).forEach(x => { const c = A2.S.cards.get(x.id); if (rv.has(x.id)) { if (!c) { if (goneToday("cards", x.id)) plan.cards.push(tr.get("cards:" + x.id).rec); } else plan.keptReviewed++; return; }
     if (!changed("cards", x)) return; if (c && ownDeck(c.deck) && c.deck !== x.deck) { plan.cards.push(Object.assign(JSON.parse(JSON.stringify(x)), { deck: c.deck })); plan.keptMoved++; } else plan.cards.push(x); });
   plan.n = plan.notetypes.length + plan.decks.length + plan.subjects.length + plan.stages.length + plan.notes.length + plan.cards.length; return plan; };
 A2.repairApply = async plan => { const tombs = A2.S.meta.tombs || {}, ids = {};
@@ -916,7 +918,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.68";
+A2.VER = "r4.69";
 window.A2 = A2;
 
 </script>
@@ -924,7 +926,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.68"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.69"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1946,7 +1948,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
     const nm = (st, r) => st === "notes" ? (() => { const nt = (data.notetypes || []).find(t => t.id === r.nt) || A2.S.notetypes.get(r.nt); return nt ? whText(r.f[nt.fields[0]]).slice(0, 24) : r.id; })() : (r.name || r.id);
     V.sheet = { k: "msg", t: "取り込みで壊れたものを直す", b: "" }; V.fixPlan = { plan, day: b0.day, at: b0.at };
     V.sheet = { k: "bkfix", html: `<h3>取り込みで壊れたものを直す<small>${A2.dayStr(b0.day)} ${new Date(b0.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} の控えから</small></h3>
-      <p class="note">この控えと比べて、本家Ankiの取り込みで書き換わったもの・消えたものだけを控えの中身に戻す。<b>この控えより後に Anki2 で復習したカード ${plan.keptReviewed}枚は今のまま</b>(復習は消えない)。控えにない新しいノートタイプなどはそのまま残る。</p>
+      <p class="note">この控えと比べて、本家Ankiから取り込んだもののうち書き換わったものと、今日消えたものだけを控えの中身に戻す。Anki2で自分で作ったノート・カードには触らない。<b>この控えより後に Anki2 で復習したカード ${plan.keptReviewed}枚は今のまま</b>(復習は消えない)。控えにない新しいノートタイプなどはそのまま残る。</p>
       <div class="pkv"><span class="k">ノートタイプ</span><span class="v">${plan.notetypes.length}件 ${plan.notetypes.slice(0, 6).map(r => esc(r.name)).join("・")}</span></div>
       ${plan.splits.length ? `<div class="pkv"><span class="k">分けて残す</span><span class="v">${plan.splits.map(sp => `「${esc(sp.cur.name)}」は控えの形に戻し、今日入った${sp.notes.length}件のノートは「${esc(sp.cur.name)}(本家Ankiの形)」に分けて残す`).join("<br>")}</span></div>` : ""}
       <div class="pkv"><span class="k">ノート</span><span class="v">${plan.notes.length}件 ${plan.notes.slice(0, 5).map(r => esc(nm("notes", r))).join("・")}</span></div>
@@ -2218,7 +2220,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.68";
+window.APP_VER_EX = "r4.69";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2453,7 +2455,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.68";
+window.APP_VER_SYNC = "r4.69";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
