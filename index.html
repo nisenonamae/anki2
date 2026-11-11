@@ -460,6 +460,8 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .cmpres .bl{margin-top:.6rem;font-weight:700;font-size:.82rem}.cmpl{margin:.3rem 0 0;padding-left:1.1rem;font-size:.86rem}.cmpl li{margin:.25rem 0}
 
 .brback{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .6rem;margin:.2rem 0 .5rem;padding:.5rem .6rem;border:1px solid var(--rule);border-radius:8px;background:var(--wave-soft,#eef2f8);font-size:.85rem}.brback span{flex-basis:100%;color:var(--sub)}
+
+.qchips{display:flex;flex-wrap:wrap;gap:.3rem;margin:.35rem 0 .2rem}.qchip{font:inherit;font-size:.78rem;padding:.2rem .6rem;border:1px solid var(--rule);border-radius:999px;background:var(--white);cursor:pointer;color:var(--ink)}.qchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -918,7 +920,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.69";
+A2.VER = "r4.70";
 window.A2 = A2;
 
 </script>
@@ -926,7 +928,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.69"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.70"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1350,7 +1352,7 @@ function whSheet(sh){ const d = A2.S.decks.get(sh.deck), xs = whOf(sh.deck), sel
   return `<h3>倉庫<small>${esc(d ? d.name : "")}・${xs.length}件</small></h3>
     <p class="note">まだカードにしていないノートの置き場。取り出すと、このデッキの新規カードになり、新規カードの1日の上限に合わせて少しずつ出てくる。倉庫の中は、復習にも、デッキの数にも、統計にも出ない。</p>
     ${xs.length ? `<div class="row" style="gap:.4rem;flex-wrap:wrap;margin:.3rem 0 .6rem"><span>上から</span><input type="number" id="wh-n" min="1" value="${V.whn || 10}" style="width:4.5rem"><span>件を</span><button class="btn sm" data-whtop>取り出す</button></div>
-      <div class="row" style="gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem"><button class="btn ghost sm" data-whall>${ns === xs.length ? "全部はずす" : "全部選ぶ"}</button>${ns ? `<button class="btn sm" data-whpick>選んだ${ns}件を取り出す</button><button class="linkx" data-whdel style="color:var(--shu)">選んだ${ns}件を消す</button>` : ""}</div>
+      <div class="row" style="gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem"><button class="btn ghost sm" data-whall>${ns === xs.length ? "全部はずす" : "全部選ぶ"}</button><button class="btn ghost sm" data-whtoday>今日入れたものを選ぶ</button>${ns ? `<button class="btn sm" data-whpick>選んだ${ns}件を取り出す</button><button class="linkx" data-whdel style="color:var(--shu)">選んだ${ns}件を消す</button>` : ""}</div>
       <div class="whlist">${xs.map(row).join("")}</div>` : '<p class="note">倉庫は空。AIのツールで取り込むとき、「倉庫に入れる」を選ぶとここに入る。</p>'}`; }
 
 /* 既定(デッキ・ノートタイプ・カードの種類)の段階の型を変えたとき、カードごとに段階の型が決まっているカード(取り込んだときに付いたものなど)も合わせるか聞く */
@@ -1475,9 +1477,9 @@ function match(c, q){ const n = A2.S.notes.get(c.nid), d = A2.S.decks.get(c.deck
       if (k === "cid") ok = c.id.toLowerCase() === v; else if (k === "nid") ok = c.nid.toLowerCase() === v; else
       if (k === "deck") ok = new RegExp("^" + v.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "(::|$)", "i").test(d.name);
       else if (k === "tag") ok = n.tags.some(x => x.toLowerCase() === v || x.toLowerCase().startsWith(v + "::") || (v.endsWith("*") && x.toLowerCase().startsWith(v.slice(0, -1))));
-      else if (k === "is") ok = { new: c.st === "新規", learn: c.st === "学習中" || c.st === "再学習", review: c.st === "復習", due: A2.isDue(c), suspended: !!c.susp, buried: !!c.bury, marked: n.tags.includes("marked") }[v] || false;
+      else if (k === "is") ok = v === "empty" ? !cardFront(c) : { new: c.st === "新規", learn: c.st === "学習中" || c.st === "再学習", review: c.st === "復習", due: A2.isDue(c), suspended: !!c.susp, buried: !!c.bury, marked: n.tags.includes("marked") }[v] || false;
       else if (k === "flag") ok = String(c.flag || 0) === v; else if (k === "note") ok = nt && nt.name.toLowerCase().includes(v);
-      else if (k === "added") ok = [...A2.S.revlog.values()].length >= 0 && (Date.now() - (parseInt(String(c.id).replace(/\D/g, "").slice(0, 13)) || 0)) / 86400e3 <= +v;
+      else if (k === "added") { const at = parseInt(String(c.id).replace(/\D/g, "").slice(0, 13)) || 0; ok = v === "today" ? A2.dayOf(at) === today : (Date.now() - at) / 86400e3 <= +v; }
       else if (k === "rated") ok = [...A2.S.revlog.values()].some(r => r.cid === c.id && today - A2.dayOf(r.t) < +v);
       else if (k === "prop") { const pm = /^(ivl|reps|lapses|due)(>=|<=|>|<|=)(-?\d+)$/.exec(v); if (pm) { const val = pm[1] === "due" ? (c.dueDay != null ? c.dueDay - today : 1e9) : (c[pm[1]] || 0), x = +pm[3]; ok = { ">": val > x, "<": val < x, ">=": val >= x, "<=": val <= x, "=": val === x }[pm[2]]; } else ok = false; } }
     return neg ? !ok : ok; }); }
@@ -1499,7 +1501,8 @@ function browser(){ let xs = [...A2.S.cards.values()].filter(c => bfMatch(c) && 
   xs.sort((a, b) => { const x = key(a), y = key(b); return x < y ? -1 : x > y ? 1 : 0; }); V.blist = xs.map(c => c.id); const sel = Object.keys(V.bsel).filter(k => V.bsel[k]), shown = xs.slice(0, V.bmax || 200);
   const bar = bfBar();
   const backBar = V.brBack ? `<div class="brback"><span>復習していたカードだけを出している</span><button class="btn sm" data-brback>「${esc(String(V.brBack.title || "").split("::").pop())}」の復習に戻る</button><button class="linkx" data-brall>ほかのカードも見る</button></div>` : "";
-  return `${backBar}<div class="bsearch"><input id="bq" placeholder="言葉で探す(表・裏・欄の中身)" value="${esc(V.bq)}"></div>${bar}
+  const quick = [["added:today", "今日足した"], ["is:empty", "表が空"], ["added:today is:empty", "今日足した・表が空"]].map(([q, l]) => `<button class="qchip${V.bq === q ? " on" : ""}" data-bquick="${esc(q)}">${l}</button>`).join("");
+  return `${backBar}<div class="bsearch"><input id="bq" placeholder="言葉で探す(表・裏・欄の中身)" value="${esc(V.bq)}"></div><div class="qchips">${quick}</div>${bar}
     <details class="syn"><summary>くわしい書き方(使わなくてよい)</summary>書き方:<code>deck:英語*</code> <code>tag:単語帳</code> <code>is:due</code> <code>is:new</code> <code>is:suspended</code> <code>flag:1</code> <code>prop:ivl&gt;20</code> <code>rated:1</code> <code>-tag:xx</code>(除く)</details>
     <div class="bsort">並べ方 <select id="bsort">${[["due", "次の復習"], ["ivl", "間隔の長い順"], ["lapses", "忘れた回数"], ["deck", "デッキ"], ["front", "表の文字"]].map(([k, t]) => `<option value="${k}"${V.bsort === k ? " selected" : ""}>${t}</option>`).join("")}</select><span style="margin-left:auto">${xs.length}枚${sel.length ? "・" + sel.length + "枚を選んでいる" : ""}</span>${xs.length ? (sel.length === xs.length ? '<button class="linkx" data-bact="none" style="margin-left:.6rem">選ぶのをやめる</button>' : `<button class="linkx" data-ball style="margin-left:.6rem">全部選ぶ(${xs.length}枚)</button>`) : ""}</div>
     ${sel.length ? `<div class="bact"><button class="btn sm" data-bact="deck">デッキを変える</button><button class="btn ghost sm" data-bact="tag">タグを足す</button><button class="btn ghost sm" data-bact="susp">一時停止の切り替え</button><button class="btn ghost sm" data-bact="flag">旗</button><button class="btn ghost sm" data-bact="aifix">AIで直す</button><button class="btn ghost sm" data-bact="reset">新規に戻す</button>${sel.some(id => (A2.S.cards.get(id) || {}).sgo) ? '<button class="btn ghost sm" data-bact="sgreset">段階を既定に戻す</button>' : ""}<button class="btn ghost sm" data-bact="del" style="color:var(--shu)">消す</button><button class="linkx" data-bact="none">選ぶのをやめる</button></div>` : ""}
@@ -2053,6 +2056,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-rvbrowse")) { const c = rvCur(), r = V.rv; if (!c || !r) return; V.sheet = null; const back = { prefix: r.prefix, filter: r.filter, title: r.title }; endStudy();
     V.mode = "br"; V.bq = "cid:" + c.id; V.bf = { chips: {} }; V.bsel = {}; V.bmax = 200; V.brBack = back; render(); window.scrollTo(0, 0); return; }
   if (b.hasAttribute("data-brback")) { const k = V.brBack; V.brBack = null; V.bq = ""; if (k) startStudy(k.prefix, k.filter, k.title); return; }
+  if (d.bquick) { V.bq = V.bq === d.bquick ? "" : d.bquick; V.bsel = {}; V.bmax = 200; render(); return; }
   if (b.hasAttribute("data-brall")) { V.brBack = null; V.bq = ""; render(); return; }
   if (b.hasAttribute("data-rvundo")) { undo(); return; }
   if (b.hasAttribute("data-voice")) { VOICE.on ? voiceStop() : voiceStart(); return; }
@@ -2109,6 +2113,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-cmpcopy")) { const t = cmpCode(); try { await navigator.clipboard.writeText(t); toast("コピーした。もう1台の「2台の見比べ」に貼る"); } catch (e) { V.sheet.code = t; render(); toast("コピーできなかったので、下の欄に出した"); } return; }
   if (b.hasAttribute("data-cmpgo")) { V.sheet.code = ($("cmp-in") || {}).value || ""; render(); return; }
   if (d.whopen) { V.sheet = { k: "wh", deck: d.whopen }; V.whsel = {}; render(); return; }
+  if (b.hasAttribute("data-whtoday")) { V.whsel = {}; whOf(V.sheet.deck).filter(w => A2.dayOf(w.t) === A2.today()).forEach(w => V.whsel[w.id] = true); render(); return; }
   if (b.hasAttribute("data-whall")) { const xs = whOf(V.sheet.deck), on = Object.keys(V.whsel || {}).filter(k => V.whsel[k]).length === xs.length; V.whsel = {}; if (!on) xs.forEach(w => V.whsel[w.id] = true); render(); return; }
   if (b.hasAttribute("data-whtop") || b.hasAttribute("data-whpick")) { const xs = whOf(V.sheet.deck); let items;
     if (b.hasAttribute("data-whtop")) { const k = Math.max(1, +(($("wh-n") || {}).value) || 10); V.whn = k; items = xs.slice(0, k); } else items = xs.filter(w => (V.whsel || {})[w.id]);
@@ -2220,7 +2225,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.69";
+window.APP_VER_EX = "r4.70";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2455,7 +2460,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.69";
+window.APP_VER_SYNC = "r4.70";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
