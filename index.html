@@ -936,7 +936,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.77";
+A2.VER = "r4.78";
 window.A2 = A2;
 
 </script>
@@ -944,7 +944,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.77"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.78"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1310,11 +1310,13 @@ function cardTmplDiag(c, n){ const nt = A2.S.notetypes.get(n.nt); if (!nt) retur
   if (/\{\{\s*tts\b/i.test(src)) out.push('<div class="mdrow"><span class="ng">✗ テンプレートが本家だけの読み上げ({{tts …}})を使っている。Anki2 では鳴らない</span></div>');
   const fr = A2.cardHtml(c, false), bk = A2.cardHtml(c, true), sf = h => (String(h).match(/\[sound:[^\]]+\]|<audio\b/g) || []).length, inNote = (Object.values(n.f || {}).join(" ").match(/\[sound:[^\]]+\]/g) || []).length;
   const nf = sf(fr), nb = Math.max(0, sf(bk) - (String(bk).indexOf(String(fr)) >= 0 ? nf : 0));
-  out.push(`<div class="mdrow"><b>音声の印</b> 表 ${nf}つ・裏 ${nb}つ(ノートの欄には ${inNote}つ)${inNote && !nf && !nb ? '<br><span class="ng">✗ ノートの欄に音声はあるのに、表にも裏にも出ていない(その欄をテンプレートが使っていない)</span>' : nf || nb ? '<span class="ok"> ✓ 出ている</span>' : ""}</div>`);
+  out.push(`<div class="mdrow"><b>音声の印</b> 表 ${nf}つ・裏 ${nb}つ(ノートの欄には ${inNote}つ)${inNote && !nf && !nb && !Object.keys(n.f || {}).some(k => isPlainField(k) && String(n.f[k] || "").trim()) ? '<br><span class="ng">✗ ノートの欄に音声はあるのに、表にも裏にも出ていない(その欄をテンプレートが使っていない)</span>' : nf || nb ? '<span class="ok"> ✓ 出ている</span>' : ""}</div>`);
   return out.join(""); }
-async function mediaDiag(cid){ const el = $("mdiag"); if (!el) return; const c = A2.S.cards.get(cid), n = c && A2.S.notes.get(c.nid); if (!n) return; const head = cardTmplDiag(c, n);
-  const all = Object.values(n.f || {}).join("\n"), names = [...new Set([...all.matchAll(/\[sound:([^\]]+)\]|src=["']([^"']+)["']/g)].map(m => (m[1] || m[2]).trim()).filter(x => x && !/^(https?:|data:|blob:)/.test(x)))];
-  if (!names.length) { el.innerHTML = head + '<div class="mdrow">このノートの欄には、音声・画像が入っていない([sound:…] も &lt;img&gt; もない)。</div>'; return; }
+async function mediaDiag(cid){ const el = $("mdiag"); if (!el) return; const c = A2.S.cards.get(cid), n = c && A2.S.notes.get(c.nid); if (!n) return; let head = cardTmplDiag(c, n);
+  const plainNames = [], plainBad = []; Object.keys(n.f || {}).forEach(k => { if (!isPlainField(k)) return; const v = String(n.f[k] || ""); if (/\[sound:/.test(v)) plainBad.push(k); v.replace(/\[sound:([^\]]+)\]/g, " @@@ $1 @@@ ").split("@@@").map(t => t.trim()).filter(Boolean).forEach(x => plainNames.push(x)); });
+  const all = Object.values(n.f || {}).join("\n"), names = [...new Set([...all.matchAll(/\[sound:([^\]]+)\]|src=["']([^"']+)["']/g)].map(m => (m[1] || m[2]).trim()).concat(plainNames).filter(x => x && !/^(https?:|data:|blob:)/.test(x)))];
+  const plainHead = plainBad.length ? `<div class="mdrow"><span class="ng">✗ 「${plainBad.map(esc).join("」「")}」の欄はファイル名だけを書く欄なのに、[sound:…] の形で入っている(カードのプレイヤーが見つけられない)。Anki2 を開き直すと自動で直る</span></div>` : "";
+  head += plainHead; if (!names.length) { el.innerHTML = head + '<div class="mdrow">このノートの欄には、音声・画像が入っていない([sound:…] も &lt;img&gt; も、File の欄のファイル名もない)。</div>'; return; }
   const rows = []; for (const nm of names) { let m = await A2.getOne("media", nm), from = "この端末"; if (!m && A2.fetchMedia) { try { const b = await A2.fetchMedia(nm); if (b) { m = { name: nm, blob: b }; await A2.put("media", [m]); from = "同期から取ってきた"; } } catch (e) {} }
     const b = m && m.blob, ty = b ? (b.type || "形式が分からない") : "", kb = b ? (b.size / 1024 < 1024 ? Math.round(b.size / 1024) + "KB" : (b.size / 1048576).toFixed(1) + "MB") : "", can = b && b.type ? (document.createElement("audio").canPlayType(b.type) || "no") : "";
     rows.push(`<div class="mdrow"><b>${esc(nm)}</b> ${b ? `<span class="ok">✓ ${esc(from)}にある</span>・${esc(ty)}・${kb}${/^(audio|video)\//.test(ty) ? `・${can === "no" ? '<span class="ng">この端末のブラウザでは鳴らせない形式かもしれない</span>' : "鳴らせる形式"} <button class="btn ghost sm" data-mdplay="${esc(nm)}">ここで鳴らす</button>` : ""}` : '<span class="ng">✗ この端末にも同期先にもない</span>'}</div>`); }
@@ -1574,8 +1576,10 @@ function make(){ if (!A2.S.decks.size) return '<div class="empty-big"><b>まだ�
 /* 作る画面の音声の確かめ:鳴らないときに、その理由が分かるように */
 let adiagT = null, adiagKey = "";
 function draftMediaDiag(){ clearTimeout(adiagT); adiagT = setTimeout(async () => { const el = $("adiag"); if (!el) return; const nt = A2.S.notetypes.get(ADD.nt); if (!nt) { el.innerHTML = ""; return; }
-  const list = []; nt.fields.forEach(k => { [...String(ADD.f[k] || "").matchAll(/\[sound:([^\]]+)\]/g)].forEach(m => list.push({ k, nm: m[1].trim() })); });
-  const key = ADD.nt + "|" + list.map(x => x.k + ":" + x.nm).join(","); if (key === adiagKey && el.innerHTML) return; adiagKey = key; if (!list.length) { el.innerHTML = ""; return; }
+  const list = [], warns = []; nt.fields.forEach(k => { const v = String(ADD.f[k] || ""); if (isPlainField(k)) { if (/\[sound:/.test(v)) warns.push("「" + k + "」の欄はファイル名だけを書く欄なのに、[sound:…] の形で入っている(カードのプレイヤーが見つけられない)。起動し直すと自動で直る");
+      v.replace(/\[sound:([^\]]+)\]/g, " @@@ $1 @@@ ").split("@@@").map(t => t.trim()).filter(Boolean).forEach(nm => list.push({ k, nm, plain: true })); }
+    else [...v.matchAll(/\[sound:([^\]]+)\]/g)].forEach(m => list.push({ k, nm: m[1].trim() })); });
+  const key = ADD.nt + "|" + list.map(x => x.k + ":" + x.nm).join(",") + warns.length; if (key === adiagKey && el.innerHTML) return; adiagKey = key; if (!list.length && !warns.length) { el.innerHTML = ""; return; }
   const src = nt.tmpls.map(tm => (tm.q || "") + "\n" + (tm.a || "")).join("\n"), shown = k => new RegExp("\\{\\{[^{}]*" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\}\\}").test(src);
   const rows = []; for (const x of list) { let m = await A2.getOne("media", x.nm), from = "この端末"; if (!m && A2.fetchMedia) { try { const b0 = await A2.fetchMedia(x.nm); if (b0) { m = { name: x.nm, blob: b0 }; await A2.put("media", [m]); from = "同期から取ってきた"; } } catch (e) {} }
     const b0 = m && m.blob, ty = b0 ? (b0.type || "形式が分からない") : "", kb = b0 ? (b0.size / 1024 < 1024 ? Math.max(1, Math.round(b0.size / 1024)) + "KB" : (b0.size / 1048576).toFixed(1) + "MB") : "", can = b0 && b0.type ? (document.createElement("audio").canPlayType(b0.type) || "no") : "", why = [];
@@ -1583,7 +1587,7 @@ function draftMediaDiag(){ clearTimeout(adiagT); adiagT = setTimeout(async () =>
     else { if (!b0.size) why.push("ファイルが空(0バイト)"); if (can === "no") why.push("この端末のブラウザでは鳴らせない形式(" + ty + ")"); if (!b0.type) why.push("形式が分からない(拡張子を確かめる)"); }
     if (!shown(x.k)) why.push("「" + x.k + "」の欄を、テンプレートが表にも裏にも使っていない");
     rows.push(`<div class="mdrow"><b>${esc(x.nm)}</b><small>(${esc(x.k)})</small> ${why.length ? `<span class="ng">✗ 鳴らない理由:${why.map(esc).join("/")}</span>` : `<span class="ok">✓ ${esc(from)}にある・${esc(ty)}・${kb}・表か裏に出る</span>`}${b0 ? ` <button class="btn ghost sm" data-mdplay="${esc(x.nm)}">ここで鳴らす</button>` : ""}</div>`); }
-  el.innerHTML = `<div class="adh">音声の確かめ</div>` + rows.join("") + '<div class="note">「ここで鳴らす」で鳴るのに復習で鳴らないときは、テンプレートの書き方か、自動で鳴らす設定(その他 › 設定)を確かめる。</div>'; }, 250); }
+  el.innerHTML = `<div class="adh">音声の確かめ</div>` + warns.map(w0 => `<div class="mdrow"><span class="ng">✗ ${esc(w0)}</span></div>`).join("") + rows.join("") + '<div class="note">「ここで鳴らす」で鳴るのに復習で鳴らないときは、テンプレートの書き方か、自動で鳴らす設定(その他 › 設定)を確かめる。</div>'; }, 250); }
 function addPreview(){ draftMediaDiag(); const fr = $("ad-frame"); if (!fr) return; const t = A2.S.notetypes.get(ADD.nt), fake = { id: "pv", nid: "pvn", ord: 0, deck: ADD.deck }; A2.S.notes.set("pvn", { id: "pvn", nt: ADD.nt, f: ADD.f, tags: (ADD.tags || "").split(/\s+/).filter(Boolean) });
   const ords = A2.genOrds(A2.S.notes.get("pvn"), t); if (ADD.pvNt !== ADD.nt) { ADD.pvNt = ADD.nt; ADD.pvOrd = null; }
   const pick = ADD.pvOrd != null && (ords.includes(ADD.pvOrd) || !t.cloze && ADD.pvOrd < (t.tmpls || []).length) ? ADD.pvOrd : (ords[0] || 0); fake.ord = pick; fake.st = "新規";
@@ -1753,6 +1757,16 @@ async function tabRecStart(forWhat){ if (TABREC.mr || REC.mr) { toast("ほかの
 function tabRecStop(){ if (TABREC.mr && TABREC.mr.state !== "inactive") TABREC.mr.stop(); }
 function tabRecBar(){ let el = $("tabrecbar"); if (!TABREC.mr) { if (el) el.remove(); return; } if (!el) { el = document.createElement("div"); el.id = "tabrecbar"; document.body.appendChild(el); }
   const sec = Math.floor((Date.now() - TABREC.t0) / 1000); el.innerHTML = `<span class="dot"></span>タブの音を録っている ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}<button data-tabstop>止める</button>`; }
+/* 音声を欄に入れる:File・ファイルの欄(テンプレートの自前のプレイヤーがファイル名で鳴らす)にはファイル名だけ、ほかの欄には [sound:…] */
+const isPlainField = f => /^(files?|ファイル)$/i.test(String(f || "").trim());
+function mediaInsert(w, f, nm, blob){ if (!isPlainField(f)) { mediaToField(w, f, mediaTag(nm, blob)); return; }
+  const cur = w === "a" ? (ADD.f[f] || "") : ((V.sheet && V.sheet.draft && V.sheet.draft[f]) || ""), v = String(cur).replace(/\s+$/, "") + (String(cur).trim() ? " @@@ " : "") + nm;
+  const ta = document.querySelector(w === "a" ? `[data-afld="${CSS.escape(f)}"]` : `[data-efld="${CSS.escape(f)}"]`); if (ta) ta.value = v;
+  if (w === "a") { ADD.f[f] = v; addPreview(); } else if (V.sheet && V.sheet.draft) V.sheet.draft[f] = v; }
+/* 前に File の欄へ [sound:…] の形で入れてしまったものを、ファイル名だけに直す(起動したとき) */
+A2.fixPlainFields = async () => { const fixed = []; for (const n of A2.S.notes.values()) { let ch = false; const f = Object.assign({}, n.f);
+    Object.keys(f).forEach(k => { if (!isPlainField(k) || !/\[sound:/.test(f[k] || "")) return; const v = String(f[k]).replace(/\[sound:([^\]]+)\]/g, (m, x) => " @@@ " + x.trim() + " @@@ ").split("@@@").map(t => t.trim()).filter(Boolean).join(" @@@ "); if (v !== f[k]) { f[k] = v; ch = true; } });
+    if (ch) { n.f = f; fixed.push(n); } } if (fixed.length) { await A2.save("notes", fixed); toast("File の欄の音声を、ファイル名だけの形に直した(" + fixed.length + "件)"); } return fixed.length; };
 /* 切り取り:短いもの(10分まで)はまるごと読み込む。長いもの(授業の録音など)は、再生は少しずつ読みながら、波形は粗く作り、切り取った所だけを元の音質で作り直す */
 const TRIM = { mode: "buf", buf: null, el: null, url: "", ctx: null, node: null, env: null, envRate: 4000, ov: null, dur: 0, a: 0, b: 0, pos: 0, zoom: 20, vf: 0, w: null, f: null, src: "", file: null,
   play: null, pfrom: 0, pto: null, pt0: 0, raf: 0, drag: null, busy: false };
@@ -1774,7 +1788,7 @@ async function trimOpen(blob, forWhat, src){ const [w, f] = String(forWhat).spli
     else { Object.assign(t, { mode: "el", el, dur }); toast("長い音声なので、波形を作っている…");
       try { const off = new OfflineAudioContext(1, Math.ceil(dur * t.envRate) + 10, t.envRate), low = await off.decodeAudioData(await blob.arrayBuffer()); t.env = trimEnvFrom(low.getChannelData(0), low.sampleRate); } catch (e) { t.env = null; }
       el.preload = "auto"; t.node = t.ctx.createMediaElementSource(el); t.node.connect(t.ctx.destination); }
-  } catch (e) { if (src === "file") { const nm = await mediaSave(blob, blob.name || "audio"); mediaToField(w, f, mediaTag(nm, blob)); toast("切り取れない形式だったので、そのまま付けた"); render(); } else toast("音を読めなかった"); return; }
+  } catch (e) { if (src === "file") { const nm = await mediaSave(blob, blob.name || "audio"); mediaInsert(w, f, nm, blob); toast("切り取れない形式だったので、そのまま付けた"); render(); } else toast("音を読めなかった"); return; }
   t.b = t.mode === "el" ? Math.min(t.dur, 10) : t.dur; t.zoom = t.dur <= 25 ? Math.max(1, Math.ceil(t.dur)) : 20; trimView(t.a); trimOverview(); V.sheet = { k: "trim" }; render(); }
 function trimClose(){ const t = TRIM; trimStopPlay(); try { t.el && t.el.pause(); } catch (e) {} try { t.node && t.node.disconnect(); } catch (e) {} t.node = null; if (t.url) URL.revokeObjectURL(t.url); t.url = ""; }
 /* 波形の元:1秒あたり4000の強さに縮めておく(長くても軽い) */
@@ -2185,13 +2199,13 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (d.tpan) { trimPan(+d.tpan); return; }
   if (b.hasAttribute("data-tzfit")) { const t = TRIM, len = t.b - t.a; trimZoomTo(Math.max(0.25, len * 1.25), (t.a + t.b) / 2, 0.5); return; }
   if (d.tplay) { const t = TRIM; if (d.tplay === "toggle") { if (t.play) { t.pos = trimNow(); trimStopPlay(); } else trimPlay(t.pos, null); } else if (d.tplay === "sel") { trimView(t.a); trimPlay(t.a, t.b); } else if (d.tplay === "head") { trimView(t.a); trimPlay(t.a, Math.min(t.b, t.a + 2)); } else { trimView(t.b); trimPlay(Math.max(t.a, t.b - 2), t.b); } return; }
-  if (b.hasAttribute("data-traw")) { trimStopPlay(); const nm = await mediaSave(TRIM.file, TRIM.file.name || "audio"); mediaToField(TRIM.w, TRIM.f, mediaTag(nm, TRIM.file)); trimClose(); V.sheet = null; toast("そのまま付けた"); render(); return; }
+  if (b.hasAttribute("data-traw")) { trimStopPlay(); const nm = await mediaSave(TRIM.file, TRIM.file.name || "audio"); mediaInsert(TRIM.w, TRIM.f, nm, TRIM.file); trimClose(); V.sheet = null; toast("そのまま付けた"); render(); return; }
   if (b.hasAttribute("data-tsave")) { if (TRIM.busy) return; TRIM.busy = true; trimStopPlay(); b.disabled = true; const len = TRIM.b - TRIM.a; let k = 0; const tm = setInterval(() => { k += .5; b.textContent = "作っている… " + Math.min(len, k).toFixed(1) + " / " + len.toFixed(1) + "秒"; }, 500);
-    try { const blob = await trimEncode(); const nm = await mediaSave(blob, "clip-" + new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")); mediaToField(TRIM.w, TRIM.f, "[sound:" + nm + "]"); toast("切り取って付けた(" + Math.round(blob.size / 1024) + "KB)"); }
+    try { const blob = await trimEncode(); const nm = await mediaSave(blob, "clip-" + new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")); mediaInsert(TRIM.w, TRIM.f, nm, blob); toast("切り取って付けた(" + Math.round(blob.size / 1024) + "KB)"); }
     finally { clearInterval(tm); TRIM.busy = false; trimClose(); V.sheet = null; render(); } return; }
   if (d.mfile) { const [w, f] = d.mfile.split("|"), inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = "audio/*,video/mp4,image/*";
     inp.onchange = async () => { const plain = /^(files?|ファイル)$/i.test(String(f).trim()); let tags = "", names = [];
-      if (!plain && inp.files.length === 1 && /^(audio|video)\//.test(inp.files[0].type || "")) { await trimOpen(inp.files[0], d.mfile, "file"); return; } for (const file of inp.files) { const nm = await mediaSave(file, file.name); names.push(nm); tags += mediaTag(nm, file); } if (!names.length) return;
+      if (inp.files.length === 1 && /^(audio|video)\//.test(inp.files[0].type || "")) { await trimOpen(inp.files[0], d.mfile, "file"); return; } for (const file of inp.files) { const nm = await mediaSave(file, file.name); names.push(nm); tags += mediaTag(nm, file); } if (!names.length) return;
       if (plain) { const cur = w === "a" ? (ADD.f[f] || "") : ((V.sheet && V.sheet.draft && V.sheet.draft[f]) || ""); const ta = document.querySelector(w === "a" ? `[data-afld="${CSS.escape(f)}"]` : `[data-efld="${CSS.escape(f)}"]`); const add = (String(cur).trim() ? " @@@ " : "") + names.join(" @@@ ");
         if (ta) { ta.value = String(ta.value || "").replace(/\s+$/, "") + add; if (w === "a") { ADD.f[f] = ta.value; addPreview(); } else { V.sheet.draft[f] = ta.value; showInFrame($("pv-frame"), stagePvCard(A2.S.cards.get(V.sheet.id), V.sheet.pv), !!V.sheet.back, V.sheet.draft); } }
         toast("ファイルの名前を「" + f + "」に入れた"); return; }
@@ -2399,7 +2413,7 @@ async function boot(){ shownDay = null; const vers = { core: (window.A2 || {}).V
   try { await A2.open(); await A2.loadAll(); } catch (e) { $("app").innerHTML = '<p class="notice">この端末のブラウザに保存できない:' + esc(e.message) + "</p>"; return; } render();
   /* 開いたときの点検は、知らせるだけで、何も変えない(同期の途中だと、届く途中のカードを消してしまうため) */
   setTimeout(async () => { try { const h = await A2.healFromRecords(); if (h) toast("復習の記録と食い違っていた " + h + "枚を、記録どおりに直した"); } catch (e) { logErr(e.message); } }, 1500);
-  setTimeout(async () => { try { await pruneSubjects(); await A2.autoBackup(); } catch (e) { logErr(e.message); } }, 3000);
+  setTimeout(async () => { try { await pruneSubjects(); await A2.autoBackup(); try { await A2.fixPlainFields(); } catch (e) {}; } catch (e) { logErr(e.message); } }, 3000);
   setTimeout(async () => { try { if (window.SYNC && SYNC.busy) return; const p = await A2.check(false); if (p.length) { toast("データの点検で気になるところがある(その他 › データの点検)"); render(); } } catch (e) { logErr(e.message); } }, 60000);
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {}); }
 /* 全部のファイルを読み終えてから始める(版がそろっているかを確かめるため) */
@@ -2411,7 +2425,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.77";
+window.APP_VER_EX = "r4.78";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2646,7 +2660,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.77";
+window.APP_VER_SYNC = "r4.78";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
