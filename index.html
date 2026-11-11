@@ -462,6 +462,11 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .brback{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .6rem;margin:.2rem 0 .5rem;padding:.5rem .6rem;border:1px solid var(--rule);border-radius:8px;background:var(--wave-soft,#eef2f8);font-size:.85rem}.brback span{flex-basis:100%;color:var(--sub)}
 
 .qchips{display:flex;flex-wrap:wrap;gap:.3rem;margin:.35rem 0 .2rem}.qchip{font:inherit;font-size:.78rem;padding:.2rem .6rem;border:1px solid var(--rule);border-radius:999px;background:var(--white);cursor:pointer;color:var(--ink)}.qchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+#tabrecbar{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:.6rem;background:var(--ink);color:var(--paper);padding:.5rem .8rem;border-radius:999px;font-size:.85rem;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+#tabrecbar .dot{width:9px;height:9px;border-radius:50%;background:#e05b4b;animation:recblink 1s infinite}@keyframes recblink{50%{opacity:.3}}
+#tabrecbar button{font:inherit;font-size:.8rem;border:0;border-radius:999px;padding:.25rem .7rem;background:var(--paper);color:var(--ink);cursor:pointer}
+.trimrow{display:flex;align-items:center;gap:.4rem;margin:.45rem 0;flex-wrap:wrap}.trimrow input[type=range]{flex:1;min-width:8rem}.trimrow span{min-width:4.5rem;font-variant-numeric:tabular-nums}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -920,7 +925,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.70";
+A2.VER = "r4.71";
 window.A2 = A2;
 
 </script>
@@ -928,7 +933,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.70"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.71"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1521,7 +1526,7 @@ function make(){ if (!A2.S.decks.size) return '<div class="empty-big"><b>まだ�
   const t = A2.S.notetypes.get(ADD.nt), dup = !A2.emptyField(ADD.f[t.fields[0]]) && A2.isDup(t, ADD.f), sticky = new Set(t.sticky || []), hidePv = !!A2.S.meta.mkPvHide, recOn = f => REC.mr && REC.for === "a|" + f;
   const ib = (attr, label, title, on) => `<button class="ib${on ? " on" : ""}" ${attr} title="${title}" aria-label="${title}"${on != null ? ` aria-pressed="${!!on}"` : ""}>${label}</button>`;
   const fbox = (f, i) => `<div class="fbox${sticky.has(f) ? " pin" : ""}"><div class="fhd"><span class="fnm">${esc(f)}${sticky.has(f) ? '<small class="pintag">固定</small>' : ""}</span>
-      ${ib(`data-apin="${esc(f)}"`, "📌", sticky.has(f) ? "固定をやめる(追加したら消える)" : "固定する(追加しても中身が残る)", sticky.has(f))}${ib(`data-ains="<b>|</b>" data-af="${esc(f)}"`, "<b>B</b>", "太字")}${ib(`data-ains="\\(|\\)" data-af="${esc(f)}"`, "<i>x</i>²", "数式(文の中)")}${ib(`data-ains="\\[|\\]" data-af="${esc(f)}"`, "∑", "数式(行)")}${t.cloze ? ib(`data-acloze="${esc(f)}"`, "[…]", "穴") : ""}${ib(`data-mfile="a|${esc(f)}"`, "📎", "音声・画像を付ける")}${ib(`data-mrec="a|${esc(f)}"`, recOn(f) ? "■" : "🎙", recOn(f) ? "録音を止める" : "録音して付ける", recOn(f) || null)}</div>
+      ${ib(`data-apin="${esc(f)}"`, "📌", sticky.has(f) ? "固定をやめる(追加したら消える)" : "固定する(追加しても中身が残る)", sticky.has(f))}${ib(`data-ains="<b>|</b>" data-af="${esc(f)}"`, "<b>B</b>", "太字")}${ib(`data-ains="\\(|\\)" data-af="${esc(f)}"`, "<i>x</i>²", "数式(文の中)")}${ib(`data-ains="\\[|\\]" data-af="${esc(f)}"`, "∑", "数式(行)")}${t.cloze ? ib(`data-acloze="${esc(f)}"`, "[…]", "穴") : ""}${ib(`data-mfile="a|${esc(f)}"`, "📎", "音声・画像を付ける")}${ib(`data-mrec="a|${esc(f)}"`, recOn(f) ? "■" : "🎙", recOn(f) ? "録音を止める" : "録音して付ける", recOn(f) || null)}${canTabRec() ? ib(`data-mtab="a|${esc(f)}"`, "🔉", "タブの音を録る(YouTube など)") : ""}</div>
       <textarea data-afld="${esc(f)}" rows="2" placeholder="${i === 0 ? "ここが空だとカードができない" : ""}">${esc(ADD.f[f] || "")}</textarea>${i === 0 && dup ? `<div class="fdup">もうある(${A2.dupKeys(t).map(esc).join("と")}が同じノートがある)</div>` : ""}</div>`;
   const form = `<div class="mkform"><div class="mkhead"><label class="mksel"><span>ノートタイプ</span><select id="ad-nt">${nts.map(x => `<option value="${x.id}"${x.id === ADD.nt ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
       <label class="mksel"><span>デッキ</span><select id="ad-dk">${[...A2.S.decks.values()].sort((a, b) => a.name.localeCompare(b.name, "ja")).map(d => `<option value="${d.id}"${d.id === ADD.deck ? " selected" : ""}>${esc(d.name)}</option>`).join("")}</select></label></div>
@@ -1681,6 +1686,53 @@ function fieldInsert(sel, text){ const ta = document.querySelector(sel); if (!ta
   ta.value = ta.value.slice(0, s0) + text + ta.value.slice(s0); return ta.value; }
 // 録音(編集の欄に付ける・復習で自分の声を聞き比べる)
 const REC = { mr: null, chunks: [], for: null, url: null, cid: null, blob: null };
+
+/* ───── タブの音を録る(パソコンの Chrome)と、音声の切り取り ─────
+   録る:getDisplayMedia でタブを選び、その音だけを録る。切り取り:波形を見て始まりと終わりを決め、小さい形式(opus など)で保存して欄に入れる */
+const TABREC = { mr: null, st: null, chunks: [], for: null, t0: 0, timer: null };
+const canTabRec = () => !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !/Android|iPhone|iPad/i.test(navigator.userAgent);
+function recType(){ const types = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg"]; return types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || ""; }
+async function tabRecStart(forWhat){ if (TABREC.mr || REC.mr) { toast("ほかの所で録音中"); return; } let st;
+  try { st = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, preferCurrentTab: false, selfBrowserSurface: "exclude", systemAudio: "include", surfaceSwitching: "include" }); }
+  catch (e) { toast("タブを選ばなかった"); return; }
+  const at = st.getAudioTracks(); if (!at.length) { st.getTracks().forEach(t => t.stop()); alert("音が録れなかった。タブを選ぶとき、下の「タブの音声も共有する」をオンにしてから共有する。"); return; }
+  const type = recType(); TABREC.st = st; TABREC.chunks = []; TABREC.for = forWhat; TABREC.t0 = Date.now();
+  TABREC.mr = new MediaRecorder(new MediaStream(at), Object.assign({ audioBitsPerSecond: 64000 }, type ? { mimeType: type } : {}));
+  TABREC.mr.ondataavailable = e => { if (e.data && e.data.size) TABREC.chunks.push(e.data); };
+  TABREC.mr.onstop = () => { const blob = new Blob(TABREC.chunks, { type: (TABREC.mr.mimeType || "audio/webm").split(";")[0] }), f = TABREC.for; TABREC.st.getTracks().forEach(t => t.stop()); clearInterval(TABREC.timer); TABREC.mr = null; TABREC.st = null; tabRecBar(); if (blob.size) trimOpen(blob, f, "tab"); };
+  st.getVideoTracks().forEach(t => t.onended = () => tabRecStop()); at[0].onended = () => tabRecStop();
+  TABREC.mr.start(250); TABREC.timer = setInterval(tabRecBar, 500); tabRecBar(); toast("録っている。狙った所を再生して、言い終わったら「止める」"); }
+function tabRecStop(){ if (TABREC.mr && TABREC.mr.state !== "inactive") TABREC.mr.stop(); }
+function tabRecBar(){ let el = $("tabrecbar"); if (!TABREC.mr) { if (el) el.remove(); return; } if (!el) { el = document.createElement("div"); el.id = "tabrecbar"; document.body.appendChild(el); }
+  const sec = Math.floor((Date.now() - TABREC.t0) / 1000); el.innerHTML = `<span class="dot"></span>タブの音を録っている ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}<button data-tabstop>止める</button>`; }
+/* 切り取り */
+const TRIM = { buf: null, dur: 0, a: 0, b: 0, w: null, f: null, src: "", file: null, play: null, ctx: null };
+async function trimOpen(blob, forWhat, src){ const [w, f] = String(forWhat).split("|"); let buf;
+  try { TRIM.ctx = TRIM.ctx || new (window.AudioContext || window.webkitAudioContext)(); buf = await TRIM.ctx.decodeAudioData(await blob.arrayBuffer()); }
+  catch (e) { if (src === "file") { const nm = await mediaSave(blob, blob.name || "audio"); mediaToField(w, f, mediaTag(nm, blob)); toast("切り取れない形式だったので、そのまま付けた"); render(); } else toast("音を読めなかった"); return; }
+  Object.assign(TRIM, { buf, dur: buf.duration, a: 0, b: buf.duration, w, f, src, file: blob }); V.sheet = { k: "trim" }; render(); }
+function trimSheet(){ const t = TRIM, fmt = x => (Math.floor(x / 60) ? Math.floor(x / 60) + ":" + String((x % 60).toFixed(1)).padStart(4, "0") : (x).toFixed(1)) + "秒";
+  return `<h3>音声を切り取る<small>全体 ${fmt(t.dur)}</small></h3>
+    <canvas id="trimwave" width="900" height="120" style="width:100%;height:96px;border:1px solid var(--rule);border-radius:6px;background:var(--white);touch-action:none"></canvas>
+    <div class="trimrow"><b>始まり</b> <span id="trima">${fmt(t.a)}</span><input type="range" id="trim-a" min="0" max="${t.dur}" step="0.05" value="${t.a}"><button class="btn ghost sm" data-tnudge="a|-0.1">−0.1</button><button class="btn ghost sm" data-tnudge="a|0.1">+0.1</button></div>
+    <div class="trimrow"><b>終わり</b> <span id="trimb">${fmt(t.b)}</span><input type="range" id="trim-b" min="0" max="${t.dur}" step="0.05" value="${t.b}"><button class="btn ghost sm" data-tnudge="b|-0.1">−0.1</button><button class="btn ghost sm" data-tnudge="b|0.1">+0.1</button></div>
+    <p class="note">波形を押すと、近いほうの端(始まりか終わり)がそこに動く。</p>
+    <div class="row" style="gap:.4rem;flex-wrap:wrap"><button class="btn ghost sm" data-tplay="sel">▶ 選んだ所を聞く</button><button class="btn ghost sm" data-tplay="head">▶ 頭の2秒</button><button class="btn ghost sm" data-tplay="tail">▶ 終わりの2秒</button><button class="btn ghost sm" data-tplay="stop">■</button></div>
+    <div class="row" style="gap:.4rem;margin-top:.7rem;flex-wrap:wrap"><button class="btn" data-tsave>切り取って入れる(<span id="trimlen">${(t.b - t.a).toFixed(1)}</span>秒)</button>${t.src === "file" ? '<button class="btn ghost sm" data-traw>切り取らずにそのまま入れる</button>' : ""}</div>`; }
+function trimDraw(){ const cv = $("trimwave"), t = TRIM; if (!cv || !t.buf) return; const g = cv.getContext("2d"), W = cv.width, H = cv.height, d = t.buf.getChannelData(0), step = Math.max(1, Math.floor(d.length / W));
+  g.clearRect(0, 0, W, H); const sel = getComputedStyle(document.body).getPropertyValue("--wave") || "#2F4F8A";
+  g.fillStyle = "rgba(47,79,138,.12)"; g.fillRect(t.a / t.dur * W, 0, (t.b - t.a) / t.dur * W, H);
+  g.fillStyle = "#555"; for (let x = 0; x < W; x++) { let mx = 0; for (let i = x * step, e = Math.min(d.length, i + step); i < e; i += 4) { const v = Math.abs(d[i]); if (v > mx) mx = v; } const h = Math.max(1, mx * H * .9); g.fillRect(x, (H - h) / 2, 1, h); }
+  g.fillStyle = sel.trim() || "#2F4F8A"; g.fillRect(t.a / t.dur * W - 1, 0, 3, H); g.fillRect(t.b / t.dur * W - 1, 0, 3, H); }
+function trimSet(k, v){ const t = TRIM; v = Math.max(0, Math.min(t.dur, v)); if (k === "a") t.a = Math.min(v, t.b - 0.1); else t.b = Math.max(v, t.a + 0.1);
+  const fmt = x => x.toFixed(1) + "秒"; if ($("trima")) { $("trima").textContent = fmt(t.a); $("trimb").textContent = fmt(t.b); $("trim-a").value = t.a; $("trim-b").value = t.b; $("trimlen").textContent = (t.b - t.a).toFixed(1); } trimDraw(); }
+function trimPlay(from, to){ const t = TRIM; trimStopPlay(); if (!t.buf) return; const s0 = t.ctx.createBufferSource(); s0.buffer = t.buf; s0.connect(t.ctx.destination); if (t.ctx.state === "suspended") t.ctx.resume(); s0.start(0, Math.max(0, from), Math.max(0.05, to - from)); t.play = s0; }
+function trimStopPlay(){ try { TRIM.play && TRIM.play.stop(); } catch (e) {} TRIM.play = null; }
+/* 選んだ所を、小さい形式で作り直す(Chrome は opus。再生しながら作るので、長さの分だけ時間がかかる) */
+async function trimEncode(){ const t = TRIM, ctx = t.ctx, len = t.b - t.a, dst = ctx.createMediaStreamDestination(), s0 = ctx.createBufferSource(); s0.buffer = t.buf; s0.connect(dst);
+  const type = recType(), mr = new MediaRecorder(dst.stream, Object.assign({ audioBitsPerSecond: 48000 }, type ? { mimeType: type } : {})), chunks = [];
+  return await new Promise(res => { mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); }; mr.onstop = () => res(new Blob(chunks, { type: (mr.mimeType || "audio/webm").split(";")[0] }));
+    if (ctx.state === "suspended") ctx.resume(); mr.start(); s0.start(0, t.a, len); s0.onended = () => setTimeout(() => mr.state !== "inactive" && mr.stop(), 120); }); }
 async function recStart(forWhat){ if (REC.mr) return; let st; try { st = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) { toast("マイクを使えなかった(ブラウザの許可を確かめる)"); return false; }
   const types = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg"], type = types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
   REC.mr = new MediaRecorder(st, type ? { mimeType: type } : undefined); REC.chunks = []; REC.for = forWhat; REC.mr.ondataavailable = e => { if (e.data && e.data.size) REC.chunks.push(e.data); }; REC.mr.start(); return true; }
@@ -1866,6 +1918,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
       ${es.length ? [...g.entries()].map(([k, cs]) => `<div class="pkv"><span class="k">${esc(k)}</span><span class="v">${cs.length}枚<br><small class="note">${cs.slice(0, 3).map(c => esc(String(A2.S.notes.get(c.nid).f[A2.S.notetypes.get(A2.S.notes.get(c.nid).nt).fields[0]] || "").replace(/<[^>]*>/g, "").slice(0, 20))).join("・")}${cs.length > 3 ? "…" : ""}</small></span></div>`).join("") + `<div class="row" style="margin-top:.6rem"><button class="btn" data-emptydel style="background:var(--shu)">${es.length}枚を消す</button></div>` : '<p class="note">空のカードは見つからなかった。</p>'}`; }
   if (sh.k === "msg") return `<h3>${esc(sh.t)}</h3><p>${esc(sh.b)}</p>`;
   if (sh.k === "bkfix") return sh.html;
+  if (sh.k === "trim") return trimSheet();
   if (sh.k === "autobk") return `<h3>自動の控え</h3><p class="note" style="margin-top:0">毎日はじめて開いたときに、この端末の中に控えを取っている(7日分)。<b>消えたものだけ戻す</b>なら、今あるもの(今日の復習など)は変えずに、その日にあって今ないものだけが戻る。ほかの端末にも同期で届く。</p><div id="bklist"><p class="note" style="padding:.5rem">読み込み中…</p></div>`;
   if (sh.k === "trash") return `<h3>この端末のごみ箱</h3><p class="note" style="margin-top:0">消したものが30日残る。<b>ごみ箱は端末ごとで、同期はしない</b>。この端末で消したものと、ほかの端末で消されたもののうち<b>この端末に入っていたもの</b>だけがここに入る(この端末に一度も来なかったものは入らない)。そのため、端末ごとに数が違って当たり前。戻すと、ほかの端末にも同期で戻る。</p>${dataPrintHtml()}${skippedHtml()}<div id="trlist"><p class="note">読み込み中…</p></div>`;
   if (sh.k === "check") return `<h3>データの点検</h3>${dataPrintHtml()}${skippedHtml()}<div id="chkres" class="note">点検中…</div><p class="note">同期の途中だと、届く途中のカードが「ノートがない」と出ることがある。そのときは同期が「同期済み」になってから、もう一度開く。</p>`;
@@ -1899,6 +1952,9 @@ function afterRender(y){ if (!V.rv && WB.on) { WB.on = false; WB.pass = false; }
       return `<div class="pkv"><span class="k">${t}</span><span class="v">${x ? x.st + (x.st === "復習" && x.dueDay != null ? "・次は " + A2.dayStr(x.dueDay) + "(間隔 " + (x.ivl || 0) + "日)" : x.dueMs ? "・" + new Date(x.dueMs).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + " に出る" : "") : "(この時はなかった)"}</span></div>`; });
       const c = A2.S.cards.get(cid); rows.push(`<div class="pkv"><span class="k"><b>今</b></span><span class="v"><b>${c ? c.st + (c.st === "復習" && c.dueDay != null ? "・次は " + A2.dayStr(c.dueDay) + "(間隔 " + (c.ivl || 0) + "日)" : "") : "なし"}</b></span></div>`);
       const e2 = $("cardhist"); if (e2) e2.innerHTML = rows.join(""); }); } }
+  if (V.sheet && V.sheet.k === "trim" && $("trimwave") && !$("trimwave").dataset.done) { const cv = $("trimwave"); cv.dataset.done = 1; trimDraw();
+    $("trim-a").oninput = e => trimSet("a", +e.target.value); $("trim-b").oninput = e => trimSet("b", +e.target.value);
+    cv.onpointerdown = e => { const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * TRIM.dur; trimSet(Math.abs(x - TRIM.a) <= Math.abs(x - TRIM.b) ? "a" : "b", x); }; }
   if (V.sheet && V.sheet.k === "autobk" && $("bklist") && !$("bklist").dataset.done) { $("bklist").dataset.done = 1; A2.all("backups").then(l => { const el = $("bklist"); if (el) el.innerHTML = l.sort((a, b) => b.day - a.day).map(x => `<div class="pkv"><span class="k"><b>${A2.dayStr(x.day)}</b><br><small>カード ${x.cards}枚・${new Date(x.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</small></span><span class="v"><button class="btn sm" data-bkfix="${x.id}">取り込みで壊れたものを直す</button> <button class="btn ghost sm" data-bkadd="${x.id}">消えたものだけ戻す</button> <button class="linkx" data-bkgo="${x.id}">この日の状態に戻す</button></span></div>`).join("") || '<p class="note" style="padding:.5rem">まだない(明日から取られる)。</p>'; }); }
   if (V.sheet && V.sheet.k === "trash" && $("trlist") && !$("trlist").dataset.done) { $("trlist").dataset.done = 1; A2.all("trash").then(l => { const el = $("trlist"); if (!el) return; const g = new Map();
       l.forEach(t => { const k = A2.dayStr(A2.dayOf(t.at)) + "|" + t.why; (g.get(k) || g.set(k, []).get(k)).push(t); });
@@ -2004,8 +2060,16 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-skipout")) { if (!confirm("入れずに、消したままにする?(ほかの端末にあるものは、次にそちらで同期したときに消える)")) return; await A2.setMeta("skipT", {}); toast("消したままにした"); render(); return; }
   if (d.mdplay) { const u = await A2.mediaUrl(d.mdplay); if (!u) { toast("ファイルがない"); return; } try { rvAudio && rvAudio.pause(); } catch (e) {} rvAudio = new Audio(u); rvAudio.onerror = () => toast("この形式は、このブラウザでは鳴らせない"); rvAudio.play().then(() => toast("鳴らしている")).catch(x => toast("鳴らせなかった(" + (x && x.name || "") + ")")); return; }
   if (b.hasAttribute("data-rvrec")) { rvRecToggle(); return; } if (b.hasAttribute("data-rvrecplay")) { rvRecPlay(); return; } if (b.hasAttribute("data-rvreplay")) { V.sheet = null; render(); rvReplay(); return; }
+  if (d.mtab) { await tabRecStart(d.mtab); return; }
+  if (b.hasAttribute("data-tabstop")) { tabRecStop(); return; }
+  if (d.tnudge) { const [k, v] = d.tnudge.split("|"); trimSet(k, TRIM[k] + +v); return; }
+  if (d.tplay) { const t = TRIM; if (d.tplay === "stop") trimStopPlay(); else if (d.tplay === "sel") trimPlay(t.a, t.b); else if (d.tplay === "head") trimPlay(t.a, Math.min(t.b, t.a + 2)); else trimPlay(Math.max(t.a, t.b - 2), t.b); return; }
+  if (b.hasAttribute("data-traw")) { trimStopPlay(); const nm = await mediaSave(TRIM.file, TRIM.file.name || "audio"); mediaToField(TRIM.w, TRIM.f, mediaTag(nm, TRIM.file)); V.sheet = null; toast("そのまま付けた"); render(); return; }
+  if (b.hasAttribute("data-tsave")) { trimStopPlay(); b.disabled = true; const len = TRIM.b - TRIM.a; let k = 0; const tm = setInterval(() => { k += .5; b.textContent = "作っている… " + Math.min(len, k).toFixed(1) + " / " + len.toFixed(1) + "秒"; }, 500);
+    const blob = await trimEncode(); clearInterval(tm); const nm = await mediaSave(blob, "clip-" + new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")); mediaToField(TRIM.w, TRIM.f, "[sound:" + nm + "]"); V.sheet = null; toast("切り取って付けた(" + Math.round(blob.size / 1024) + "KB)"); render(); return; }
   if (d.mfile) { const [w, f] = d.mfile.split("|"), inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = "audio/*,video/mp4,image/*";
-    inp.onchange = async () => { const plain = /^(files?|ファイル)$/i.test(String(f).trim()); let tags = "", names = []; for (const file of inp.files) { const nm = await mediaSave(file, file.name); names.push(nm); tags += mediaTag(nm, file); } if (!names.length) return;
+    inp.onchange = async () => { const plain = /^(files?|ファイル)$/i.test(String(f).trim()); let tags = "", names = [];
+      if (!plain && inp.files.length === 1 && /^(audio|video)\//.test(inp.files[0].type || "")) { await trimOpen(inp.files[0], d.mfile, "file"); return; } for (const file of inp.files) { const nm = await mediaSave(file, file.name); names.push(nm); tags += mediaTag(nm, file); } if (!names.length) return;
       if (plain) { const cur = w === "a" ? (ADD.f[f] || "") : ((V.sheet && V.sheet.draft && V.sheet.draft[f]) || ""); const ta = document.querySelector(w === "a" ? `[data-afld="${CSS.escape(f)}"]` : `[data-efld="${CSS.escape(f)}"]`); const add = (String(cur).trim() ? " @@@ " : "") + names.join(" @@@ ");
         if (ta) { ta.value = String(ta.value || "").replace(/\s+$/, "") + add; if (w === "a") { ADD.f[f] = ta.value; addPreview(); } else { V.sheet.draft[f] = ta.value; showInFrame($("pv-frame"), stagePvCard(A2.S.cards.get(V.sheet.id), V.sheet.pv), !!V.sheet.back, V.sheet.draft); } }
         toast("ファイルの名前を「" + f + "」に入れた"); return; }
@@ -2225,7 +2289,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.70";
+window.APP_VER_EX = "r4.71";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2460,7 +2524,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.70";
+window.APP_VER_SYNC = "r4.71";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
