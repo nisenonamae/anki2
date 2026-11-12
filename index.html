@@ -939,7 +939,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.81";
+A2.VER = "r4.82";
 window.A2 = A2;
 
 </script>
@@ -947,7 +947,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.81"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.82"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -2456,7 +2456,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.81";
+window.APP_VER_EX = "r4.82";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2691,7 +2691,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.81";
+window.APP_VER_SYNC = "r4.82";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
@@ -2718,10 +2718,14 @@ async function readBlob(c, sha){ const j = await ghJ(c, "/git/blobs/" + sha); co
    置き場所のほうが新しい・置き場所にだけある → 受け取る(この端末で後から消したものは受け取らない)
    この端末のほうが新しい・この端末にだけある → 送る(置き場所で後から消されたものは送らない)
    置き場所で、この端末の版より後に消されている → この端末でも消す */
-async function reconPlan(){ const c = conn(), rs = await remoteState(c), R = {}, G = {};
+async function reconPlan(prog){ const c = conn(), rs = await remoteState(c), R = {}, G = {};
   const live = (st, r) => { const m = R[st] = R[st] || new Map(), o = m.get(r.id); if (!o || (r.mod || 0) >= (o.mod || 0)) m.set(r.id, r); };
   const gone = (st, id, dv) => { if (!dv || typeof dv !== "object") return; const m = G[st] = G[st] || new Map(), v = +dv.m || 0; if (!(m.get(id) >= v)) m.set(id, v); };
-  for (const [pth, sha] of Object.entries(rs.files)) { const o = await readBlob(c, sha);
+  // 8つずつ同時に読む。1つが30秒返ってこなければ止める。読んだ数を知らせる
+  const files = Object.entries(rs.files), got = new Array(files.length); let done = 0, next = 0;
+  const one = (sha, pth) => Promise.race([readBlob(c, sha), new Promise((_, rej) => setTimeout(() => rej(new Error("「" + pth + "」が30秒たっても読めなかった(電波を確かめて、もう一度押す)")), 30000))]);
+  await Promise.all(Array.from({ length: Math.min(8, files.length) }, async () => { while (next < files.length) { const i = next++; got[i] = await one(files[i][1], files[i][0]); done++; if (prog) prog(done, files.length); } }));
+  for (let i = 0; i < files.length; i++) { const pth = files[i][0], o = got[i];
     if (pth.startsWith("changes/")) { Object.entries(o.recs || {}).forEach(([st, list]) => (list || []).forEach(r => live(st, r))); Object.entries(o.del || {}).forEach(([st, m]) => Object.entries(m || {}).forEach(([id, dv]) => gone(st, id, dv))); }
     else { const st = storeOfShard(pth.replace(/\.json$/, "")); (o.recs || []).forEach(r => live(st, r)); Object.entries(o.del || {}).forEach(([id, dv]) => gone(st, id, dv)); } }
   const tombs = A2.S.meta.tombs || {}, plan = { stores: {}, pull: 0, push: 0, del: 0 };
@@ -2862,13 +2866,13 @@ document.addEventListener("click", async e => { const b = e.target.closest("butt
     for (const h of list) { if (h.kind === "del") { if (yes) await A2.remove(h.st, [h.id], { fromSync: true, why: "ほかの端末で消された(確かめて消した)" }); else { const x = A2.S[h.st].get(h.id); if (x) await A2.save(h.st, [Object.assign({}, x)]); } }
       else if (h.kind === "empty") { if (yes) await A2.save(h.st, [h.rec], { keepMod: true, fromSync: true }); else { const x = A2.S[h.st].get(h.id); if (x) await A2.save(h.st, [Object.assign({}, x)]); } } }
     M.held = (M.held || []).filter(h => heldKey(h) !== key); await A2.setMeta("held", M.held); toast(yes ? "当てはめた" : "この端末のものを残した(ほかの端末にも戻る)"); render(); syncNow(); return; }
-  if (b.hasAttribute("data-recon")) { const out = $("synccmp"); if (SYNC.busy) { toast("同期中。終わってからもう一度押してください"); return; } if (out) out.textContent = "置き場所の全部を読んで見比べている…(少しかかる)";
-    try { await syncNow(); const plan = await reconPlan(); V.reconPlan = plan; const lab = { notes: "ノート", cards: "カード", revlog: "復習の記録", decks: "デッキ", notetypes: "ノートタイプ", subjects: "分野", exsub: "演習", stages: "段階の型", memos: "メモ", wh: "倉庫" };
+  if (b.hasAttribute("data-recon")) { const out = $("synccmp"); if (SYNC.busy) { toast("同期中。終わってからもう一度押してください"); return; } if (V.reconBusy) return; V.reconBusy = true; b.disabled = true; if (out) out.textContent = "置き場所のファイルの一覧を読んでいる…";
+    const t0 = Date.now(); try { const plan = await reconPlan((d, n) => { const el = $("synccmp"); if (el) el.textContent = "置き場所を読んでいる… " + d + " / " + n + " ファイル(" + Math.round((Date.now() - t0) / 1000) + "秒)"; }); V.reconPlan = plan; const lab = { notes: "ノート", cards: "カード", revlog: "復習の記録", decks: "デッキ", notetypes: "ノートタイプ", subjects: "分野", exsub: "演習", stages: "段階の型", memos: "メモ", wh: "倉庫" };
       const rows = STORES_SYNC.map(st => { const x = plan.stores[st]; if (!x) return ""; const bits = []; if (x.pull.length) bits.push("受け取る " + x.pull.length); if (x.push.length) bits.push("送る " + x.push.length); if (x.del.length) bits.push("この端末でも消す " + x.del.length);
         return `<div><b>${lab[st] || st}</b>:この端末 ${x.here}・置き場所 ${x.there}${bits.length ? `・<b style="color:var(--shu)">${bits.join("・")}</b>` : "・そろっている"}</div>`; }).join("");
-      out.innerHTML = rows + (plan.held ? `<div style="margin-top:.3rem"><b style="color:var(--shu)">保留 ${plan.held}件</b>(上の「保留」で、当てはめるか決める)</div>` : "") +
+      const out2 = $("synccmp") || out; out2.innerHTML = rows + (plan.held ? `<div style="margin-top:.3rem"><b style="color:var(--shu)">保留 ${plan.held}件</b>(上の「保留」で、当てはめるか決める)</div>` : "") +
         (plan.pull + plan.push + plan.del ? `<div style="margin-top:.5rem"><button class="btn sm" data-recongo>この内容でそろえる(受け取る${plan.pull}・送る${plan.push}・消す${plan.del})</button></div><div class="note">どの記録も、新しいほうを残す。3台それぞれで1回ずつ押すと、全部が同じになる。</div>` : '<div style="margin-top:.4rem">この端末と置き場所は、全部そろっている。</div>'); }
-    catch (e) { if (out) out.textContent = "見比べられなかった:" + e.message; } return; }
+    catch (e) { const el = $("synccmp"); if (el) el.textContent = "見比べられなかった:" + e.message; } finally { V.reconBusy = false; const bb = document.querySelector("[data-recon]"); if (bb) bb.disabled = false; } return; }
   if (b.hasAttribute("data-recongo")) { const plan = V.reconPlan, out = $("synccmp"); if (!plan) return; b.disabled = true; b.textContent = "そろえている…";
     try { await reconApply(plan); V.reconPlan = null; toast("そろえた(受け取った" + plan.pull + "・送った" + plan.push + "・消した" + plan.del + ")"); if (out) out.innerHTML = "そろえた。ほかの端末でも「全部を見比べてそろえる」を1回押す。"; } catch (e) { toast("そろえられなかった:" + e.message); } render(); return; }
   /* この端末と置き場所を、1件ずつ見比べる(どちらにだけあるか) */
