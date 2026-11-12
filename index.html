@@ -584,7 +584,7 @@ A2.readPackage = async (file, onStep) => { const step = t => onStep && onStep(t)
     q("select id, name, kind from decks").forEach(d => { let conf = null; try { const k = pb(d.kind || new Uint8Array()); if (k[1]) { const nrm = pb(k[1][0]); conf = nrm[1] ? nrm[1][0] : null; } } catch (e) {} out.decks.push({ id: "d" + d.id, name: String(d.name).split("\x1f").join("::"), anki: conf != null ? cfgs[conf] || null : null }); });
   } else {
     const c = q("select models, decks from col")[0]; const models = JSON.parse(c.models || "{}"), decks = JSON.parse(c.decks || "{}");
-    Object.values(models).forEach(m => out.notetypes.push({ id: "nt" + m.id, name: m.name, fields: m.flds.sort((a, b) => a.ord - b.ord).map(f => f.name), tmpls: m.tmpls.sort((a, b) => a.ord - b.ord).map(t => ({ name: t.name, q: t.qfmt, a: t.afmt })), css: m.css || "", cloze: m.type === 1, use: "暗記", latexsvg: !!m.latexsvg }));
+    Object.values(models).forEach(m => out.notetypes.push({ id: "nt" + m.id, name: m.name, fields: m.flds.sort((a, b) => a.ord - b.ord).map(f => f.name), tmpls: m.tmpls.sort((a, b) => a.ord - b.ord).map(t => ({ name: t.name, q: t.qfmt, a: t.afmt })), css: m.css || "", cloze: m.type === 1, use: "暗記", latexsvg: !!m.latexsvg, latexPre: m.latexPre || "" }));
     Object.values(decks).forEach(d => out.decks.push({ id: "d" + d.id, name: d.name }));
   }
   step("ノート"); q("select id, guid, mid, mod, tags, flds from notes").forEach(n => { const nt = out.notetypes.find(x => x.id === "nt" + n.mid); const vals = String(n.flds).split("\x1f"), f = {}; (nt ? nt.fields : vals.map((_, i) => "欄" + (i + 1))).forEach((k, i) => f[k] = vals[i] || "");
@@ -840,8 +840,9 @@ A2.LATEX_RE = /\[latex\]([\s\S]+?)\[\/latex\]|\[\$\]([\s\S]+?)\[\/\$\]|\[\$\$\](
 A2.latexWrap = (m1, m2, m3) => m1 != null ? m1 : m2 != null ? "$" + m2 + "$" : "\\begin{displaymath}" + m3 + "\\end{displaymath}";
 A2.latexName = (latex, svg) => "latex-" + A2.sha1hex(A2.latexText(latex)) + "." + (svg ? "svg" : "png");
 A2.latexNames = text => { const out = []; String(text || "").replace(A2.LATEX_RE, (m, a, b, c) => { const l = A2.latexWrap(a, b, c); out.push(A2.latexName(l, false), A2.latexName(l, true)); return m; }); return out; };
-A2.latexify = (html, nt) => String(html).replace(A2.LATEX_RE, (m, a, b, c) => { const l = A2.latexWrap(a, b, c), alt = A2.latexText(l).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-  return `<img class="latex" src="${A2.latexName(l, !!(nt && nt.latexsvg))}" alt="${alt}" onerror="window.a2LatexMiss&&a2LatexMiss(this)">`; });
+A2.latexLibs = nt => { const pre = String((nt && nt.latexPre) || ""), out = []; pre.replace(/\\usetikzlibrary\s*\{([^}]*)\}/g, (m, x) => { x.split(",").map(y => y.trim()).filter(Boolean).forEach(y => out.push(y)); return m; }); return out.join(","); };
+A2.latexify = (html, nt) => String(html).replace(A2.LATEX_RE, (m, a, b, c) => { const l = A2.latexWrap(a, b, c), alt = A2.latexText(l).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"), libs = A2.latexLibs(nt);
+  return `<img class="latex" src="${A2.latexName(l, !!(nt && nt.latexsvg))}" alt="${alt}"${libs ? ` data-libs="${libs.replace(/"/g, "")}"` : ""} onerror="window.a2LatexMiss&&a2LatexMiss(this)">`; });
 /* 音声 [sound:x.mp3] は再生ボタンに */
 A2.soundTags = html => String(html).replace(/\[sound:([^\]]+)\]/g, (m, f) => `<button class="a2-snd replay-button soundLink" data-snd="${f.replace(/"/g, "")}" type="button">▶</button>`);
 /* カードを作る(ノートから):テンプレートの表が空なら作らない。穴埋めは c1, c2… ごと */
@@ -960,7 +961,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.85";
+A2.VER = "r4.86";
 window.A2 = A2;
 
 </script>
@@ -968,7 +969,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.85"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.86"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1056,12 +1057,20 @@ function ankiHome(){
 
 /* ───── 復習:1回の復習のあいだ、同じページのまま表と裏を差し替える(Ankiと同じ) ───── */
 const FRAME_DOC = () => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style id="a2css"></style>
-<style>html,body{margin:0;background:transparent}body{padding:14px 16px 22px}.a2-snd{font-size:1rem;border:1px solid #ccc;border-radius:50%;width:2rem;height:2rem;background:#fff;cursor:pointer;margin:0 .2rem}img{max-width:100%;height:auto}mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%}.a2-latexmiss{display:block;text-align:left;margin:.4em 0;padding:.4em .6em;border:1px dashed #c9a24b;border-radius:6px;background:#fff8e8;color:#5a4310}.a2-latexmiss small{display:block;font-size:.75em;margin-bottom:.2em}.a2-latexmiss pre{white-space:pre-wrap;margin:0;font-size:.8em}img.latex{vertical-align:middle}</style>
+<style>html,body{margin:0;background:transparent}body{padding:14px 16px 22px}.a2-snd{font-size:1rem;border:1px solid #ccc;border-radius:50%;width:2rem;height:2rem;background:#fff;cursor:pointer;margin:0 .2rem}img{max-width:100%;height:auto}mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%}.a2-tikz{text-align:center;margin:.4em 0;overflow-x:auto}.a2-tikz svg{max-width:100%;height:auto}.a2-latexmj{display:block;margin:.4em 0;overflow-x:auto}.a2-latexmiss{display:block;text-align:left;margin:.4em 0;padding:.4em .6em;border:1px dashed #c9a24b;border-radius:6px;background:#fff8e8;color:#5a4310}.a2-latexmiss small{display:block;font-size:.75em;margin-bottom:.2em}.a2-latexmiss pre{white-space:pre-wrap;margin:0;font-size:.8em}img.latex{vertical-align:middle}</style>
 <script>window.MathJax={tex:{inlineMath:[["\\\\(","\\\\)"]],displayMath:[["\\\\[","\\\\]"]]},svg:{fontCache:"global",scale:1.05},startup:{typeset:false}};<\/script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async><\/script>
 <script>
-window.a2LatexMiss = function (img) { var s = img.getAttribute('src') || ''; if (/\\.png$/.test(s) && !img.dataset.tried) { img.dataset.tried = '1'; var n = (img.dataset.name || s).replace(/\\.png$/, '.svg'); img.dataset.name = n; img.src = (window.A2MEDIA && window.A2MEDIA[n]) || n; return; }
-  var w = document.createElement('span'); w.className = 'a2-latexmiss tex2jax_ignore'; w.innerHTML = '<small>LaTeX の画像がない(本家 Anki で作った画像が入っていない)</small><pre></pre>'; w.querySelector('pre').textContent = img.getAttribute('alt') || ''; img.replaceWith(w); };
+window.a2LatexMiss = function (img) { var s = img.getAttribute('src') || ''; if (/[.]png$/.test(s) && !img.dataset.tried) { img.dataset.tried = '1'; var n = (img.dataset.name || s).replace(/[.]png$/, '.svg'); img.dataset.name = n; img.src = (window.A2MEDIA && window.A2MEDIA[n]) || n; return; }
+  var src = img.getAttribute('alt') || '', BS = String.fromCharCode(92), w = document.createElement('div');
+  if (src.indexOf('tikz') >= 0) { w.className = 'a2-tikz'; var sc = document.createElement('script'); sc.type = 'text/tikz';
+    var libs = ('calc,angles,quotes,intersections,positioning,through,patterns,decorations.pathreplacing,decorations.markings' + (img.dataset.libs ? ',' + img.dataset.libs : '')).split(',').filter(function (x, i, a) { return x && a.indexOf(x) === i; }).join(',');
+    sc.setAttribute('data-tikz-libraries', libs); sc.textContent = src; w.appendChild(sc); img.replaceWith(w); a2LoadTikz(); return; }
+  w.className = 'a2-latexmj'; var t = src.split(BS + 'begin{displaymath}').join('$$').split(BS + 'end{displaymath}').join('$$');
+  t = t.split('$$').map(function (p, i) { return i % 2 ? BS + '[' + p + BS + ']' : p; }).join('').split('$').map(function (p, i) { return i % 2 ? BS + '(' + p + BS + ')' : p; }).join('');
+  w.textContent = t; img.replaceWith(w); var mj = function () { if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([w]).catch(function () {}); else setTimeout(mj, 300); }; mj(); };
+window.a2LoadTikz = function () { if (window.__a2tz) return; window.__a2tz = 1; var base = 'https://cdn.jsdelivr.net/npm/@drgrice1/tikzjax@1.0.0-beta20/dist/';
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'fonts.css'; document.head.appendChild(l); var sc = document.createElement('script'); sc.src = base + 'tikzjax.js'; document.head.appendChild(sc); };
 window.a2 = { record: function (o) { parent.postMessage({ a2api: "record", arg: o, cid: (window.A2CARD || {}).id }, "*"); }, setTime: function (sec) { parent.postMessage({ a2api: "setTime", arg: +sec, cid: (window.A2CARD || {}).id }, "*"); },
   suggest: function (g) { parent.postMessage({ a2api: "suggest", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, answer: function (g) { parent.postMessage({ a2api: "answer", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, flip: function () { parent.postMessage({ a2api: "flip", cid: (window.A2CARD || {}).id }, "*"); } };
 /* Anki のテンプレートのための代わり:pycmd などは何もしない。onUpdateHook / onShownHook は、Anki と同じく表示の前後に呼ぶ */
@@ -2529,7 +2538,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.85";
+window.APP_VER_EX = "r4.86";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2764,7 +2773,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.85";
+window.APP_VER_SYNC = "r4.86";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
