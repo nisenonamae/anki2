@@ -939,7 +939,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.80";
+A2.VER = "r4.81";
 window.A2 = A2;
 
 </script>
@@ -947,7 +947,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.80"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.81"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -2456,7 +2456,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.80";
+window.APP_VER_EX = "r4.81";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2691,7 +2691,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.80";
+window.APP_VER_SYNC = "r4.81";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
@@ -2714,6 +2714,30 @@ async function remoteState(c, head){ head = head || await remoteHead(c);
   const commit = await ghJ(c, "/git/commits/" + head); return { head, tree: commit.tree.sha, files }; }
 async function readBlob(c, sha){ const j = await ghJ(c, "/git/blobs/" + sha); const t = new TextDecoder().decode(b64u8(j.content)); let o; try { o = JSON.parse(t); } catch (e) { o = null; }
   if (!o || typeof o !== "object") throw new Error("置き場所のファイルが読めない(壊れているかもしれないので、上書きせずに止めた)"); return o; }
+/* 全部を見比べてそろえる:置き場所の全部と、この端末の全部を1件ずつ比べる。
+   置き場所のほうが新しい・置き場所にだけある → 受け取る(この端末で後から消したものは受け取らない)
+   この端末のほうが新しい・この端末にだけある → 送る(置き場所で後から消されたものは送らない)
+   置き場所で、この端末の版より後に消されている → この端末でも消す */
+async function reconPlan(){ const c = conn(), rs = await remoteState(c), R = {}, G = {};
+  const live = (st, r) => { const m = R[st] = R[st] || new Map(), o = m.get(r.id); if (!o || (r.mod || 0) >= (o.mod || 0)) m.set(r.id, r); };
+  const gone = (st, id, dv) => { if (!dv || typeof dv !== "object") return; const m = G[st] = G[st] || new Map(), v = +dv.m || 0; if (!(m.get(id) >= v)) m.set(id, v); };
+  for (const [pth, sha] of Object.entries(rs.files)) { const o = await readBlob(c, sha);
+    if (pth.startsWith("changes/")) { Object.entries(o.recs || {}).forEach(([st, list]) => (list || []).forEach(r => live(st, r))); Object.entries(o.del || {}).forEach(([st, m]) => Object.entries(m || {}).forEach(([id, dv]) => gone(st, id, dv))); }
+    else { const st = storeOfShard(pth.replace(/\.json$/, "")); (o.recs || []).forEach(r => live(st, r)); Object.entries(o.del || {}).forEach(([id, dv]) => gone(st, id, dv)); } }
+  const tombs = A2.S.meta.tombs || {}, plan = { stores: {}, pull: 0, push: 0, del: 0 };
+  for (const st of STORES_SYNC) { const L = A2.S[st], Rm = R[st] || new Map(), Gm = G[st] || new Map(), T = tombs[st] || {}, pull = [], push = [], del = [];
+    for (const [id, r] of Rm) { const g = Gm.get(id); if (g != null && g >= (r.mod || 0)) continue; const l = L.get(id);
+      if (!l) { if (T[id] && (T[id].mod || 0) >= (r.mod || 0)) continue; pull.push(r); } else if ((r.mod || 0) > (l.mod || 0)) pull.push(r); }
+    for (const [id, l] of L) { const r = Rm.get(id), g = Gm.get(id);
+      if (g != null && g >= (l.mod || 0) && !(r && (r.mod || 0) > g)) { if (st !== "revlog") del.push(id); continue; }
+      if (!r || (l.mod || 0) > (r.mod || 0)) push.push(id); }
+    plan.stores[st] = { pull, push, del, here: L.size, there: [...Rm.keys()].filter(id => !(Gm.get(id) >= ((Rm.get(id) || {}).mod || 0))).length }; plan.pull += pull.length; plan.push += push.length; plan.del += del.length; }
+  plan.held = (A2.S.meta.held || []).length; return plan; }
+async function reconApply(plan){ for (const st of STORES_SYNC) { const x = plan.stores[st]; if (!x) continue; const tombs = A2.S.meta.tombs || {};
+    if (x.pull.length) { x.pull.forEach(r => { if (tombs[st]) delete tombs[st][r.id]; rkSee(st, r.id, r.mod); }); await A2.save(st, x.pull, { keepMod: true, fromSync: true }); }
+    if (x.del.length) await A2.remove(st, x.del, { fromSync: true, why: "置き場所で消されていたので、そろえた" });
+    if (x.push.length) A2.markPending(st, x.push); }
+  await A2.setMeta("tombs", A2.S.meta.tombs || {}); return await syncNow(); }
 /* 受け取った記録を合わせる(新しいほうを残す・消した印を守る) */
 /* rk:置き場所にあると分かっているもの { 種類: { id: 版 } }。これと見比べて、置き場所にないもの・古いものは必ず送る(印に頼らない) */
 const RK = () => (A2.S.meta.rk = A2.S.meta.rk || {});
@@ -2825,7 +2849,7 @@ function syncSheet(){ const c = conn() || { owner: "nisenonamae", repo: "notion-
     <p class="note">ふだんは変わった分だけを送るので、カードが多くても軽い。はじめての端末だけは、全体を受け取るのに少し時間がかかる。</p>
     ${conn() ? `<h2>前の同期</h2><div class="note">${(() => { const x = A2.S.meta.lastSum; return x ? new Date(x.at).toLocaleString("ja-JP") + "・受け取った 追加" + x.add + "・更新" + x.up + "/送った " + (x.sent || 0) + "" : "まだ"; })()}</div>
       ${(A2.S.meta.lastPrev || {}).items && A2.S.meta.lastPrev.items.length ? `<div style="margin-top:.5rem"><button class="btn ghost sm" data-syncundo>直前の同期を取り消す(${A2.S.meta.lastPrev.items.length}件を前に戻す)</button></div><div class="note">直前の同期で変わったものを、変わる前に戻す(ほかの端末にも、戻したほうが届く)。増えたものはそのまま。</div>` : ""}
-      <button class="btn ghost sm" data-synccmp style="margin-top:.6rem">置き場所と見比べる</button><div id="synccmp" class="note" style="margin-top:.3rem"></div>` : ""}`; }
+      <button class="btn ghost sm" data-synccmp style="margin-top:.6rem">置き場所と見比べる</button><button class="btn sm" data-recon style="margin-top:.6rem;margin-left:.4rem">全部を見比べてそろえる</button><div id="synccmp" class="note" style="margin-top:.3rem"></div>` : ""}`; }
 document.addEventListener("click", async e => { const b = e.target.closest("button"); if (!b) return;
   if (b.hasAttribute("data-syncsave")) { const c = { owner: $("sy-o").value.trim(), repo: $("sy-r").value.trim(), branch: $("sy-b").value.trim() || "main", base: $("sy-p").value.trim() || "roadmap/apps/anki2", token: $("sy-t").value.trim() }; if (!c.owner || !c.repo || !c.token) { toast("持ち主・リポジトリ・トークンを入れてください"); render(); return; }
     const first = !conn(); await A2.setMeta("conn", c); if (first) { for (const st of STORES_SYNC) A2.markPending(st, [...A2.S[st].keys()]); const ms = await A2.all("media"); await A2.setMeta("mediaUp", ms.map(m => m.name)); }
@@ -2838,6 +2862,15 @@ document.addEventListener("click", async e => { const b = e.target.closest("butt
     for (const h of list) { if (h.kind === "del") { if (yes) await A2.remove(h.st, [h.id], { fromSync: true, why: "ほかの端末で消された(確かめて消した)" }); else { const x = A2.S[h.st].get(h.id); if (x) await A2.save(h.st, [Object.assign({}, x)]); } }
       else if (h.kind === "empty") { if (yes) await A2.save(h.st, [h.rec], { keepMod: true, fromSync: true }); else { const x = A2.S[h.st].get(h.id); if (x) await A2.save(h.st, [Object.assign({}, x)]); } } }
     M.held = (M.held || []).filter(h => heldKey(h) !== key); await A2.setMeta("held", M.held); toast(yes ? "当てはめた" : "この端末のものを残した(ほかの端末にも戻る)"); render(); syncNow(); return; }
+  if (b.hasAttribute("data-recon")) { const out = $("synccmp"); if (SYNC.busy) { toast("同期中。終わってからもう一度押してください"); return; } if (out) out.textContent = "置き場所の全部を読んで見比べている…(少しかかる)";
+    try { await syncNow(); const plan = await reconPlan(); V.reconPlan = plan; const lab = { notes: "ノート", cards: "カード", revlog: "復習の記録", decks: "デッキ", notetypes: "ノートタイプ", subjects: "分野", exsub: "演習", stages: "段階の型", memos: "メモ", wh: "倉庫" };
+      const rows = STORES_SYNC.map(st => { const x = plan.stores[st]; if (!x) return ""; const bits = []; if (x.pull.length) bits.push("受け取る " + x.pull.length); if (x.push.length) bits.push("送る " + x.push.length); if (x.del.length) bits.push("この端末でも消す " + x.del.length);
+        return `<div><b>${lab[st] || st}</b>:この端末 ${x.here}・置き場所 ${x.there}${bits.length ? `・<b style="color:var(--shu)">${bits.join("・")}</b>` : "・そろっている"}</div>`; }).join("");
+      out.innerHTML = rows + (plan.held ? `<div style="margin-top:.3rem"><b style="color:var(--shu)">保留 ${plan.held}件</b>(上の「保留」で、当てはめるか決める)</div>` : "") +
+        (plan.pull + plan.push + plan.del ? `<div style="margin-top:.5rem"><button class="btn sm" data-recongo>この内容でそろえる(受け取る${plan.pull}・送る${plan.push}・消す${plan.del})</button></div><div class="note">どの記録も、新しいほうを残す。3台それぞれで1回ずつ押すと、全部が同じになる。</div>` : '<div style="margin-top:.4rem">この端末と置き場所は、全部そろっている。</div>'); }
+    catch (e) { if (out) out.textContent = "見比べられなかった:" + e.message; } return; }
+  if (b.hasAttribute("data-recongo")) { const plan = V.reconPlan, out = $("synccmp"); if (!plan) return; b.disabled = true; b.textContent = "そろえている…";
+    try { await reconApply(plan); V.reconPlan = null; toast("そろえた(受け取った" + plan.pull + "・送った" + plan.push + "・消した" + plan.del + ")"); if (out) out.innerHTML = "そろえた。ほかの端末でも「全部を見比べてそろえる」を1回押す。"; } catch (e) { toast("そろえられなかった:" + e.message); } render(); return; }
   /* この端末と置き場所を、1件ずつ見比べる(どちらにだけあるか) */
   if (b.hasAttribute("data-synccmp")) { const out = $("synccmp"); if (out) out.textContent = "見比べている…"; try { const c = conn(), rs = await remoteState(c), last = {};
       const see = (st, id, mod, gone) => { const m = last[st] = last[st] || new Map(), o = m.get(id); if (!o || (mod || 0) >= o.mod) m.set(id, { mod: mod || 0, gone }); };
