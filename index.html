@@ -484,6 +484,15 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 
 .devt{border-collapse:collapse;font-size:.8rem;min-width:100%}.devt th,.devt td{border:1px solid var(--rule);padding:.35rem .45rem;text-align:left;vertical-align:top;white-space:nowrap}.devt th small,.devt td small{display:block;color:var(--sub);font-weight:400;font-size:.7rem}.devt td.ng{color:var(--shu);font-weight:700;background:#fdf0ee}
 .devd{margin:.7rem 0;font-size:.85rem}.devd ul{margin:.3rem 0 0;padding-left:1.1rem}.devd li{margin:.25rem 0}.devd .ng{color:var(--shu)}
+
+.seekrow .rwd{flex:0 0 auto;position:relative;width:30px;height:30px;margin-left:.35rem;border:0;border-radius:50%;background:transparent;color:var(--sub,#8a8378);opacity:.55;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.seekrow .rwd svg{width:17px;height:17px;position:relative;z-index:1}
+.seekrow .rwd:disabled{opacity:.18;cursor:default}
+.seekrow .rwd::before{content:"";position:absolute;inset:1px;border-radius:50%;background:conic-gradient(var(--ink,#2b2622) var(--p,0%),transparent 0);-webkit-mask:radial-gradient(circle,transparent 11px,#000 12px);mask:radial-gradient(circle,transparent 11px,#000 12px);opacity:0}
+.seekrow .rwd.hold{opacity:1;color:var(--ink,#2b2622)}
+.seekrow .rwd.hold::before{opacity:1;animation:rwdfill .45s linear forwards}
+@property --p{syntax:"<percentage>";inherits:false;initial-value:0%}
+@keyframes rwdfill{from{--p:0%}to{--p:100%}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -961,7 +970,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.86";
+A2.VER = "r4.87";
 window.A2 = A2;
 
 </script>
@@ -969,7 +978,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.86"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.87"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1167,7 +1176,7 @@ function rvTop(){ const r = V.rv, k = rvCounts(r), fin = rvFinished(r), total = 
   return `<div class="rvstick"><div class="rvtop"><button class="back" data-rvend>‹ やめる</button><b>${esc(r.title.split("::").pop())}</b><span class="cnt">${(() => { const c = rvCur(), kind = !c ? "" : c.st === "新規" ? "n" : (isLearn(c) && c.dueMs != null) ? "l" : "r";   // 今のカードの種類に下線(本家と同じ)
       const sk = c && A2.stageOf(c) ? "s" : kind;
       return `<span class="n${sk === "n" ? " cur" : ""}">${k.n}</span> + <span class="l${sk === "l" ? " cur" : ""}">${k.l}</span> + <span class="r${sk === "r" ? " cur" : ""}">${k.r}</span>${k.s || sk === "s" ? ` + <span class="s${sk === "s" ? " cur" : ""}" title="段階を踏んでいるカード">${k.s}</span>` : ""}`; })()}</span></div>
-    <div class="seekrow"><div class="seek"><i style="width:${pct}%"></i><b style="left:${pct}%"></b></div><span class="seekn"><b>${fin}</b> / ${total}</span></div><div class="rvbig" id="rvtime">${rvTimeHtml()}</div></div>`; }
+    <div class="seekrow"><div class="seek"><i style="width:${pct}%"></i><b style="left:${pct}%"></b></div><span class="seekn"><b>${fin}</b> / ${total}</span><button class="rwd" data-rvrwd${r.back || r.hist.length ? "" : " disabled"} aria-label="巻き戻し(長押し)" title="長押しで巻き戻し:${r.back ? "このカードの表へ" : "ひとつ前のカードの表へ"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a7 7 0 1 1-6.6 4.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.2 4.6v5.2h5.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="rvbig" id="rvtime">${rvTimeHtml()}</div></div>`; }
 function rvOv(){ const c = rvCur(); if (!c) return ""; const n = A2.S.notes.get(c.nid); return (c.flag ? `<span class="flagbar" style="background:${FL[c.flag]}"></span>` : "") + (n && n.tags.includes("marked") ? '<span class="markst">★</span>' : ""); }
 /* 段階の帯:型の名前と「1 訳1つ → 2 ほかの訳も → FSRS」の並び(今の段階を濃く)と、すること。復習・プレビューで同じものを出す
    o.review:復習の画面(段階をまったく使っていないノートタイプのカードには何も出さない) */
@@ -1192,7 +1201,7 @@ function rvCtl(){ const r = V.rv, c = rvCur(), ivs = A2.nextWaits(c), S0 = A2.st
   return `${r.back ? `<div class="ansbar">${["もう一度", "難しい", "正解", "簡単"].map((x, k) => `<button class="ans a${k + 1}${r.sug === k + 1 ? " sug" : ""}" data-grade="${k + 1}"><small>${r.sug === k + 1 ? "おすすめ・" : ""}${A2.fmtWait(ivs[k].wait)}</small>${x}</button>`).join("")}</div><div class="fliprow"><button class="linkx" data-toface>表に戻る</button></div>` : `<button class="btn showans" data-showans>答えを見る</button>`}
     ${rvToolsHtml(r, c)}
     ${VOICE.on ? `<div class="vstat"><span class="dot"></span>${VOICE.lat ? "<b>前回 " + (VOICE.lat / 1000).toFixed(2) + "秒</b>(話し始めてから動くまで)・" : ""}${VOICE.local === "available" ? "端末で聞き取り・" : "ネット越しに聞き取り・"}${VOICE.local === "downloadable" ? '<button class="linkx" data-vinstall>端末で聞き取る(速い)を入れる</button>・' : ""}聞いています:${["show", "g1", "g2", "g3", "g4"].map(k => "「" + esc(String(((A2.S.meta.voiceWords || {})[k]) || VOICE_WORDS[k]).split(/[,、]/)[0].trim()) + "」").join("")}${VOICE.last ? `<b class="vheard">聞き取った「${esc(VOICE.last)}」</b>` : ""}</div>` : ""}
-    <p class="note" style="text-align:center;margin-top:.5rem">キーボード:スペースで答え・B で表に戻る・1〜4で判定・R で音をもう一度・Shift+V で録音・V で自分の声・Z で元に戻す・E で直す。リモコン(矢印):→ 答え・正解、← もう一度、↑ 簡単、↓ 難しい</p>`; }
+    <p class="note" style="text-align:center;margin-top:.5rem">キーボード:スペースで答え・B で表に戻る・1〜4で判定・R で音をもう一度・Shift+V で録音・V で自分の声・Z で元に戻す・Backspace で巻き戻し(表から)・E で直す。リモコン(矢印):→ 答え・正解、← もう一度、↑ 簡単、↓ 難しい</p>`; }
 /* 復習の画面の骨組み:#rv-box(カードの枠)は、その回の復習が終わるまで一度も作り直さない・動かさない */
 function review(){ const r = V.rv; rvEnsure(); if (r.wait) return `<div id="rv-top">${rvTop()}</div><div class="result" style="margin-top:1rem"><b>今出せるカードは、ここまで</b><div class="note">次の学習中のカードは <span id="rvwait">${rvWaitText(r.wait)}</span> に出る。時間になれば、そのまま出てくる。</div></div><div class="row"><button class="btn" data-rvnow>今すぐ出す</button><button class="btn ghost" data-rvend>やめる</button>${r.hist.length ? '<button class="btn ghost" data-rvundo>元に戻す</button>' : ""}</div>`;
   if (!r.cur) return rvDone();
@@ -1560,10 +1569,21 @@ async function stageBack(c, i){ const t = A2.stageTypeOf(c); if (!t) return; con
   Object.assign(c, { st: "段階", sg: { i, reps: 0, rday: today }, dueDay: today });
   await A2.save("cards", [c]); await A2.save("revlog", [{ id: "r" + now, cid: c.id, t: now, g: 0, kind: 4, ivl: 0, last: 0, ms: 0, src: "a2", x: { stage: "back", to: i, type: t.name } }]);
   toast("「" + t.stages[i].name + "」の段階に戻した。今日の分に出る"); }
-async function undo(){ const r = V.rv, h = r && r.hist.pop(); if (!h) return; const c = A2.S.cards.get(h.c.id), note = A2.S.notes.get(c.nid); if (rvFrameEl) rvFrameEl.dataset.k = "";
+async function rewind(){ const r = V.rv; if (!r) return;
+  if (r.cur && r.back) { r.back = false; r.cardT0 = Date.now(); r.px = null; r.pSec = null; if (rvFrameEl) rvFrameEl.dataset.k = ""; se("flip"); toast("このカードの表に戻した"); render(); return; }
+  if (!r.hist.length) return; await undo(true); }
+async function undo(toFront){ const r = V.rv, h = r && r.hist.pop(); if (!h) return; const c = A2.S.cards.get(h.c.id), note = A2.S.notes.get(c.nid); if (rvFrameEl) rvFrameEl.dataset.k = "";
   Object.keys(c).forEach(k => { if (!(k in h.c)) delete c[k]; }); Object.assign(c, h.c); note.f = h.f; h.sibs.forEach(s => A2.S.cards.set(s.id, s));
-  r.px = h.px || null; r.pSec = h.pSec || null; r.sug = h.sug || null; r.answered.delete(c.id); r.mi = h.mi; r.cur = h.cur; r.curMain = h.curMain; r.wait = null; r.done = h.done; r.again = h.again; r.back = true; r.cardT0 = Date.now();
-  await A2.save("cards", [c].concat(h.sibs)); await A2.save("notes", [note]); await A2.remove("revlog", [].concat(h.rl)); se("undo"); toast("ひとつ前に戻した"); render(); }
+  r.px = h.px || null; r.pSec = h.pSec || null; r.sug = h.sug || null; r.answered.delete(c.id); r.mi = h.mi; r.cur = h.cur; r.curMain = h.curMain; r.wait = null; r.done = h.done; r.again = h.again; r.back = !toFront; r.cardT0 = Date.now();
+  await A2.save("cards", [c].concat(h.sibs)); await A2.save("notes", [note]); await A2.remove("revlog", [].concat(h.rl)); se("undo"); toast(toFront ? "ひとつ前のカードの表まで巻き戻した" : "ひとつ前に戻した"); render(); }
+/* 巻き戻しは長押し(0.45秒)で動く:ふつうに触れただけでは動かない。指を離す・ずらすと取り消し */
+const RWD = { t: null, x: 0, y: 0 };
+document.addEventListener("pointerdown", e => { const b = e.target.closest && e.target.closest("[data-rvrwd]"); if (!b || b.disabled) return; e.preventDefault(); clearTimeout(RWD.t); RWD.x = e.clientX; RWD.y = e.clientY; b.classList.add("hold");
+  RWD.t = setTimeout(() => { RWD.t = null; document.querySelectorAll("[data-rvrwd].hold").forEach(z => z.classList.remove("hold")); try { navigator.vibrate && navigator.vibrate(18); } catch (er) {} rewind(); }, 450); });
+const rwdCancel = () => { if (RWD.t) { clearTimeout(RWD.t); RWD.t = null; } document.querySelectorAll("[data-rvrwd].hold").forEach(z => z.classList.remove("hold")); };
+document.addEventListener("pointerup", rwdCancel); document.addEventListener("pointercancel", rwdCancel);
+document.addEventListener("pointermove", e => { if (RWD.t && Math.hypot(e.clientX - RWD.x, e.clientY - RWD.y) > 14) rwdCancel(); });
+document.addEventListener("contextmenu", e => { if (e.target.closest && e.target.closest("[data-rvrwd]")) e.preventDefault(); });
 /* 声 */
 const VOICE = { on: false, rec: null, last: "" };
 function voiceStart(){ const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) { toast("このブラウザでは、声の聞き取りが使えない"); render(); return; }
@@ -2465,7 +2485,7 @@ document.addEventListener("keydown", e => { if (!V.rv || V.sheet || /INPUT|TEXTA
   else if (/^[1-4]$/.test(e.key) && r.back) answer(+e.key);
   else if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); if (!r.back) { r.back = true; se("flip"); render(); } else answer(3); }
   else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); if (r.back) answer(1); }
-  else if (e.key === "ArrowUp") { e.preventDefault(); if (r.back) answer(4); } else if (e.key === "ArrowDown") { e.preventDefault(); if (r.back) answer(2); } else if (e.key.toLowerCase() === "b" && r.back) { r.back = false; render(); } else if (e.key.toLowerCase() === "w") { WB.on = !WB.on; WB.pass = false; render(); } else if (e.key.toLowerCase() === "r") rvReplay(); else if (e.key === "V") rvRecToggle(); else if (e.key === "v") rvRecPlay(); else if (e.key.toLowerCase() === "z") undo(); else if (e.key.toLowerCase() === "e") { V.sheet = { k: "card", id: rvCur().id, back: r.back }; render(); } });
+  else if (e.key === "ArrowUp") { e.preventDefault(); if (r.back) answer(4); } else if (e.key === "ArrowDown") { e.preventDefault(); if (r.back) answer(2); } else if (e.key.toLowerCase() === "b" && r.back) { r.back = false; render(); } else if (e.key.toLowerCase() === "w") { WB.on = !WB.on; WB.pass = false; render(); } else if (e.key.toLowerCase() === "r") rvReplay(); else if (e.key === "V") rvRecToggle(); else if (e.key === "v") rvRecPlay(); else if (e.key.toLowerCase() === "z") undo(); else if (e.key === "Backspace") { e.preventDefault(); rewind(); } else if (e.key.toLowerCase() === "e") { V.sheet = { k: "card", id: rvCur().id, back: r.back }; render(); } });
 document.addEventListener("input", e => { const t = e.target;
   if (V.sheet && V.sheet.k === "aifix") { if (t.id === "aifix-ins") { V.sheet.ins = t.value; return; } if (t.id === "aifix-paste") { V.sheet.paste = t.value; return; } }
   if (t.id === "bq") { V.bq = t.value; clearTimeout(window.__bq); window.__bq = setTimeout(() => { const p = t.selectionStart; render(); const el = $("bq"); if (el) { el.focus(); el.setSelectionRange(p, p); } }, 250); }
@@ -2538,7 +2558,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.86";
+window.APP_VER_EX = "r4.87";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -2773,7 +2793,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.86";
+window.APP_VER_SYNC = "r4.87";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
