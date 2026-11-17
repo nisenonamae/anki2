@@ -515,6 +515,11 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .gmbar .pop{position:absolute;right:.5rem;top:-3px;font-size:.92rem;font-weight:800;color:var(--shu);pointer-events:none;opacity:0;animation:gmpop .95s ease-out both;text-shadow:0 0 3px var(--white),0 0 3px var(--white)}
 .gmbar.p .pop{animation-delay:.3s}.gmbar .pop.h{color:var(--ok)}
 @keyframes gmpop{0%{opacity:0;transform:translateY(6px) scale(.8)}18%{opacity:1;transform:translateY(-3px) scale(1.2)}70%{opacity:1;transform:translateY(-8px)}100%{opacity:0;transform:translateY(-14px)}}
+.gmp .gmtm{position:relative;display:block;height:9px;border-radius:5px;background:color-mix(in srgb,var(--ink) 8%,transparent);margin:.12rem 0 .05rem}
+.gmp .gmtm i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--mid);transition:width .2s linear}
+.gmp .gmtm em{position:absolute;right:.35rem;top:-1px;font-style:normal;font-size:.6rem;font-weight:700;line-height:11px;color:var(--ink);font-variant-numeric:tabular-nums}
+.gmp .gmtm.near i{background:var(--shu)}.gmp .gmtm.near em{color:var(--shu)}.gmp .gmtm.stop i{background:var(--rule)}.gmp .gmtm.stop em{color:var(--sub);font-weight:400}
+.gmp.hit{animation:gmhit .35s}@keyframes gmhit{0%,100%{transform:none;box-shadow:none}30%{transform:translateY(2px);box-shadow:0 0 0 2px var(--shu)}}
 .gmp .gmlog{display:flex;gap:.4rem;align-items:center;font-size:.7rem;color:var(--sub);margin-top:.1rem;line-height:1.3}
 .gmp .gmlog .mul{flex:0 0 auto;font-style:normal;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}.gmp .gmlog .mul.hot{color:var(--rwe)}
 .gmp .gmlog .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -538,7 +543,7 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .gmpat li.now{color:var(--ink);background:var(--mid-soft);border-radius:4px}.gmpat li.now::marker{font-weight:800}
 .gmrule{margin-top:.8rem;font-size:.8rem;color:var(--sub)}.gmrule summary{cursor:pointer;color:var(--ink);font-weight:700}.gmrule ul{padding-left:1.2rem;line-height:1.6;margin:.3rem 0 0}
 .rwsum .rwrow{display:flex;align-items:baseline;gap:.6rem;border-top:1px solid var(--rule);padding:.3rem 0;font-size:.85rem}.rwsum .rwrow span{color:var(--sub);flex:0 0 5.5em}.rwsum .rwrow small{color:var(--sub);font-size:.72rem;margin-left:auto;text-align:right}
-@media (prefers-reduced-motion:reduce){.gmbar i.an,.gmp.dead,.gmp.newfoe .gmr:first-child{animation:none}.gmbar .pop{animation:none;opacity:1;top:-9px}}
+@media (prefers-reduced-motion:reduce){.gmp.hit,.gmp .gmtm i{animation:none;transition:none}.gmbar i.an,.gmp.dead,.gmp.newfoe .gmr:first-child{animation:none}.gmbar .pop{animation:none;opacity:1;top:-9px}}
 :root{--rwe:#7a3fb0}:root[data-theme="dark"]{--rwe:#b98be0}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--rwe:#b98be0}}
 .rwline{display:flex;align-items:baseline;gap:.75rem;font-size:.74rem;color:var(--sub);margin:.35rem .1rem 0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
@@ -1042,7 +1047,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.89";
+A2.VER = "r4.90";
 window.A2 = A2;
 
 </script>
@@ -1050,7 +1055,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.89"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.90"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1229,7 +1234,7 @@ function rvEnsure(){ const r = V.rv; if (!r || r.cur) return; r.px = null; r.pSe
 const rvCur = () => V.rv && V.rv.cur ? A2.S.cards.get(V.rv.cur) : null;
 function rvCounts(r){ const now = Date.now(), today = A2.today(); let n = 0, rv = 0, sg = 0; for (let i = r.mi; i < r.main.length; i++) { const c = A2.S.cards.get(r.main[i]); if (!c || c.susp || buriedNow(c) || r.answered.has(c.id) || ((isLearn(c) || c.st === "段階") && c.dueMs != null)) continue; if (c.st === "新規" && !A2.stageOf(c)) n++; else if (A2.stageOf(c)) sg++; else rv++; }   // 段階なしにした段階の途中のカードは、ふつうの復習として数える(下線と同じ見方)
   const L = rvLearning(r), lNow = L.filter(c => c.dueMs <= now + LEARN_AHEAD()), l = lNow.filter(c => !A2.stageOf(c)).length, lToday = L.filter(c => A2.dayOf(c.dueMs) === today).length; sg += lNow.filter(c => !!A2.stageOf(c)).length; return { n, l, r: rv, s: sg, rest: n + rv + sg + lToday }; }
-function startStudy(prefix, filter, title){ const r = { title: title || prefix, prefix, filter, ids: new Set(filter ? [] : A2.deckIds(prefix)), mi: 0, cur: null, back: false, t0: Date.now(), cardT0: Date.now(), done: 0, again: 0, hist: [], answered: new Set() };
+function startStudy(prefix, filter, title){ GMS.pace = null; GMS.log = null; GMS.fx = null; const r = { title: title || prefix, prefix, filter, ids: new Set(filter ? [] : A2.deckIds(prefix)), mi: 0, cur: null, back: false, t0: Date.now(), cardT0: Date.now(), done: 0, again: 0, hist: [], answered: new Set() };
   RWS.safe = null; RWS.anim = false; r.main = buildMain(r); const p = rvPick(r); if (p.done) { toast("今はここに出すカードがない"); render(); return; }
   goFull();
   wakeOn(); go({ rv: r }); }
@@ -1254,71 +1259,80 @@ const RW_MILES = [365, 730, 1095, 1825, 3650], RW_MARKS = [5, 10, 20, 30, 50, 10
 const RW_MEL = [659, 784, 880, 784, 659, 587, 659, 523, 659, 784, 880, 1047, 988, 880, 988, 1047];
 const RW_ITEMS = [["sound", "音(正解のたびに、メロディが1音ずつ進む。上の「効果音」が入のとき)"], ["streak", "連続(進み具合の玉に、今日の連続正解の数)"], ["life", "記憶の寿命(今日のばした日数)"], ["vs", "対FSRS(FSRS の予想との、1日1試合)"], ["chip", "見込みの表示(復習カードの表の右上)"], ["flash", "出来事の知らせ(帯の下に一瞬)"]];
 /* ── ゲーム:忘却の塔(決まりの部分。画面や保存には触らない) ──
-   1枚の判定が1ターン。行動は答えを見る前に選び、判定で成否が決まる(正解・簡単=成功/難しい=半分/もう一度=失敗)。
-   敵の行動は決まった順番で、次に何をするかは見えている。運で決まるのは「どのカードが出て、思い出せるか」だけ */
+   自分:復習の判定1回ごとに1回動ける。行動は答えを見る前に選び、判定で成否が決まる(正解・簡単=成功/難しい=半分/もう一度=失敗)。
+   敵:時計で動く。敵ごとの時計(長さは毎回ばらばら)が尽きるたびに、こちらに関係なく1回動く。だから速く復習するほど有利。
+   敵の次の行動と、時計の残りは見えている */
 const GM_SK = {
   atk: { n: "攻撃", cd: 0, x: 1, d: "攻撃力ぶんのダメージ" },
-  def: { n: "防御", cd: 0, d: "このターンに受けるダメージを半分にする。成功すると、次の攻撃が +30%" },
+  def: { n: "防御", cd: 0, d: "敵の次の行動のダメージを半分にする。成功すると、次の攻撃が +30%" },
   heal: { n: "回復", cd: 4, h: .2, d: "最大HPの20%を回復" },
   heavy: { n: "渾身", cd: 3, x: 2.2, d: "攻撃力の2.2倍のダメージ" },
   twin: { n: "連撃", cd: 2, x: .7, hits: 2, d: "攻撃力の0.7倍を2回" },
   pierce: { n: "貫通", cd: 3, x: 1.3, pierce: true, d: "攻撃力の1.3倍。盾・硬さ・反射・棘を無視する" },
   drain: { n: "吸収", cd: 4, x: 1, d: "攻撃力ぶんのダメージ。与えた分の半分を回復" },
-  venom: { n: "毒刃", cd: 3, x: .6, d: "攻撃力の0.6倍。さらに3ターン、毎ターン攻撃力の半分の毒" },
-  wall: { n: "鉄壁", cd: 4, d: "このターンのダメージを受けない。防いだ分の半分を跳ね返す" },
-  read: { n: "見切り", cd: 5, d: "敵のこのターンの行動を打ち消す(溜めも消える)" },
+  venom: { n: "毒刃", cd: 3, x: .6, d: "攻撃力の0.6倍。さらに敵が3回動くあいだ、動くたびに攻撃力の半分の毒" },
+  wall: { n: "鉄壁", cd: 4, d: "敵の次の行動のダメージを受けない。防いだ分の半分を跳ね返す" },
+  read: { n: "見切り", cd: 5, d: "敵の次の行動を打ち消す(溜めも消える)" },
   cleanse: { n: "浄化", cd: 4, h: .1, d: "毒・弱体・封印を消し、最大HPの10%を回復" },
   focus: { n: "集中", cd: 5, d: "このあと成功する2回の効果が1.6倍" },
   gamble: { n: "賭け", cd: 4, x: 3.5, d: "攻撃力の3.5倍。失敗すると、自分が最大HPの20%を失う" },
-  seal: { n: "封じ", cd: 5, x: .5, d: "攻撃力の0.5倍。3ターン、敵の回復・強化・盾・再生を止める" },
+  seal: { n: "封じ", cd: 5, x: .5, d: "攻撃力の0.5倍。敵が3回動くあいだ、敵の回復・強化・盾・再生を止める" },
   exec: { n: "処刑", cd: 4, x: 1.2, d: "攻撃力の1.2倍。敵のHPが30%以下なら3倍" },
   mend: { n: "大回復", cd: 6, h: .45, d: "最大HPの45%を回復" }
 };
 const GM_BASE = ["atk", "def", "heal"];
 const GM_PAS = [
-  { id: "hp", n: "最大HP +15", d: "体力の上限が上がる" },
+  { id: "hp", n: "最大HP +15", d: "体力の上限が上がり、そのぶん回復する" },
   { id: "atk", n: "攻撃力 +2", d: "すべての攻撃が強くなる" },
   { id: "guard", n: "防御の強化", d: "防御で減らす割合 +10%", max: 2 },
   { id: "healb", n: "回復の強化", d: "回復の量が、最大HPの +8%", max: 3 },
   { id: "crit", n: "取り戻しの強化", d: "一度まちがえたカードを取り戻したときの倍率 +0.5", max: 2 },
   { id: "edge", n: "忘れかけの強化", d: "思い出せる見込みが低いカードほど強くなる度合いを上げる", max: 1 },
   { id: "haisui", n: "背水", d: "自分のHPが30%以下のとき、攻撃 +50%", max: 1 },
-  { id: "quick", n: "早業", d: "すべての技の待ちが1ターン短くなる(1より短くはならない)", max: 1, min: 8 },
-  { id: "slot", n: "技の枠 +1", d: "持ち込める技が4つになる", max: 1, min: 10 }
+  { id: "quick", n: "早業", d: "すべての技の待ちが1回短くなる(1より短くはならない)", max: 1, min: 8 },
+  { id: "slot", n: "技の枠 +1", d: "持ち込める技が4つになる", max: 1, min: 10 },
+  { id: "rest", n: "手当て", d: "今すぐ最大HPの40%を回復" }
 ];
 /* 敵:20階でひとめぐり。5階ごとに主(ぬし)。21階からは強くなって、もうひとめぐり
+   s = 時計の長さの目安(秒)。毎回 0.35〜1.65倍のあいだで、ばらばらに決まる
    行動:a 攻撃/m 連続攻撃/c 溜め/b 大技/h 回復/s 盾/u 強化/p 毒/x 封印/w 弱体/r 反射の構え/d 吸収/z 何もしない */
 const GM_FOES = [
-  { n: "うろ覚え", T: 4, L: 3.75, a: 0.16, p: [["a", 1], ["a", 1], ["z"]] },
-  { n: "ど忘れ", T: 5, L: 5.5, a: 0.18, p: [["a", 1], ["x", 2], ["a", 1.2]] },
-  { n: "三日坊主", T: 6, L: 6.25, a: 0.19, p: [["a", 1.3], ["a", 1.3], ["a", 1.3], ["z"], ["z"]] },
-  { n: "勘違い", T: 8, L: 4.75, a: 0.22, p: [["a", 1], ["r"], ["a", 1.2], ["r"]] },
-  { n: "一夜漬け", boss: 1, T: 16, L: 9, a: 0.2, p: [["a", 1], ["c"], ["b", 2.8], ["h", .12], ["a", 1.2]], tr: { rage: 1 } },
-  { n: "混同", T: 10, L: 7.5, a: 0.11, p: [["m", .45, 3], ["w", 2], ["m", .45, 3], ["a", 1]] },
-  { n: "先送り", T: 10, L: 5.75, a: 0.26, p: [["c"], ["c"], ["b", 4.5], ["z"]], tr: { hard: .15 } },
-  { n: "慢心", T: 10, L: 8, a: 0.12, p: [["u", .3], ["a", 1], ["a", 1]], tr: { grow: .06 } },
-  { n: "マンネリ", T: 10, L: 4.75, a: 0.26, p: [["a", 1], ["s", .12], ["a", 1.1], ["h", .08]], tr: { regen: .02 } },
-  { n: "忘却曲線", boss: 1, T: 20, L: 5.75, a: 0.16, p: [["a", 1], ["d", 1], ["p", 3], ["c"], ["b", 3], ["h", .1]], tr: { curve: 1 } },
-  { n: "ケアレスミス", T: 11, L: 10, a: 0.13, p: [["a", .8], ["a", .8], ["p", 3], ["a", 1.4]], tr: { thorns: .012 } },
-  { n: "眠気", T: 11, L: 9.5, a: 0.26, p: [["w", 3], ["a", 1.2], ["x", 2], ["a", 1.2]] },
-  { n: "完璧主義", T: 11, L: 5, a: 0.12, p: [["s", .3], ["a", 1.2], ["a", 1.2]], tr: { hard: .3 } },
-  { n: "焦り", T: 11, L: 11.25, a: 0.085, p: [["m", .6, 2], ["m", .6, 3], ["m", .6, 4], ["m", .6, 5], ["z"]] },
-  { n: "干渉", boss: 1, T: 22, L: 19, a: 0.33, p: [["a", 1.1], ["x", 2], ["r"], ["a", 1.3], ["w", 2], ["c"], ["b", 3]], tr: { adapt: 1 } },
-  { n: "思い込み", T: 12, L: 9.25, a: 0.28, p: [["r"], ["a", 1.3], ["u", .25], ["r"], ["a", 1.3]] },
-  { n: "飽き", T: 12, L: 6.75, a: 0.085, p: [["d", 1.2], ["a", 1], ["d", 1.2], ["h", .15]], tr: { regen: .03 } },
-  { n: "不安", T: 12, L: 7, a: 0.28, p: [["w", 2], ["p", 3], ["c"], ["b", 3.2], ["a", 1]] },
-  { n: "現実逃避", T: 12, L: 5.25, a: 0.2, p: [["s", .25], ["h", .2], ["a", 1.5], ["a", 1.5]] },
-  { n: "空白", boss: 1, T: 26, L: 16, a: 0.3, p: [["a", 1.2], ["x", 2], ["m", .5, 3], ["c"], ["b", 3.5], ["p", 3], ["h", .1], ["r"]], tr: { rage: 1, timer: 1 } }
+  { n: "うろ覚え", s: 12, T: 4, L: 3.75, a: 0.16, p: [["a", 1], ["a", 1], ["z"]] },
+  { n: "ど忘れ", s: 11, T: 5, L: 5.5, a: 0.18, p: [["a", 1], ["x", 2], ["a", 1.2]] },
+  { n: "三日坊主", s: 9, T: 6, L: 6.25, a: 0.19, p: [["a", 1.3], ["a", 1.3], ["a", 1.3], ["z"], ["z"]] },
+  { n: "勘違い", s: 10, T: 8, L: 4.75, a: 0.22, p: [["a", 1], ["r"], ["a", 1.2], ["r"]] },
+  { n: "一夜漬け", boss: 1, s: 14, T: 16, L: 9, a: 0.2, p: [["a", 1], ["c"], ["b", 2.8], ["h", .12], ["a", 1.2]], tr: { rage: 1 } },
+  { n: "混同", s: 9, T: 10, L: 7.5, a: 0.11, p: [["m", .45, 3], ["w", 2], ["m", .45, 3], ["a", 1]] },
+  { n: "先送り", s: 14, T: 10, L: 5.75, a: 0.26, p: [["c"], ["c"], ["b", 4.5], ["z"]], tr: { hard: .15 } },
+  { n: "慢心", s: 10, T: 10, L: 8, a: 0.12, p: [["u", .3], ["a", 1], ["a", 1]], tr: { grow: .06 } },
+  { n: "マンネリ", s: 10, T: 10, L: 4.75, a: 0.26, p: [["a", 1], ["s", .12], ["a", 1.1], ["h", .08]], tr: { regen: .02 } },
+  { n: "忘却曲線", boss: 1, s: 10, T: 20, L: 5.75, a: 0.16, p: [["a", 1], ["d", 1], ["p", 3], ["c"], ["b", 3], ["h", .1]], tr: { curve: 1 } },
+  { n: "ケアレスミス", s: 9, T: 11, L: 10, a: 0.13, p: [["a", .8], ["a", .8], ["p", 3], ["a", 1.4]], tr: { thorns: .012 } },
+  { n: "眠気", s: 12, T: 11, L: 9.5, a: 0.26, p: [["w", 3], ["a", 1.2], ["x", 2], ["a", 1.2]] },
+  { n: "完璧主義", s: 10, T: 11, L: 5, a: 0.12, p: [["s", .3], ["a", 1.2], ["a", 1.2]], tr: { hard: .3 } },
+  { n: "焦り", s: 8, T: 11, L: 11.25, a: 0.085, p: [["m", .6, 2], ["m", .6, 3], ["m", .6, 4], ["m", .6, 5], ["z"]] },
+  { n: "干渉", boss: 1, s: 15, T: 22, L: 19, a: 0.33, p: [["a", 1.1], ["x", 2], ["r"], ["a", 1.3], ["w", 2], ["c"], ["b", 3]], tr: { adapt: 1 } },
+  { n: "思い込み", s: 10, T: 12, L: 9.25, a: 0.28, p: [["r"], ["a", 1.3], ["u", .25], ["r"], ["a", 1.3]] },
+  { n: "飽き", s: 9, T: 12, L: 6.75, a: 0.085, p: [["d", 1.2], ["a", 1], ["d", 1.2], ["h", .15]], tr: { regen: .03 } },
+  { n: "不安", s: 10, T: 12, L: 7, a: 0.28, p: [["w", 2], ["p", 3], ["c"], ["b", 3.2], ["a", 1]] },
+  { n: "現実逃避", s: 10, T: 12, L: 5.25, a: 0.2, p: [["s", .25], ["h", .2], ["a", 1.5], ["a", 1.5]] },
+  { n: "空白", boss: 1, s: 15, T: 26, L: 16, a: 0.3, p: [["a", 1.2], ["x", 2], ["m", .5, 3], ["c"], ["b", 3.5], ["p", 3], ["h", .1], ["r"]], tr: { rage: 1, timer: 1 } }
 ];
-const GM_TR = { rage: ["逆上", "HPが半分を切ると、攻撃が1.5倍"], hard: ["硬い", "1回の攻撃ごとに、ダメージが決まった数だけ減る(貫通は減らない)"], grow: ["増長", "毎ターン、攻撃が少しずつ上がる"], regen: ["再生", "毎ターン、HPが少し戻る"], curve: ["忘却", "ターンが進むほど、毎ターンの回復が増える(長引かせるほど不利)"], thorns: ["棘", "攻撃を当てるたびに、こちらもダメージを受ける(貫通は受けない)"], adapt: ["干渉", "同じ行動を続けて使えない"], timer: ["時限", "しびれを切らすのが早く、そのあとの上がり方も大きい"] };
+const GM_TR = { rage: ["逆上", "HPが半分を切ると、攻撃が1.5倍"], hard: ["硬い", "1回の攻撃ごとに、ダメージが決まった数だけ減る(貫通は減らない)"], grow: ["増長", "動くたびに、攻撃が少しずつ上がる"], regen: ["再生", "動くたびに、HPが少し戻る"], curve: ["忘却", "動いた回数が増えるほど、毎回の回復が増える(長引かせるほど不利)"], thorns: ["棘", "攻撃を当てるたびに、こちらもダメージを受ける(貫通は受けない)"], adapt: ["干渉", "同じ行動を続けて使えない"], timer: ["時限", "しびれを切らすのが早く、そのあとの上がり方も大きい"] };
 const GM_LOOP = ["", "・改", "・真", "・極", "・絶"];
+const GM_SPD = 1;   // 敵の時計の全体の倍率(調整用)
 const gmRng = s => { let a = (s >>> 0) || 1; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
-/* 敵の強さ:その階まで来た自分(倒すたびに 最大HP +5・攻撃 +1)を物差しにする。L = 倒すのにかかるターンの目安、a = 1回の攻撃が最大HPの何割か */
+/* 敵の強さ:その階まで来た自分(倒すたびに 最大HP +5・攻撃 +1)を物差しにする。L = 倒すのにかかる行動の目安、a = 1回の攻撃が最大HPの何割か */
 const gmFoe = fl => { const i = (fl - 1) % GM_FOES.length, lp = Math.floor((fl - 1) / GM_FOES.length), f = GM_FOES[i], pa = 9 + fl, pm = 55 + 5 * fl, tr = f.tr || {};
-  return { f, i, lp, hp: Math.round(f.L * pa * .97 * (1 + .05 * fl) * Math.pow(1.25, lp)), atk: Math.max(1, Math.round(f.a * pm * (1 + .01 * fl) * Math.pow(1.15, lp))), hard: tr.hard ? Math.max(1, Math.round(pa * tr.hard)) : 0, thorns: tr.thorns ? Math.max(1, Math.round(pm * tr.thorns)) : 0, lim: tr.timer ? Math.round(f.T * .75) : Math.round(f.T * 1.5) + 2, up: tr.timer ? .25 : .1, name: f.n + (lp ? GM_LOOP[Math.min(lp, GM_LOOP.length - 1)] : "") }; };
-function gmNew(){ const G = { v: 1, fl: 1, best: 1, kills: 0, deaths: 0, mhp: 60, atk: 10, hp: 60, own: [], eq: [], pas: {}, sel: "atk", cd: {}, st: {}, pend: 1, opt: null, rs: 1, turn: 0, last: "", day: { d: 0, k: 0, x: 0 }, e: null }; gmSpawn(G); return G; }
-function gmSpawn(G){ const x = gmFoe(G.fl); G.hp = G.mhp; G.cd = {}; G.st = { psn: null, weak: 0, seal: {}, focus: 0, stance: 0 }; G.last = ""; G.turn = 0;
-  G.e = { n: x.name, boss: x.f.boss ? 1 : 0, mhp: x.hp, hp: x.hp, atk: x.atk, hard: x.hard, thorns: x.thorns, lim: x.lim, up: x.up, pi: 0, sh: 0, buff: 0, psn: null, seal: 0, ch: 0, t: 0 }; }
+  return { f, i, lp, hp: Math.round(f.L * pa * .97 * (1 + .05 * fl) * Math.pow(1.25, lp)), atk: Math.max(1, Math.round(f.a * pm * (1 + .01 * fl) * Math.pow(1.15, lp))), hard: tr.hard ? Math.max(1, Math.round(pa * tr.hard)) : 0, thorns: tr.thorns ? Math.max(1, Math.round(pm * tr.thorns)) : 0, lim: tr.timer ? Math.round(f.T * .75) : Math.round(f.T * 1.5) + 2, up: tr.timer ? .25 : .1, sec: f.s * GM_SPD * Math.pow(.92, lp), name: f.n + (lp ? GM_LOOP[Math.min(lp, GM_LOOP.length - 1)] : "") }; };
+/* 次の時計の長さ(ミリ秒)。乱数は数え番号から決まるので、元に戻しても同じ長さになる */
+function gmIv(G){ const r = gmRng(G.tc * 2654435761 + 97); G.tc++; return Math.round(gmFoe(G.fl).sec * (.35 + 1.3 * r()) * 1000); }
+function gmNew(){ const G = { v: 2, fl: 1, best: 1, kills: 0, deaths: 0, mhp: 60, atk: 10, hp: 60, own: [], eq: [], pas: {}, sel: "atk", cd: {}, st: {}, pend: 1, opt: null, rs: 1, tc: 1, ea: 0, turn: 0, last: "", day: { d: 0, k: 0, x: 0 }, e: null }; gmSpawn(G, true); return G; }
+/* 前の版(判定ごとに敵も動く)の記録を引き継ぐ:階・技・強化はそのまま、敵は出し直し */
+function gmMig(o){ const G = gmNew(); ["fl", "best", "kills", "deaths", "mhp", "atk", "own", "eq", "pas", "pend", "rs", "day"].forEach(k => { if (o[k] != null) G[k] = o[k]; }); G.opt = null; gmSpawn(G, true); return G; }
+/* 新しい敵。full = HPも満タンに(はじめ・敗れたとき)。倒して次へ進むときは、HPはそのまま持ち越す */
+function gmSpawn(G, full){ const x = gmFoe(G.fl); if (full) { G.hp = G.mhp; G.cd = {}; } G.hp = Math.min(G.hp, G.mhp); G.st = { psn: null, weak: 0, seal: {}, focus: 0, stance: 0, guard: 0, wall: 0, read: 0 }; G.last = ""; G.turn = 0;
+  G.e = { n: x.name, boss: x.f.boss ? 1 : 0, mhp: x.hp, hp: x.hp, atk: x.atk, hard: x.hard, thorns: x.thorns, lim: x.lim, up: x.up, pi: 0, sh: 0, buff: 0, psn: null, seal: 0, ch: 0, ref: 0, t: 0, left: 0, iv: 0 }; G.e.iv = G.e.left = gmIv(G); }
 const gmDef = G => gmFoe(G.fl).f;
 const gmSlots = G => 3 + ((G.pas.slot || 0) ? 1 : 0);
 const gmCd = (G, id) => { const c = GM_SK[id].cd; return c > 1 && G.pas.quick ? c - 1 : c; };
@@ -1338,81 +1352,89 @@ function gmIntent(G, pi, ch){ const e = G.e, p = gmDef(G).p, m = p[(pi == null ?
   if (k === "h") return { k, cls: stop ? "off" : "sup", label: "回復", dmg: 0, d: stop ? "封じられていて回復できない" : "HPを " + Math.round(e.mhp * m[1]) + " 戻す" };
   if (k === "s") return { k, cls: stop ? "off" : "sup", label: "盾", dmg: 0, d: stop ? "封じられていて盾を張れない" : "ダメージを " + Math.round(e.mhp * m[1]) + " 肩代わりする盾を張る" };
   if (k === "u") return { k, cls: stop ? "off" : "sup", label: "強化", dmg: 0, d: stop ? "封じられていて強化できない" : "攻撃が " + Math.round(m[1] * 100) + "% 上がる(倒すまで続く)" };
-  if (k === "p") return { k, cls: "bad", label: "毒", dmg: 0, d: m[1] + "ターン、毎ターン " + Math.round(e.atk * .35) + " のダメージ(鉄壁・見切りで防げる)" };
-  if (k === "x") return { k, cls: "bad", label: "封印", dmg: 0, d: "こちらが直前に使った行動を " + m[1] + "ターン封じる(直前が攻撃なら、回復を封じる)" };
-  if (k === "w") return { k, cls: "bad", label: "弱体", dmg: 0, d: m[1] + "ターン、こちらの攻撃が30%下がる" };
-  if (k === "r") return { k, cls: "ref", label: "反射", dmg: 0, d: "このターンに攻撃すると、与えた分の60%が返ってくる(貫通は返されない)" };
+  if (k === "p") return { k, cls: "bad", label: "毒", dmg: 0, d: "敵が" + m[1] + "回動くあいだ、動くたびに " + Math.round(e.atk * .35) + " のダメージ(鉄壁・見切りで防げる)" };
+  if (k === "x") return { k, cls: "bad", label: "封印", dmg: 0, d: "こちらが最後に使った行動を、敵が" + m[1] + "回動くまで封じる(最後が攻撃なら、回復を封じる)" };
+  if (k === "w") return { k, cls: "bad", label: "弱体", dmg: 0, d: "敵が" + m[1] + "回動くまで、こちらの攻撃が30%下がる" };
+  if (k === "r") return { k, cls: "ref", label: "反射", dmg: 0, d: "構えてから次に動くまで、こちらの攻撃の60%が返ってくる(貫通は返されない)" };
   if (k === "d") return { k, cls: "atk", label: "吸収 " + av(m[1]), dmg: av(m[1]), d: "攻撃し、与えた分だけ回復する" };
   return { k: "z", cls: "off", label: "様子見", dmg: 0, d: "何もしない" }; }
-/* 1ターン。res = { g: 判定(1〜4), m: カードの倍率, crit: 取り戻しか, skip: はじめてのカードで届かなかった(ターンを進めない) } */
-function gmTurn(G, act, res){ const o = { act, p: "", e: "", dE: 0, dP: 0, hP: 0, kill: false, death: false, skip: false, fail: false, half: false, crit: !!res.crit, m: res.m || 1, foe: "" };
-  if (res.skip) { o.skip = true; o.p = "はじめてのカード(ターンは進まない)"; return o; }
-  act = o.act = gmUse(G, act); const e = G.e, S = G.st, sk = GM_SK[act], def = gmDef(G), tr = def.tr || {}, mv = def.p[e.pi % def.p.length], it = gmIntent(G), pw = res.g >= 3 ? 1 : res.g === 2 ? .5 : 0;
-  const T = { def: 0, wall: 0 }, hp0 = G.hp, ehp0 = e.hp + e.sh; let cancel = 0, eAfter = null;
+/* 倒した・敗れたの決着(自分の行動のあとと、敵の行動のあとで調べる) */
+function gmEnd(G, o){
+  if (G.e.hp <= 0) { o.kill = true; o.foe = G.e.n; o.boss = G.e.boss; G.kills++; G.day.k++; G.fl++; G.pend++; if (G.fl > G.best) { G.best = G.fl; G.mhp += 5; G.atk += 1; o.up = true; } if (G.hp <= 0) G.hp = 1; gmSpawn(G, false); }
+  else if (G.hp <= 0) { o.death = true; G.deaths++; G.day.x++; gmSpawn(G, true); }
+  G.sel = gmUse(G, G.sel); return o; }
+/* 自分の1回。res = { g: 判定(1〜4), m: カードの倍率, crit: 取り戻しか, skip: はじめてのカードで届かなかった(行動しない) } */
+function gmTurn(G, act, res){ const o = { who: "p", act, p: "", dE: 0, dP: 0, hP: 0, kill: false, death: false, skip: false, fail: false, half: false, crit: !!res.crit, m: res.m || 1, foe: "" };
+  if (res.skip) { o.skip = true; o.p = "はじめてのカード(行動しない)"; return o; }
+  act = o.act = gmUse(G, act); const e = G.e, S = G.st, sk = GM_SK[act], pw = res.g >= 3 ? 1 : res.g === 2 ? .5 : 0, hp0 = G.hp, ehp0 = e.hp + e.sh;
   const hitE = (raw, pierce) => { let v = Math.max(0, Math.round(raw)); if (!pierce) { v = Math.max(0, v - (e.hard || 0)); const a = Math.min(e.sh, v); e.sh -= a; e.hp -= v - a; } else e.hp -= v; return v; };
-  const hitP = raw => { let v = Math.max(0, Math.round(raw)); if (T.wall) { const b = Math.round(v * T.wall); v -= b; e.hp -= Math.round(b * .5); } v = Math.round(v * (1 - T.def)); G.hp -= v; return v; };
   if (pw > 0) { o.half = pw < 1; const fm = S.focus > 0 && act !== "focus" ? 1.6 : 1, M = pw * (res.m || 1) * fm;
     if (sk.x) { const base = G.atk * (S.weak > 0 ? .7 : 1) * (S.stance ? 1.3 : 1) * (G.pas.haisui && G.hp <= G.mhp * .3 ? 1.5 : 1), x = act === "exec" && e.hp <= e.mhp * .3 ? 3 : sk.x; let dealt = 0; const n = sk.hits || 1;
       for (let i = 0; i < n; i++) dealt += hitE(base * x * M, sk.pierce); S.stance = 0;
-      if (!sk.pierce) { if (mv[0] === "r") G.hp -= Math.round(dealt * .6); if (e.thorns) G.hp -= e.thorns * n; }
+      if (!sk.pierce) { if (e.ref) G.hp -= Math.round(dealt * .6); if (e.thorns) G.hp -= e.thorns * n; }
       if (act === "drain") G.hp = Math.min(G.mhp, G.hp + Math.round(dealt * .5));
       if (act === "venom") { const v = Math.max(1, Math.round(G.atk * .5 * M)); if (!e.psn || e.psn.v <= v) e.psn = { n: 3, v }; else e.psn.n = 3; }
       if (act === "seal") e.seal = 3;
-      o.p = sk.n + " " + dealt + (mv[0] === "r" && !sk.pierce ? "(反射された)" : "");
+      o.p = sk.n + " " + dealt + (e.ref && !sk.pierce ? "(反射された)" : "");
     } else if (sk.h) { if (act === "cleanse") { S.psn = null; S.weak = 0; S.seal = {}; } const v = Math.round(G.mhp * (sk.h + (act === "cleanse" ? 0 : (G.pas.healb || 0) * .08)) * M), h0 = G.hp; G.hp = Math.min(G.mhp, G.hp + v); o.p = sk.n + " +" + (G.hp - h0); }
-    else if (act === "def") { T.def = Math.min(.95, (.5 + (G.pas.guard || 0) * .1) * pw); if (pw === 1) S.stance = 1; o.p = "防御"; }
-    else if (act === "wall") { T.wall = pw; o.p = "鉄壁"; }
-    else if (act === "read") { cancel = pw; o.p = "見切り"; }
+    else if (act === "def") { S.guard = Math.max(S.guard, Math.min(.95, (.5 + (G.pas.guard || 0) * .1) * pw)); if (pw === 1) S.stance = 1; o.p = "防御(次の攻撃を半分に)"; }
+    else if (act === "wall") { S.wall = Math.max(S.wall, pw); o.p = "鉄壁(次の攻撃を受けない)"; }
+    else if (act === "read") { S.read = Math.max(S.read, pw); o.p = "見切り(次の行動を打ち消す)"; }
     else if (act === "focus") { S.focus = 2; o.p = "集中"; }
     if (fm > 1) { S.focus--; o.p += "(集中)"; }
     if (o.half) o.p += "(難しい:半分)"; else if (res.crit) o.p += "(取り戻し)";
   } else { o.fail = true; o.p = sk.n + " 失敗"; if (act === "gamble") { G.hp -= Math.round(G.mhp * .2); o.p += "(反動)"; } }
-  eAfter = Math.max(0, e.hp) + e.sh;
-  if (e.hp > 0) {   // 敵の番
-    const k = mv[0], am = e.atk * gmFoeMul(G) * (1 - cancel), stop = e.seal > 0;
-    if (cancel >= 1) { o.e = "見切った"; if (k === "c" || k === "b") e.ch = 0; }
-    else if (k === "a") o.e = "攻撃 " + hitP(am * mv[1]);
-    else if (k === "m") { let s = 0; for (let i = 0; i < mv[2]; i++) s += hitP(am * mv[1]); o.e = "連続 " + s; }
-    else if (k === "c") { e.ch = 1; o.e = "溜めている"; }
-    else if (k === "b") { o.e = (e.ch ? "大技 " : "攻撃 ") + hitP(am * (e.ch ? mv[1] : 1)); e.ch = 0; }
-    else if (k === "d") { const v = hitP(am * mv[1]); e.hp = Math.min(e.mhp, e.hp + v); o.e = "吸収 " + v; }
-    else if (k === "h") { if (stop) o.e = "回復できない"; else { e.hp = Math.min(e.mhp, e.hp + Math.round(e.mhp * mv[1])); o.e = "回復"; } }
-    else if (k === "s") { if (stop) o.e = "盾を張れない"; else { e.sh += Math.round(e.mhp * mv[1]); o.e = "盾を張った"; } }
-    else if (k === "u") { if (stop) o.e = "強化できない"; else { e.buff += mv[1]; o.e = "攻撃が上がった"; } }
-    else if (k === "p") { if (T.wall >= 1) o.e = "毒を防いだ"; else { S.psn = { n: mv[1], v: Math.max(1, Math.round(e.atk * .35)) }; o.e = "毒を受けた"; } }
-    else if (k === "x") { const tg = act === "atk" ? "heal" : act; S.seal[tg] = mv[1] + 1; o.e = GM_SK[tg].n + "を封じられた"; }
-    else if (k === "w") { S.weak = mv[1] + 1; o.e = "弱体を受けた"; }
-    else if (k === "r") o.e = "反射の構え"; else o.e = "様子見";
-    // ターンの終わり:毒・再生・増長
-    if (S.psn) { G.hp -= S.psn.v; if (--S.psn.n <= 0) S.psn = null; }
-    if (e.psn) { e.hp -= e.psn.v; if (--e.psn.n <= 0) e.psn = null; }
-    if (e.hp > 0 && !stop) { const rg = tr.curve ? Math.min(.035, .005 * (1 + e.t)) : (tr.regen || 0); if (rg) e.hp = Math.min(e.mhp, e.hp + Math.round(e.mhp * rg)); }
-    if (tr.grow) e.buff += tr.grow; if (e.t + 1 >= e.lim) e.buff += e.up;   // 長引くと、敵がしびれを切らして攻撃が上がっていく(決着がつかない戦いをなくす)
-    if (S.weak > 0) S.weak--; Object.keys(S.seal).forEach(id => { if (--S.seal[id] <= 0) delete S.seal[id]; }); if (e.seal > 0) e.seal--;
-  }
   Object.keys(G.cd).forEach(id => { if (--G.cd[id] <= 0) delete G.cd[id]; }); if (!o.fail && gmCd(G, act) > 0) G.cd[act] = gmCd(G, act);
-  o.dE = Math.max(0, ehp0 - eAfter); o.dP = Math.max(0, hp0 - G.hp); o.hP = Math.max(0, G.hp - hp0);
-  G.last = act; e.t++; e.pi = (e.pi + 1) % def.p.length; G.turn++;
-  if (e.hp <= 0) { o.kill = true; o.foe = e.n; o.boss = e.boss; G.kills++; G.day.k++; G.fl++; G.pend++; if (G.fl > G.best) { G.best = G.fl; G.mhp += 5; G.atk += 1; o.up = true; } gmSpawn(G); }
-  else if (G.hp <= 0) { o.death = true; G.deaths++; G.day.x++; gmSpawn(G); }
-  G.sel = gmUse(G, G.sel); return o; }
+  o.dE = Math.max(0, ehp0 - Math.max(0, e.hp) - e.sh); o.dP = Math.max(0, hp0 - G.hp); o.hP = Math.max(0, G.hp - hp0);
+  G.last = act; G.turn++; return gmEnd(G, o); }
+/* 敵の1回(時計が尽きたとき)。そのあと、毒・再生・増長などが進み、次の時計が始まる */
+function gmFoeAct(G){ const o = { who: "e", e: "", dE: 0, dP: 0, hP: 0, kill: false, death: false, foe: "" }, e = G.e, S = G.st, def = gmDef(G), tr = def.tr || {}, mv = def.p[e.pi % def.p.length], k = mv[0], hp0 = G.hp, ehp0 = e.hp + e.sh;
+  const cancel = S.read, am = e.atk * gmFoeMul(G) * (1 - cancel), stop = e.seal > 0;
+  const hitP = raw => { let v = Math.max(0, Math.round(raw)); if (S.wall) { const b = Math.round(v * S.wall); v -= b; e.hp -= Math.round(b * .5); } v = Math.round(v * (1 - S.guard)); G.hp -= v; return v; };
+  e.ref = 0;
+  if (cancel >= 1) { o.e = "見切った"; if (k === "c" || k === "b") e.ch = 0; }
+  else if (k === "a") o.e = "攻撃 " + hitP(am * mv[1]);
+  else if (k === "m") { let s = 0; for (let i = 0; i < mv[2]; i++) s += hitP(am * mv[1]); o.e = "連続 " + s; }
+  else if (k === "c") { e.ch = 1; o.e = "溜めている"; }
+  else if (k === "b") { o.e = (e.ch ? "大技 " : "攻撃 ") + hitP(am * (e.ch ? mv[1] : 1)); e.ch = 0; }
+  else if (k === "d") { const v = hitP(am * mv[1]); e.hp = Math.min(e.mhp, e.hp + v); o.e = "吸収 " + v; }
+  else if (k === "h") { if (stop) o.e = "回復できない"; else { e.hp = Math.min(e.mhp, e.hp + Math.round(e.mhp * mv[1])); o.e = "回復"; } }
+  else if (k === "s") { if (stop) o.e = "盾を張れない"; else { e.sh += Math.round(e.mhp * mv[1]); o.e = "盾を張った"; } }
+  else if (k === "u") { if (stop) o.e = "強化できない"; else { e.buff += mv[1]; o.e = "攻撃が上がった"; } }
+  else if (k === "p") { if (S.wall >= 1) o.e = "毒を防いだ"; else { S.psn = { n: mv[1], v: Math.max(1, Math.round(e.atk * .35)) }; o.e = "毒を受けた"; } }
+  else if (k === "x") { const tg = G.last && G.last !== "atk" && GM_SK[G.last] ? G.last : "heal"; S.seal[tg] = mv[1]; o.e = GM_SK[tg].n + "を封じられた"; }
+  else if (k === "w") { S.weak = mv[1]; o.e = "弱体を受けた"; }
+  else if (k === "r") { e.ref = 1; o.e = "反射の構え"; } else o.e = "様子見";
+  if (cancel > 0 && cancel < 1) o.e += "(見切りで半分)";
+  S.guard = 0; S.wall = 0; S.read = 0;   // 防御・鉄壁・見切りは、敵の1回で使い切る
+  if (S.psn) { G.hp -= S.psn.v; if (--S.psn.n <= 0) S.psn = null; }
+  if (e.psn) { e.hp -= e.psn.v; if (--e.psn.n <= 0) e.psn = null; }
+  if (e.hp > 0 && !stop) { const rg = tr.curve ? Math.min(.035, .005 * (1 + e.t)) : (tr.regen || 0); if (rg) e.hp = Math.min(e.mhp, e.hp + Math.round(e.mhp * rg)); }
+  if (tr.grow) e.buff += tr.grow; if (e.t + 1 >= e.lim) e.buff += e.up;   // 長引くと、敵がしびれを切らして攻撃が上がっていく
+  if (S.weak > 0) S.weak--; Object.keys(S.seal).forEach(id => { if (--S.seal[id] <= 0) delete S.seal[id]; }); if (e.seal > 0) e.seal--;
+  e.t++; e.pi = (e.pi + 1) % def.p.length; G.ea++;
+  o.dE = Math.max(0, ehp0 - Math.max(0, e.hp) - e.sh); o.dP = Math.max(0, hp0 - G.hp); o.hP = Math.max(0, G.hp - hp0); o.e0 = { hp: Math.max(0, ehp0 - e.sh), mhp: e.mhp };
+  const fl = G.fl; gmEnd(G, o); if (!o.kill && !o.death && G.fl === fl) { e.iv = e.left = gmIv(G); } return o; }
+/* 時計を進める。ms 経つまでに尽きた分だけ、敵が動く(動いた結果の一覧を返す) */
+function gmClock(G, ms){ const out = []; let guard = 0; G.e.left -= ms; while (G.e.left <= 0 && guard++ < 20) { const over = -G.e.left, o = gmFoeAct(G); out.push(o); G.e.left -= over; if (o.kill || o.death) { G.e.left = Math.max(G.e.left, 1); break; } } return out; }
 /* 報酬:3つから1つ。持っていない技があるうちは 技2+強化1(最初だけ 技3) */
 function gmOpts(G){ if (G.opt) return G.opt; if (!(G.pend > 0)) return null; const r = gmRng(G.rs * 7919 + 13), sh = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const sk = sh(Object.keys(GM_SK).filter(id => !GM_BASE.includes(id) && !G.own.includes(id))), ps = sh(GM_PAS.filter(p => !(p.max && (G.pas[p.id] || 0) >= p.max) && !(p.min && G.best < p.min)));
   const nS = !G.own.length ? 3 : Math.min(2, sk.length); G.opt = sk.slice(0, nS).map(id => "s:" + id).concat(ps.slice(0, 3 - nS).map(p => "p:" + p.id)); return G.opt; }
-const gmOptInfo = o => { const [t, id] = o.split(":"); if (t === "s") return { t, id, n: "技「" + GM_SK[id].n + "」", d: GM_SK[id].d + (GM_SK[id].cd ? "(使うと " + GM_SK[id].cd + "ターン待ち)" : "") }; const p = GM_PAS.find(x => x.id === id); return { t, id, n: p.n, d: p.d }; };
+const gmOptInfo = o => { const [t, id] = o.split(":"); if (t === "s") return { t, id, n: "技「" + GM_SK[id].n + "」", d: GM_SK[id].d + (GM_SK[id].cd ? "(使うと " + GM_SK[id].cd + "回待ち)" : "") }; const p = GM_PAS.find(x => x.id === id); return { t, id, n: p.n, d: p.d }; };
 function gmPick(G, i){ const op = gmOpts(G); if (!op || !op[i]) return false; const [t, id] = op[i].split(":");
-  if (t === "s") { G.own.push(id); if (G.eq.length < gmSlots(G)) G.eq.push(id); } else { G.pas[id] = (G.pas[id] || 0) + 1; if (id === "hp") { G.mhp += 15; G.hp += 15; } if (id === "atk") G.atk += 2; if (id === "slot") { const x = G.own.find(s => !G.eq.includes(s)); if (x) G.eq.push(x); } }
+  if (t === "s") { G.own.push(id); if (G.eq.length < gmSlots(G)) G.eq.push(id); } else { if (id !== "rest") G.pas[id] = (G.pas[id] || 0) + 1; if (id === "hp") { G.mhp += 15; G.hp += 15; } if (id === "atk") G.atk += 2; if (id === "rest") G.hp = Math.min(G.mhp, G.hp + Math.round(G.mhp * .4)); if (id === "slot") { const x = G.own.find(s => !G.eq.includes(s)); if (x) G.eq.push(x); } }
   G.pend--; G.opt = null; G.rs++; return true; }
 /* 技の持ち込みを入れ替える。戦いの途中で入れた技は、待ちから始まる */
 function gmEquip(G, id){ if (!G.own.includes(id)) return "持っていない"; const i = G.eq.indexOf(id); if (i >= 0) { G.eq.splice(i, 1); G.sel = gmUse(G, G.sel); return ""; } if (G.eq.length >= gmSlots(G)) return "持ち込めるのは " + gmSlots(G) + "つまで。先に1つ外す"; G.eq.push(id); if (G.turn > 0 && gmCd(G, id) > 0) G.cd[id] = gmCd(G, id); return ""; }
 /* ── ゲーム(画面・保存)。設定で「ゲームなし」にしていれば、ここは何もしない(ふつうの Anki2)
    どのゲームにするか = cfg「gmset」、塔の進み具合 = cfg「gm_tower」。どちらも今の同期にそのまま乗る(新しい方が残る) */
-const GM_LIST = [["", "ゲームなし", "ふつうの Anki2"], ["tower", "忘却の塔", "1枚の判定が1ターン。行動を選び、敵を倒して階を上る。倒すほど敵は強くなる"]];
-const GMS = { fx: null, log: null };
+const GM_LIST = [["", "ゲームなし", "ふつうの Anki2"], ["tower", "忘却の塔", "復習の判定1回ごとに、こちらが1回動く。敵は時計で勝手に動く。速く復習するほど有利。倒すほど敵は強くなる"]];
+const GMS = { fx: null, log: null, run: false, t: 0, pace: null };
 const gmOn = () => { const v = ((A2.S.cfg.get("gmset") || {}).v || {}).on || ""; return v === "tower" ? v : ""; };
+const gmPaceOn = () => ((A2.S.cfg.get("gmset") || {}).v || {}).pace !== false;
 const gmSave = G => { A2.save("cfg", [{ id: "gm_tower", v: G }]).catch(e => logErr("保存:" + (e && e.message || e))); };
-function gmG(){ const x = A2.S.cfg.get("gm_tower"); let G = x && x.v; if (!G || G.v !== 1 || !G.e || !G.st) { G = gmNew(); gmSave(G); }
+function gmG(){ const x = A2.S.cfg.get("gm_tower"); let G = x && x.v; if (G && G.v === 1) { G = gmMig(G); gmSave(G); } if (!G || G.v !== 2 || !G.e || !G.st) { G = gmNew(); gmSave(G); }
   const d = A2.today(); if (!G.day || G.day.d !== d) G.day = { d, k: 0, x: 0 }; return G; }
 /* このカードの倍率:一度まちがえて取り戻すカードは2倍。復習のカードは、思い出せる見込みが低いほど大きい */
 function gmCard(c){ const G = gmG(); if (!c) return { m: 1, crit: false, t: "" };
@@ -1423,8 +1445,30 @@ function gmCard(c){ const G = gmG(); if (!c) return { m: 1, crit: false, t: "" }
 function gmPre(c){ if (!gmOn() || !c) return null; const G = gmG(), k = gmCard(c); return { snap: JSON.stringify(G), act: gmUse(G, G.sel), m: k.m, crit: k.crit, fresh: c.st === "新規" }; }
 function gmPlay(p, g){ if (!p) return null; const G = gmG(), e0 = { hp: G.e.hp, mhp: G.e.mhp }, hp0 = G.hp, mhp0 = G.mhp;
   const o = gmTurn(G, p.act, { g, m: p.m, crit: p.crit, skip: p.fresh && g < 2 }); o.e0 = e0; o.hp0 = hp0; o.mhp0 = mhp0; o.g = g; if (!o.skip) gmSave(G);
-  GMS.fx = o; GMS.log = { t: o.skip ? o.p : o.p + (o.kill ? " → 倒した" + (o.up ? "(最大HP+5・攻撃+1)" : "") : " / 敵:" + o.e + (o.death ? " → 敗れた" : "")), cls: o.kill ? "ok" : o.death || o.fail ? "bad" : o.crit ? "crit" : "" }; return o; }
-function gmUndo(h, r){ if (!h.gm) return; A2.save("cfg", [{ id: "gm_tower", v: JSON.parse(h.gm) }]).catch(() => {}); GMS.fx = null; GMS.log = null; r.gmLock = h.cur; gmFlash("", ""); }
+  GMS.fx = o; GMS.log = { t: o.skip ? o.p : o.p + (o.kill ? " → 倒した" + (o.up ? "(最大HP+5・攻撃+1)" : "") : o.death ? " → 敗れた" : ""), cls: o.kill ? "ok" : o.death || o.fail ? "bad" : o.crit ? "crit" : "" }; return o; }
+function gmUndo(h, r){ if (!h.gm) return; const cur = gmG(), G = JSON.parse(h.gm), n = Math.max(0, (cur.ea || 0) - (G.ea || 0));
+  for (let i = 0; i < n; i++) { const o = gmFoeAct(G); if (o.kill || o.death) break; } if (G.fl === cur.fl && G.e.n === cur.e.n) { G.e.left = cur.e.left; G.e.iv = cur.e.iv; } G.tc = Math.max(G.tc, cur.tc); G.day = cur.day.d === G.day.d ? G.day : cur.day;
+  A2.save("cfg", [{ id: "gm_tower", v: G }]).catch(() => {}); GMS.fx = null; GMS.log = n ? { t: "自分の行動を取り消した(敵が動いた " + n + "回はそのまま)", cls: "" } : null; r.gmLock = h.cur; gmFlash("", ""); }
+/* 敵の時計の速さ:そのデッキの「いつもの1枚の秒数」を8秒とみなす(いつもより速く答えるほど有利。重いデッキだけが不利にならない) */
+function gmPace(c){ if (!c || !gmPaceOn()) return 1; if (!GMS.pace) { const lim = Date.now() - 30 * 864e5, by = {}; for (const x of A2.S.revlog.values()) { if (!(x.t >= lim) || x.kind !== 1 || !(x.ms > 0)) continue; const cc = A2.S.cards.get(x.cid); if (!cc) continue; (by[cc.deck] = by[cc.deck] || []).push(Math.min(60000, x.ms)); }
+    GMS.pace = {}; Object.keys(by).forEach(d => { const a = by[d].sort((p, q) => p - q); if (a.length >= 20) GMS.pace[d] = a[Math.floor(a.length / 2)]; }); }
+  const u = GMS.pace[c.deck]; return u ? Math.max(.4, Math.min(2.5, 8000 / Math.max(2000, u))) : 1; }
+const gmPaceSec = c => { const u = GMS.pace && c && GMS.pace[c.deck]; return u ? Math.round(u / 100) / 10 : null; };
+/* 時計:復習の画面で、ふつうのカードが出ているあいだだけ進む(はじめてのカード・段階のカード・編集や設定を開いているあいだ・画面を離れているあいだは止まる) */
+function gmRunning(){ const r = V.rv, c = rvCur(); return !!(gmOn() && r && c && !r.wait && !V.sheet && document.visibilityState === "visible" && c.st !== "新規" && !A2.stageOf(c)); }
+function gmTick(){ const now = performance.now(), run = gmRunning(), dt = GMS.run && run ? Math.min(1000, now - GMS.t) : 0; GMS.t = now;
+  if (!run) { if (GMS.run) { GMS.run = false; if (gmOn()) gmSave(gmG()); gmTimerDom(); } return; } GMS.run = true;
+  const G = gmG(), c = rvCur(), e0 = { hp: G.e.hp + 0, mhp: G.e.mhp }, hp0 = G.hp, mhp0 = G.mhp, evs = gmClock(G, dt * gmPace(c));
+  if (!evs.length) { gmTimerDom(); return; }
+  gmSave(G); const last = evs[evs.length - 1], fx = { who: "e", dP: evs.reduce((a, o) => a + o.dP, 0), hP: 0, dE: evs.reduce((a, o) => a + o.dE, 0), e0, hp0, mhp0, kill: evs.some(o => o.kill), death: evs.some(o => o.death), boss: last.boss, foe: last.foe };
+  GMS.fx = fx.kill || fx.death ? null : fx; GMS.log = { t: "敵:" + evs.map(o => o.e).join("・") + (fx.death ? " → 敗れた" : fx.kill ? " → 毒で倒した" : ""), cls: fx.death || fx.dP ? "bad" : fx.kill ? "ok" : "" };
+  if (A2.S.meta.se !== false) { if (fx.death) [392, 330, 262, 196].forEach((f, i) => tone(f, i * .12, .22, "sawtooth", .08)); else if (fx.kill) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * .09, .14, "triangle", .16)); else if (fx.dP) { tone(98, 0, .18, "sawtooth", .13); tone(73, .06, .2, "square", .06); } else tone(220, 0, .1, "triangle", .1); }
+  render(); gmShow(fx.kill || fx.death ? fx : null); try { if (!fx.kill && !fx.death && fx.dP && navigator.vibrate) navigator.vibrate(25); } catch (e) {} }
+/* 時計の表示だけを描き直す(毎回すべてを描き直さない) */
+function gmTimerDom(){ const el = document.querySelector(".gmp .gmtm"); if (!el || !gmOn()) return; const G = gmG(), run = gmRunning(), sec = Math.max(0, G.e.left / 1000 / (run ? gmPace(rvCur()) : 1));
+  const bar = el.querySelector("i"), tx = el.querySelector("em"); if (bar) bar.style.width = Math.max(0, Math.min(100, G.e.left / Math.max(1, G.e.iv) * 100)) + "%"; if (tx) tx.textContent = run ? sec.toFixed(1) + "秒" : "止まっている"; el.classList.toggle("stop", !run); el.classList.toggle("near", run && sec < 3); }
+setInterval(() => { try { gmTick(); } catch (e) { logErr("ゲーム:" + (e && e.message || e)); } }, 200);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && GMS.run) { GMS.run = false; if (gmOn()) gmSave(gmG()); gmTimerDom(); } });
 /* 音と知らせ(次のカードを出したあとで呼ぶ。待たせない) */
 function gmFlash(text, cls){ let fl = $("rwflash"); clearTimeout(RWS.ft); if (!fl) { fl = document.createElement("div"); fl.id = "rwflash"; document.body.appendChild(fl); }
   const st = document.querySelector(".rvstick"); if (!st || !text) { fl.className = ""; return; } const sg = $("rv-stage"), under = sg && sg.innerHTML.trim() ? sg : st, rc = under.getBoundingClientRect();
@@ -1440,15 +1484,16 @@ function gmSound(o){ if (A2.S.meta.se === false) return;
   else if (o.dP > 0) tone(110, .3, .16, "sawtooth", .1); }
 function gmShow(o){ if (!o) return; const G = gmG();
   if (o.kill) gmFlash((o.boss ? "主「" : "「") + o.foe + "」を倒した → " + G.fl + "階へ", "mile");
-  else if (o.death) gmFlash("敗れた…「" + G.e.n + "」にもう一度", "foe"); else gmFlash("", "");
+  else if (o.death) gmFlash("敗れた…「" + G.e.n + "」にもう一度(HP満タンから)", "foe"); else gmFlash("", "");
   try { if (navigator.vibrate) navigator.vibrate(o.death ? [40, 40, 90] : o.kill ? [15, 30, 20] : o.dP > 0 ? 12 : 0); } catch (e) {} }
 /* 上の帯:敵(名前・次の行動・HP)と自分のHP、直前に起きたこと。触ると、くわしい様子が開く */
-function gmPanel(){ const G = gmG(), e = G.e, it = gmIntent(G), fx = GMS.fx, an = !!(fx && !fx.skip && !fx.kill && !fx.death), S = G.st, tr = gmDef(G).tr || {}, k = gmCard(rvCur()); GMS.fx = null;
-  const pc = (a, b) => Math.max(0, Math.min(100, a / b * 100)), c = (cls, t) => `<i class="c ${cls}">${t}</i>`, lg = GMS.log || { t: "行動を選んでから答えを見る(ここを触ると、くわしい様子)", cls: "" };
-  const ec = [e.sh > 0 ? c("sh", "盾" + e.sh) : "", e.psn ? c("ps", "毒" + e.psn.n) : "", e.seal > 0 ? c("sh", "封" + e.seal) : "", e.buff > .001 ? c("up", "攻+" + Math.round(e.buff * 100) + "%") : "", tr.rage && e.hp <= e.mhp / 2 ? c("up", "逆上") : "", e.ch ? c("up", "溜") : "", e.t >= e.lim ? c("up", "激化") : e.lim - e.t <= 4 ? c("up", "あと" + (e.lim - e.t) + "で激化") : ""].join("");
-  const pcs = [S.psn ? c("ps", "毒" + S.psn.n) : "", S.weak > 0 ? c("up", "弱体" + S.weak) : "", S.focus > 0 ? c("gd", "集中" + S.focus) : "", S.stance ? c("gd", "構え") : "", G.pas.haisui && G.hp <= G.mhp * .3 ? c("gd", "背水") : ""].join("");
-  return `<button class="gmp${fx && fx.death ? " dead" : fx && fx.kill ? " newfoe" : ""}" data-gmopen aria-label="忘却の塔の様子を開く">
+function gmPanel(){ const G = gmG(), e = G.e, it = gmIntent(G), fx = GMS.fx, an = !!(fx && !fx.skip && !fx.kill && !fx.death && fx.e0), S = G.st, tr = gmDef(G).tr || {}, k = gmCard(rvCur()); GMS.fx = null;
+  const pc = (a, b) => Math.max(0, Math.min(100, a / b * 100)), c = (cls, t) => `<i class="c ${cls}">${t}</i>`, lg = GMS.log || { t: "急げ。敵は時計で動く(ここを触ると、くわしい様子)", cls: "" };
+  const ec = [e.ref ? c("up", "反射中") : "", e.sh > 0 ? c("sh", "盾" + e.sh) : "", e.psn ? c("ps", "毒" + e.psn.n) : "", e.seal > 0 ? c("sh", "封" + e.seal) : "", e.buff > .001 ? c("up", "攻+" + Math.round(e.buff * 100) + "%") : "", tr.rage && e.hp <= e.mhp / 2 ? c("up", "逆上") : "", e.ch ? c("up", "溜") : "", e.t >= e.lim ? c("up", "激化") : e.lim - e.t <= 4 ? c("up", "あと" + (e.lim - e.t) + "回で激化") : ""].join("");
+  const pcs = [S.read ? c("gd", "見切り") : "", S.wall ? c("gd", "鉄壁") : "", S.guard ? c("gd", "防御") : "", S.psn ? c("ps", "毒" + S.psn.n) : "", S.weak > 0 ? c("up", "弱体" + S.weak) : "", S.focus > 0 ? c("gd", "集中" + S.focus) : "", S.stance ? c("gd", "構え") : "", G.pas.haisui && G.hp <= G.mhp * .3 ? c("gd", "背水") : ""].join("");
+  return `<button class="gmp${fx && fx.death ? " dead" : fx && fx.kill ? " newfoe" : fx && fx.who === "e" && fx.dP ? " hit" : ""}" data-gmopen aria-label="忘却の塔の様子を開く">
     <span class="gmr"><b class="gfl">${G.fl}階</b><b class="nm">${esc(e.n)}</b>${e.boss ? '<i class="boss">主</i>' : ""}<span class="cs">${ec}</span><span class="sp"></span><small>次</small><b class="it ${it.cls}">${it.label}</b></span>
+    <span class="gmtm${gmRunning() ? "" : " stop"}"><i style="width:${Math.max(0, Math.min(100, e.left / Math.max(1, e.iv) * 100))}%"></i><em>${gmRunning() ? (e.left / 1000 / gmPace(rvCur())).toFixed(1) + "秒" : "止まっている"}</em></span>
     <span class="gmbar e"><i${an ? ` class="an" style="width:${pc(e.hp, e.mhp)}%;--f:${pc(fx.e0.hp, fx.e0.mhp)}%"` : ` style="width:${pc(e.hp, e.mhp)}%"`}></i><em>${e.hp} / ${e.mhp}</em>${an && fx.dE ? `<span class="pop">−${fx.dE}</span>` : ""}</span>
     <span class="gmbar p"><i${an ? ` class="an" style="width:${pc(G.hp, G.mhp)}%;--f:${pc(fx.hp0, fx.mhp0)}%"` : ` style="width:${pc(G.hp, G.mhp)}%"`}></i><em>自分 ${G.hp} / ${G.mhp}</em>${an && fx.dP ? `<span class="pop">−${fx.dP}</span>` : an && fx.hP ? `<span class="pop h">+${fx.hP}</span>` : ""}</span>
     <span class="gmlog ${lg.cls}">${pcs ? `<span class="cs">${pcs}</span>` : ""}<span class="t">${esc(lg.t)}</span>${k.t ? `<i class="mul${k.crit || k.m >= 1.3 ? " hot" : ""}">この1枚 ${k.t}</i>` : ""}${G.pend > 0 ? `<i class="gft">報酬 ${G.pend}</i>` : ""}</span></button>`; }
@@ -1469,13 +1514,13 @@ function gmSheet(){ const G = gmG(), e = G.e, def = gmDef(G), tr = def.tr || {},
   const pas = GM_PAS.filter(p => G.pas[p.id]).map(p => p.n + (G.pas[p.id] > 1 ? " ×" + G.pas[p.id] : "")).join("・");
   return `<h3>忘却の塔</h3><p class="note" style="margin:-.3rem 0 0">今 ${G.fl}階(最高 ${G.best}階)・倒した ${G.kills}・敗れた ${G.deaths}</p>
     ${op ? `<h2>報酬を選ぶ<small>3つから1つ(残り ${G.pend})</small></h2><div class="gml">${op.map((o, i) => { const f = gmOptInfo(o); return `<button data-gmpick="${i}"><b>${f.n}</b><small>${f.d}</small></button>`; }).join("")}</div>` : ""}
-    <h2>今の敵<small>${G.fl}階${e.boss ? "の主" : ""}</small></h2><div class="gmbox"><b>${esc(e.n)}</b> HP ${e.hp} / ${e.mhp}・攻撃 ${Math.round(e.atk * gmFoeMul(G))}・${e.t + 1}ターン目<div class="note">${e.lim}ターンを過ぎると、しびれを切らして毎ターン攻撃が +${Math.round(e.up * 100)}% ずつ上がる</div>${trs ? `<ul class="gmtr">${trs}</ul>` : ""}
+    <h2>今の敵<small>${G.fl}階${e.boss ? "の主" : ""}</small></h2><div class="gmbox"><b>${esc(e.n)}</b> HP ${e.hp} / ${e.mhp}・攻撃 ${Math.round(e.atk * gmFoeMul(G))}・動いた回数 ${e.t}<div class="note">時計の長さ:${(gmFoe(G.fl).sec * .35).toFixed(0)}〜${(gmFoe(G.fl).sec * 1.65).toFixed(0)}秒(毎回ばらばら)${gmPaceOn() && gmPaceSec(rvCur()) ? `。このデッキのいつもの1枚は ${gmPaceSec(rvCur())}秒なので、時計は ×${gmPace(rvCur()).toFixed(2)} の速さで進む` : ""}</div><div class="note">${e.lim}回動いたあとは、しびれを切らして動くたびに攻撃が +${Math.round(e.up * 100)}% ずつ上がる</div>${trs ? `<ul class="gmtr">${trs}</ul>` : ""}
       <div class="note" style="margin-top:.4rem">行動の順番(この順でくり返す)</div><ol class="gmpat">${def.p.map((m, i) => { const it = gmIntent(G, i, 1); return `<li class="${i === e.pi % def.p.length ? "now" : ""}"><b>${it.label}</b> ${it.d}</li>`; }).join("")}</ol></div>
     <h2>自分</h2><div class="gmbox">HP ${G.hp} / ${G.mhp}・攻撃 ${G.atk}${pas ? `<div class="note">強化:${pas}</div>` : ""}</div>
-    <h2>技<small>持ち込めるのは ${sl}つ(今 ${G.eq.length})。戦いの途中で入れた技は、待ちから始まる</small></h2><div class="gml">${GM_BASE.map(id => `<button disabled><b>${GM_SK[id].n}<i>いつでも</i></b><small>${GM_SK[id].d}${gmCd(G, id) ? "(使うと " + gmCd(G, id) + "ターン待ち)" : ""}</small></button>`).join("")}${G.own.map(id => `<button class="${G.eq.includes(id) ? "on" : ""}" data-gmeq="${id}"><b>${GM_SK[id].n}<i>${G.eq.includes(id) ? "持ち込み中" : "控え"}</i></b><small>${GM_SK[id].d}(使うと ${gmCd(G, id)}ターン待ち)</small></button>`).join("")}</div>${G.own.length ? "" : '<p class="note">技はまだない。敵を倒すと、報酬で手に入る</p>'}
-    <details class="gmrule"><summary>決まり</summary><ul><li>1枚の判定が1ターン。行動は、答えを見る前に選ぶ(見たあとは変えられない)。選ばなければ、前と同じ行動</li><li>正解・簡単 = 成功。難しい = 効果は半分。もう一度 = 失敗(その技の待ちは始まらない)</li><li>一度まちがえたカードが、あとでまた出てきたときに正解すると「取り戻し」で2倍</li><li>復習のカードは、思い出せる見込みが低いほど効果が大きい(見込み90%で ×1.15、60%で ×1.6)</li><li>はじめて出るカードで届かなかったときは、ターンが進まない</li><li>こちらが先に動き、そのあと敵が動く。敵の次の行動は、いつも見えている</li><li>倒すと次の階へ。報酬を3つから1つ選べる。はじめて着いた階ごとに、最大HP +5・攻撃 +1</li><li>HPが0になったら、同じ敵と最初からやり直し。戦いは毎回、HP満タンから</li><li>20階でひとめぐり。21階からは、同じ敵がずっと強くなって出てくる</li><li>キーボード:A 攻撃・S 防御・D 回復・F G H(J)で技</li></ul></details>
+    <h2>技<small>持ち込めるのは ${sl}つ(今 ${G.eq.length})。戦いの途中で入れた技は、待ちから始まる。待ちは、自分が動いた回数で減る</small></h2><div class="gml">${GM_BASE.map(id => `<button disabled><b>${GM_SK[id].n}<i>いつでも</i></b><small>${GM_SK[id].d}${gmCd(G, id) ? "(使うと " + gmCd(G, id) + "回待ち)" : ""}</small></button>`).join("")}${G.own.map(id => `<button class="${G.eq.includes(id) ? "on" : ""}" data-gmeq="${id}"><b>${GM_SK[id].n}<i>${G.eq.includes(id) ? "持ち込み中" : "控え"}</i></b><small>${GM_SK[id].d}(使うと ${gmCd(G, id)}回待ち)</small></button>`).join("")}</div>${G.own.length ? "" : '<p class="note">技はまだない。敵を倒すと、報酬で手に入る</p>'}
+    <details class="gmrule"><summary>決まり</summary><ul><li>自分:復習の判定1回ごとに1回動ける。行動は、答えを見る前に選ぶ(見たあとは変えられない)。選ばなければ、前と同じ行動</li><li>敵:時計が尽きるたびに、こちらに関係なく1回動く。時計の長さは毎回ばらばら。だから速く答えるほど、敵より多く動ける</li><li>時計が止まるのは、はじめてのカード・段階のカード(演習)・編集や設定を開いているとき・アプリを離れているとき</li><li>${gmPaceOn() ? "時計の速さは、デッキごとの「いつもの1枚の秒数」に合わせる(いつもより速く答えるほど有利。設定で切れる)" : "時計の速さは、どのデッキでも同じ"}</li><li>正解・簡単 = 成功。難しい = 効果は半分。もう一度 = 失敗(その技の待ちは始まらない)</li><li>一度まちがえたカードが、あとでまた出てきたときに正解すると「取り戻し」で2倍</li><li>復習のカードは、思い出せる見込みが低いほど効果が大きい(見込み90%で ×1.15、60%で ×1.6)</li><li>防御・鉄壁・見切りは、敵の次の1回に効く(先に張っておく)</li><li>倒すと次の階へ。HPは回復しないで持ち越す。報酬を3つから1つ選べる(「手当て」で回復もできる)。はじめて着いた階ごとに、最大HP +5・攻撃 +1</li><li>HPが0になったら、同じ敵と最初からやり直し(そのときだけHP満タン)</li><li>元に戻すと、自分の行動は取り消せる。そのあいだに敵が動いた分は、取り消せない</li><li>20階でひとめぐり。21階からは、同じ敵がずっと強くなって出てくる</li><li>キーボード:A 攻撃・S 防御・D 回復・F G H(J)で技</li></ul></details>
     <div style="margin-top:.9rem;text-align:right"><button class="linkx" data-gmreset>最初からやり直す</button></div>`; }
-function gmPrefs(){ const on = gmOn(); return `<h2>ゲーム<small>復習をゲームにする。「ゲームなし」が、ふつうの Anki2</small></h2>${GM_LIST.map(([k, t, d]) => `<label class="chk" style="border:0"><input type="radio" name="gmset" data-gmset value="${k}"${on === k ? " checked" : ""}> <span><b>${t}</b><br><small style="color:var(--sub)">${d}</small></span></label>`).join("")}${on ? '<button class="btn ghost" data-gmopen style="margin:.3rem 0">塔の様子を見る(敵・技・報酬・決まり)</button><p class="note" style="margin:.2rem 0 0">ゲームのあいだは、ごほうびの行・音・知らせは出ない(見込みの札は出る)。やめれば元どおり</p>' : ""}`; }
+function gmPrefs(){ const on = gmOn(); return `<h2>ゲーム<small>復習をゲームにする。「ゲームなし」が、ふつうの Anki2</small></h2>${GM_LIST.map(([k, t, d]) => `<label class="chk" style="border:0"><input type="radio" name="gmset" data-gmset value="${k}"${on === k ? " checked" : ""}> <span><b>${t}</b><br><small style="color:var(--sub)">${d}</small></span></label>`).join("")}${on ? '<label class="chk" style="border:0"><input type="checkbox" data-gmpace${gmPaceOn() ? " checked" : ""}> 敵の時計の速さを、デッキの「いつもの1枚の秒数」に合わせる(重いデッキが不利にならない)</label><button class="btn ghost" data-gmopen style="margin:.3rem 0">塔の様子を見る(敵・技・報酬・決まり)</button><p class="note" style="margin:.2rem 0 0">ゲームのあいだは、ごほうびの行・音・知らせは出ない(見込みの札は出る)。やめれば元どおり</p>' : ""}`; }
 const RWS = { key: "", v: null, td: null, agg: null, anim: false, shown: 0, pop: false, glow: "", safe: null, safeKey: "", raf: 0, gt: 0, ft: 0 };
 const rwOpt = () => Object.assign({ sound: true, streak: true, life: true, vs: true, chip: true, flash: true, exam: "2027-02-25" }, (A2.S.cfg.get("rwset") || {}).v || {});
 const rwOn = () => { if (gmOn()) return false; const o = rwOpt(); return !!(o.sound || o.streak || o.life || o.vs || o.chip || o.flash); };
@@ -2947,6 +2992,7 @@ document.addEventListener("change", async e => { const t = e.target;
   if (t.id === "pf-vwhole") await A2.setMeta("voiceWhole", t.checked);
   if (t.dataset && t.dataset.vw) { const o = Object.assign({}, A2.S.meta.voiceWords || {}); o[t.dataset.vw] = t.value; await A2.setMeta("voiceWords", o); toast("声の言葉を保存した"); }
   if (t.dataset && t.dataset.gmset != null && t.checked) { await A2.save("cfg", [{ id: "gmset", v: { on: t.value } }]); if (t.value) gmG(); GMS.fx = null; GMS.log = null; se("add"); render(); }
+  if (t.dataset && t.dataset.gmpace != null) { const v = Object.assign({}, (A2.S.cfg.get("gmset") || {}).v || {}, { pace: t.checked }); await A2.save("cfg", [{ id: "gmset", v }]); render(); }
   if (t.dataset && t.dataset.rwopt) { const o = Object.assign({}, (A2.S.cfg.get("rwset") || {}).v || {}); o[t.dataset.rwopt] = t.type === "checkbox" ? t.checked : t.value; await A2.save("cfg", [{ id: "rwset", v: o }]); RWS.safe = null; }
   if (t.id === "pf-se") await A2.setMeta("se", t.checked); if (t.id === "pf-ap") await A2.setMeta("autoplay", t.checked);
   if (t.dataset && t.dataset.dupk && V.sheet && V.sheet.k === "nt") { const nt = A2.S.notetypes.get(V.sheet.id), set = new Set(A2.dupKeys(nt)); t.checked ? set.add(t.dataset.dupk) : set.delete(t.dataset.dupk); nt.dupKeys = nt.fields.filter(f => set.has(f)); if (!nt.dupKeys.length) nt.dupKeys = [nt.fields[0]]; await A2.save("notetypes", [nt]); render(); }
@@ -2986,7 +3032,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.89";
+window.APP_VER_EX = "r4.90";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -3221,7 +3267,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.89";
+window.APP_VER_SYNC = "r4.90";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
