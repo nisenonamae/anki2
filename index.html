@@ -1049,7 +1049,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.95";
+A2.VER = "r4.96";
 window.A2 = A2;
 
 </script>
@@ -1057,7 +1057,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.95"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.96"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1587,7 +1587,7 @@ function gmTick(){ const now = performance.now(), run = gmRunning(), dt = GMS.ru
   gmSave(G); const last = evs[evs.length - 1], fx = { who: "e", dP: evs.reduce((a, o) => a + o.dP, 0), hP: 0, dE: evs.reduce((a, o) => a + o.dE, 0), e0, hp0, mhp0, kill: evs.some(o => o.kill), death: evs.some(o => o.death), reach: (evs.find(o => o.death) || {}).reach, boss: last.boss, foe: last.foe };
   GMS.fx = fx.kill || fx.death ? null : fx; GMS.log = { t: "敵:" + evs.map(o => o.e).join("・") + (fx.death ? " → 敗れた。1階から" : fx.kill ? " → 毒で倒した" : ""), cls: fx.death || fx.dP ? "bad" : fx.kill ? "ok" : "" };
   if (A2.S.meta.se !== false) { if (fx.death) [392, 330, 262, 196].forEach((f, i) => tone(f, i * .12, .22, "sawtooth", .08)); else if (fx.kill) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * .09, .14, "triangle", .16)); else if (fx.dP) { tone(98, 0, .18, "sawtooth", .13); tone(73, .06, .2, "square", .06); } else tone(220, 0, .1, "triangle", .1); }
-  render(); gmShow(fx.kill || fx.death ? fx : null); try { if (!fx.kill && !fx.death && fx.dP && navigator.vibrate) navigator.vibrate(25); } catch (e) {} }
+  render(); gmShow(fx.kill || fx.death ? fx : null); try { if (!fx.kill && !fx.death && fx.dP && navigator.vibrate) navigator.vibrate(8); } catch (e) {} }
 /* 時計の残りは出さない。止まっている/動いているの切り替わりだけ、印を描き直す */
 function gmTimerDom(){ const row = document.querySelector(".gmp .gmr .cs"); if (!row || !gmOn()) return; const run = gmRunning(), has = !!row.querySelector(".c.stop"); if (run === !has) return; if (run) row.querySelector(".c.stop").remove(); else row.insertAdjacentHTML("afterbegin", '<i class="c stop">時計停止</i>'); }
 setInterval(() => { try { gmTick(); } catch (e) { logErr("ゲーム:" + (e && e.message || e)); } }, 200);
@@ -1609,7 +1609,7 @@ function gmSound(o){ if (A2.S.meta.se === false) return;
 function gmShow(o){ if (!o) return; const G = gmG();
   if (o.kill) gmFlash((o.boss ? "主「" : "「") + o.foe + "」を倒した" + (o.gold ? " +" + o.gold + "G" : "") + " → " + ((G.fl - 1) % 5 === 0 ? gmArea(G.fl) + "へ" : G.fl + "階へ"), "mile");
   else if (o.death) gmFlash("敗れた…(" + o.reach + "階)1階からやり直し", "foe"); else if (o.who === "r" && o.p) gmFlash(o.p, o.bad ? "foe" : o.ok ? "mile" : ""); else gmFlash("", "");
-  try { if (navigator.vibrate) navigator.vibrate(o.death ? [40, 40, 90] : o.kill ? [15, 30, 20] : o.dP > 0 ? 12 : 0); } catch (e) {} }
+  try { if (navigator.vibrate) navigator.vibrate(o.death || o.kill || o.dP > 0 ? 8 : 0); } catch (e) {} }
 /* 上の帯:敵(名前・次の行動・HP)と自分のHP、直前に起きたこと。触ると、くわしい様子が開く */
 function gmRoomPanel(G){ const R = G.room, fx = GMS.fx, an = !!(fx && fx.who === "r" && (fx.dP || fx.hP)), lg = GMS.log || { t: "選んでから答えを見る。正解で手に入る(ここを触ると、くわしい様子)", cls: "" }; GMS.fx = null;
   const pc = (a, b) => Math.max(0, Math.min(100, a / b * 100)), c = (cls, t) => `<i class="c ${cls}">${t}</i>`, S = G.st, ev = R.t === "event" ? GM_EV[R.ev] : null;
@@ -1732,7 +1732,7 @@ function rwFlash(text, cls){ let fl = $("rwflash"); clearTimeout(RWS.ft); clearT
   if (right) { const a = fl.getBoundingClientRect(); if ([...sg.querySelectorAll(".stglad > span")].some(e => { const b = e.getBoundingClientRect(); return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom; })) fl.style.top = (sg.getBoundingClientRect().bottom + 4) + "px"; }   // 長い知らせが段階の並びにかかるときは、段階の帯の下へ
   RWS.glow = cls; st.className = "rvstick g-" + cls; RWS.gt = setTimeout(() => { RWS.glow = ""; const s = document.querySelector(".rvstick"); if (s) s.className = "rvstick"; }, 700);
   RWS.ft = setTimeout(() => { fl.className = ""; }, 1650); }
-function rwShow(fx){ if (!fx) return; if (fx.vib) { try { navigator.vibrate && navigator.vibrate(fx.vib); } catch (e) {} } rwFlash(fx.text, fx.cls); }
+function rwShow(fx){ if (!fx) return; if (fx.vib) { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} } rwFlash(fx.text, fx.cls); }
 /* 判定のあと(ふつうのカード):記録を保存した直後に呼ぶ。音を鳴らし、出す知らせを1つだけ決める(強いものから) */
 function rwAfter(p, c, k){ const fx = { snd: false, text: "", cls: "", vib: 0 }; if (!rwOn()) return fx; const o = rwOpt(), w = rwCalc(), w0 = p.w, snd = rwSnd();
   if (k === 1) { if (snd) { tone(392, 0, .15, "sine", .16); fx.snd = true; } if (p.st === "復習") { fx.text = o.streak && w0.stk >= 5 ? "連続 " + w0.stk + " で区切り(今日の最高 " + w.top + ")" : "忘れかけを救出"; fx.cls = "brk"; } return fx; }
@@ -2184,7 +2184,7 @@ async function undo(toFront){ const r = V.rv, h = r && r.hist.pop(); if (!h) ret
 /* 巻き戻しは長押し(0.45秒)で動く:ふつうに触れただけでは動かない。指を離す・ずらすと取り消し */
 const RWD = { t: null, x: 0, y: 0 };
 document.addEventListener("pointerdown", e => { const b = e.target.closest && e.target.closest("[data-rvrwd]"); if (!b || b.disabled) return; e.preventDefault(); clearTimeout(RWD.t); RWD.x = e.clientX; RWD.y = e.clientY; b.classList.add("hold");
-  RWD.t = setTimeout(() => { RWD.t = null; document.querySelectorAll("[data-rvrwd].hold").forEach(z => z.classList.remove("hold")); try { navigator.vibrate && navigator.vibrate(18); } catch (er) {} rewind(); }, 450); });
+  RWD.t = setTimeout(() => { RWD.t = null; document.querySelectorAll("[data-rvrwd].hold").forEach(z => z.classList.remove("hold")); try { navigator.vibrate && navigator.vibrate(8); } catch (er) {} rewind(); }, 450); });
 const rwdCancel = () => { if (RWD.t) { clearTimeout(RWD.t); RWD.t = null; } document.querySelectorAll("[data-rvrwd].hold").forEach(z => z.classList.remove("hold")); };
 document.addEventListener("pointerup", rwdCancel); document.addEventListener("pointercancel", rwdCancel);
 document.addEventListener("pointermove", e => { if (RWD.t && Math.hypot(e.clientX - RWD.x, e.clientY - RWD.y) > 14) rwdCancel(); });
@@ -3173,7 +3173,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.95";
+window.APP_VER_EX = "r4.96";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -3408,7 +3408,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.95";
+window.APP_VER_SYNC = "r4.96";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
