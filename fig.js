@@ -382,8 +382,64 @@
     return s;
   };
 
+
+  /* 加法定理（台形）：{t:"addthm", show:"sin"|"cos"|"both", A:25, B:40}
+     OC=1 を角 α+β に。OB=cosβ（角 α）、BC=sinβ（OB に直角）。B・C から x 軸へ垂線 BA・CD → ABCD は台形。
+     B から横に BE。∠BCE=α。CD = AB + EC、OD = OA − BE */
+  D.addthm = function (p) {
+    var al = (p.A == null ? 25 : +p.A) * PI / 180, be = (p.B == null ? 40 : +p.B) * PI / 180, show = p.show || 'both';
+    var cb = Math.cos(be), sb = Math.sin(be);
+    var B = [cb * Math.cos(al), cb * Math.sin(al)], C = [Math.cos(al + be), Math.sin(al + be)], A = [B[0], 0], Dd = [C[0], 0], E = [C[0], B[1]];
+    var u = 250, pad = 30, left = 70, ox = pad + left, oy = pad + C[1] * u + 6;
+    var steps = show === 'both' ? 8 : 6, W = Math.max(ox + B[0] * u + 120, 420), H = oy + (show === 'sin' ? 30 : 58) + steps * 18;
+    function X(x) { return ox + x * u; } function Y(y) { return oy - y * u; }
+    var s = svgOf(W, H, '加法定理の台形');
+    L(s, ox - 14, oy, X(B[0]) + 40, oy, 'axis', 'fgA'); L(s, ox, oy + 12, ox, Y(C[1]) - 18, 'axis', 'fgA');
+    /* 台形 ABCD */
+    el('path', { d: 'M' + n1(X(A[0])) + ' ' + n1(Y(0)) + ' L' + n1(X(B[0])) + ' ' + n1(Y(B[1])) + ' L' + n1(X(C[0])) + ' ' + n1(Y(C[1])) + ' L' + n1(X(Dd[0])) + ' ' + n1(Y(0)) + ' Z', 'class': 'shape fill' }, s);
+    /* 三角形 OBC */
+    L(s, ox, oy, X(B[0]), Y(B[1]), 'main'); L(s, X(B[0]), Y(B[1]), X(C[0]), Y(C[1]), 'main'); L(s, ox, oy, X(C[0]), Y(C[1]), 'main');
+    L(s, X(B[0]), Y(B[1]), X(E[0]), Y(E[1]), 'guide');
+    function rmark(P, d1, d2) { var r = 8, px = X(P[0]), py = Y(P[1]); el('path', { d: 'M' + n1(px + d1[0] * r) + ' ' + n1(py - d1[1] * r) + ' l' + n1(d2[0] * r) + ' ' + n1(-d2[1] * r) + ' l' + n1(-d1[0] * r) + ' ' + n1(d1[1] * r), 'class': 'ang' }, s); }
+    rmark(A, [-1, 0], [0, 1]); rmark(Dd, [1, 0], [0, 1]); rmark(E, [1, 0], [0, 1]);
+    rmark(B, [-Math.cos(al), -Math.sin(al)], [-Math.sin(al), Math.cos(al)]);
+    /* 強調：sin は縦（AB と EC）、cos は横（OA と BE） */
+    if (show !== 'cos') {
+      L(s, X(Dd[0]), oy, X(E[0]), Y(E[1]), 'key2'); L(s, X(E[0]), Y(E[1]), X(C[0]), Y(C[1]), 'key');
+      L(s, X(A[0]), oy, X(B[0]), Y(B[1]), 'key2');
+      T(s, X(C[0]) - 7, (Y(E[1]) + Y(C[1])) / 2, 'sinβ cosα', 'key-t sm', 'end');
+      T(s, X(A[0]) + 7, (oy + Y(B[1])) / 2, 'cosβ sinα', 'k2-t sm', 'start');
+    }
+    if (show !== 'sin') {
+      var yy = oy + 28;
+      L(s, ox, yy, X(A[0]), yy, 'key2'); T(s, X(A[0]) + 6, yy, 'cosβ cosα', 'k2-t sm', 'start');
+      L(s, X(E[0]), Y(E[1]) - (show === 'both' ? 0 : 0), X(B[0]), Y(B[1]), 'key'); T(s, (X(E[0]) + X(B[0])) / 2 + 4, Y(B[1]) - 10, 'sinβ sinα', 'key-t sm', 'start');
+      L(s, ox, yy + 14, X(Dd[0]), yy + 14, 'ang'); L(s, ox, yy + 10, ox, yy + 18, 'ang'); L(s, X(Dd[0]), yy + 10, X(Dd[0]), yy + 18, 'ang'); T(s, X(Dd[0]) + 6, yy + 14, 'OD = cos(α+β)', 'tick', 'start');
+    }
+    /* 長さ */
+    T(s, X(B[0] * 0.5) + 10 * Math.sin(al), Y(B[1] * 0.5) + 12 * Math.cos(al), 'cosβ', 'sub', 'start');
+    T(s, X((B[0] + C[0]) / 2) + 8, Y((B[1] + C[1]) / 2) - 2, 'sinβ', 'sub', 'start');
+    T(s, X(C[0] / 2) - 8, Y(C[1] / 2) - 2, '1', 'sub', 'end');
+    /* 角：O の α・β、C の α */
+    el('path', { d: arc(ox, oy, 34, 0, al * 180 / PI), 'class': 'ang' }, s); T(s, ox + 47 * Math.cos(al / 2), oy - 47 * Math.sin(al / 2), 'α', 'ang-t');
+    el('path', { d: arc(ox, oy, 52, al * 180 / PI, (al + be) * 180 / PI), 'class': 'ang' }, s); T(s, ox + 64 * Math.cos(al + be / 2), oy - 64 * Math.sin(al + be / 2), 'β', 'ang-t');
+    el('path', { d: arc(X(C[0]), Y(C[1]), 22, 270, 270 + al * 180 / PI), 'class': 'ang' }, s); T(s, X(C[0]) + 30 * Math.cos((270 + al * 90 / PI) * PI / 180) + 3, Y(C[1]) - 30 * Math.sin((270 + al * 90 / PI) * PI / 180), 'α', 'ang-t');
+    [[C, 'C', 0, -12], [B, 'B', 10, 2], [A, 'A', 0, 13], [Dd, 'D', 0, 13], [E, 'E', -9, 9]].forEach(function (q) { T(s, X(q[0][0]) + q[2], Y(q[0][1]) + q[3], q[1], 'tick'); });
+    el('circle', { cx: n1(X(C[0])), cy: n1(Y(C[1])), r: 4, 'class': 'dot key-dot' }, s);
+    T(s, ox - 10, oy + 12, 'O', 'sub');
+    var cy = oy + (show === 'sin' ? 30 : 58), lx = 6, st = [
+      '① 長さ 1 の線 OC を角 α+β の向きにとる',
+      '② OC を、角 α の線 OB と直角な BC に分ける（OB = cosβ、BC = sinβ）',
+      '③ B・C から x 軸に垂線 BA・CD → ABCD は台形（AB ∥ DC）',
+      '④ B から横に BE。BC は OB に直角なので ∠BCE = α'];
+    if (show !== 'cos') st.push('⑤ 高さ：CD = DE + EC = AB + EC', '　 → sin(α+β) = sinα cosβ + cosα sinβ');
+    if (show !== 'sin') st.push((show === 'both' ? '⑥' : '⑤') + ' 横：OD = OA − BE', '　 → cos(α+β) = cosα cosβ − sinα sinβ');
+    st.forEach(function (t, k) { T(s, lx, cy, t, 'note' + (/^\s*→|^　 →/.test(t) ? ' key-n' : ''), 'start'); cy += 18; });
+    return s;
+  };
+
   /* 型の名前は日本語でもよい */
-  var ALIAS = { '合成': 'synth', '和積': 'sumprod', '単位円': 'unit', '扇形': 'sector', '直線': 'line', '三角形': 'tri', 'ベクトル': 'vec', 'グラフ': 'wave', '数直線': 'num', triangle: 'tri', vector: 'vec', numline: 'num', circle: 'unit' };
+  var ALIAS = { '加法定理': 'addthm', '合成': 'synth', '和積': 'sumprod', '単位円': 'unit', '扇形': 'sector', '直線': 'line', '三角形': 'tri', 'ベクトル': 'vec', 'グラフ': 'wave', '数直線': 'num', triangle: 'tri', vector: 'vec', numline: 'num', circle: 'unit' };
   /* 図の欄は1つでも複数でもよい：{…} / [{…},{…}] / {…}{…}（改行や , で区切ってもよい） */
   function one(o) { if (!o || typeof o !== 'object' || Array.isArray(o)) return null; o.t = ALIAS[o.t] || o.t; return D[o.t] ? o : null; }
   function tryJson(t) { try { return JSON.parse(t); } catch (e) { try { return JSON.parse(t.replace(/'/g, '"')); } catch (e2) { return undefined; } } }
@@ -413,7 +469,7 @@
 
 /* 図の見た目（CSS）もここから入れる */
 (function () {
-  var css = "/* ===== 図の型（FIG） ===== */\n.fg { margin: 16px auto 0; max-width: 380px; background: var(--fg-bg, #f1f3f6); border-radius: 12px; padding: 8px; box-sizing: border-box; }\n.fg[hidden] { display: none; }\n.fg svg { display: block; max-width: 100%; height: auto; margin: 0 auto; overflow: visible; }\n.fg .axis { stroke: #8a9099; stroke-width: 1.2; }\n.fg .ahd { fill: #8a9099; } .fg .ahk { fill: #c9821a; } .fg .ahf { fill: #2b4f8c; }\n.fg .shape { stroke: #2b4f8c; stroke-width: 1.7; fill: none; stroke-linejoin: round; }\n.fg .shape.fill { fill: #dfe7f4; }\n.fg .main { stroke: #2b4f8c; stroke-width: 2; fill: none; }\n.fg .curve { stroke: #2b4f8c; stroke-width: 2.2; fill: none; stroke-linejoin: round; }\n.fg .guide { stroke: #8a9099; stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }\n.fg .key { stroke: #c9821a; stroke-width: 4.5; stroke-linecap: round; fill: none; }\n.fg .key.thin { stroke-width: 2.5; }\n.fg .ang { stroke: #22252b; stroke-width: 1.3; fill: none; }\n.fg .dot { fill: #2b4f8c; } .fg .key-dot { fill: #c9821a; }\n.fg .odot { fill: #fff; stroke: #c9821a; stroke-width: 2.2; }\n.fg .lb { font-family: inherit; font-size: 13px; fill: #22252b; paint-order: stroke; stroke: var(--fg-bg, #f1f3f6); stroke-width: 4px; stroke-linejoin: round; }\n.fg .lb.sub { fill: #5d636c; }\n.fg .lb.tick { font-size: 11px; fill: #70757d; }\n.fg .lb.var { font-family: \"Times New Roman\", \"STIX Two Text\", serif; font-style: italic; font-size: 16px; }\n.fg .lb.key-t { fill: #b0700f; font-weight: 700; }\n.fg .lb.key-t.var { font-weight: 400; font-size: 17px; }\n.fg .lb.vec-t { fill: #2b4f8c; font-family: \"Times New Roman\", serif; font-style: italic; font-size: 16px; font-weight: 700; }\n.fg .lb.ang-t { font-size: 13px; }\n.fg .lb.sm { font-size: 11.5px; }\n.fg .lb.key-t.sm { font-size: 12px; }\n.fg .lb.note { font-size: 12.5px; fill: #3b4048; }\n.fg .lb.note.key-n { fill: #8a5a12; }\n.fg .fg-one { min-width: 0; }\n.fg.fg-many { display: flex; flex-direction: column; gap: 10px; }\n.fg.fg-many .fg-one + .fg-one { border-top: 1px dashed #d3d8df; padding-top: 10px; }\n";
+  var css = "/* ===== 図の型（FIG） ===== */\n.fg { margin: 16px auto 0; max-width: 380px; background: var(--fg-bg, #f1f3f6); border-radius: 12px; padding: 8px; box-sizing: border-box; }\n.fg[hidden] { display: none; }\n.fg svg { display: block; max-width: 100%; height: auto; margin: 0 auto; overflow: visible; }\n.fg .axis { stroke: #8a9099; stroke-width: 1.2; }\n.fg .ahd { fill: #8a9099; } .fg .ahk { fill: #c9821a; } .fg .ahf { fill: #2b4f8c; }\n.fg .shape { stroke: #2b4f8c; stroke-width: 1.7; fill: none; stroke-linejoin: round; }\n.fg .shape.fill { fill: #dfe7f4; }\n.fg .main { stroke: #2b4f8c; stroke-width: 2; fill: none; }\n.fg .curve { stroke: #2b4f8c; stroke-width: 2.2; fill: none; stroke-linejoin: round; }\n.fg .guide { stroke: #8a9099; stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }\n.fg .key { stroke: #c9821a; stroke-width: 4.5; stroke-linecap: round; fill: none; }\n.fg .key.thin { stroke-width: 2.5; }\n.fg .ang { stroke: #22252b; stroke-width: 1.3; fill: none; }\n.fg .dot { fill: #2b4f8c; } .fg .key-dot { fill: #c9821a; }\n.fg .odot { fill: #fff; stroke: #c9821a; stroke-width: 2.2; }\n.fg .lb { font-family: inherit; font-size: 13px; fill: #22252b; paint-order: stroke; stroke: var(--fg-bg, #f1f3f6); stroke-width: 4px; stroke-linejoin: round; }\n.fg .lb.sub { fill: #5d636c; }\n.fg .lb.tick { font-size: 11px; fill: #70757d; }\n.fg .lb.var { font-family: \"Times New Roman\", \"STIX Two Text\", serif; font-style: italic; font-size: 16px; }\n.fg .lb.key-t { fill: #b0700f; font-weight: 700; }\n.fg .lb.key-t.var { font-weight: 400; font-size: 17px; }\n.fg .lb.vec-t { fill: #2b4f8c; font-family: \"Times New Roman\", serif; font-style: italic; font-size: 16px; font-weight: 700; }\n.fg .lb.ang-t { font-size: 13px; }\n.fg .lb.sm { font-size: 11.5px; }\n.fg .lb.key-t.sm { font-size: 12px; }\n.fg .lb.note { font-size: 12.5px; fill: #3b4048; }\n.fg .lb.note.key-n { fill: #8a5a12; }\n.fg .fg-one { min-width: 0; }\n.fg.fg-many { display: flex; flex-direction: column; gap: 10px; }\n.fg.fg-many .fg-one + .fg-one { border-top: 1px dashed #d3d8df; padding-top: 10px; }\n.fg .key2 { stroke: #2b4f8c; stroke-width: 4.5; stroke-linecap: round; fill: none; opacity: .55; }\n.fg .lb.k2-t { fill: #2b4f8c; font-weight: 700; }\n.fg .lb.k2-t.sm { font-size: 12px; }\n";
   var st = document.getElementById('fgcss');
   if (!st) { st = document.createElement('style'); st.id = 'fgcss'; (document.head || document.documentElement).appendChild(st); }
   st.textContent = css;
