@@ -388,6 +388,7 @@
      O・B・C を囲む直角台形 OPQC（下 OP・上 QC は横、右 PQ は縦、左 OC は斜め）。
      右の辺 PQ = PB + BQ = cosβ sinα + sinβ cosα = sin(α+β)、下 − 上 = cosβ cosα − sinβ sinα = cos(α+β) */
   D.addthm = function (p) {
+    if (p.sign === '-' || /-$/.test(String(p.show || ''))) return D.addminus(p);
     if (p.show === 'tan') return D.addtan(p);
     var al = (p.A == null ? 25 : +p.A) * PI / 180, be = (p.B == null ? 40 : +p.B) * PI / 180, show = p.show || 'both';
     var cb = Math.cos(be), sb = Math.sin(be);
@@ -482,6 +483,78 @@
       ['⑤ C の横 = OP − QC = 1 − tanα tanβ', 0],
       ['⑥ OC の傾き = 高さ ÷ 横（角は α+β）', 0],
       ['　 → tan(α+β) = (tanα + tanβ) / (1 − tanα tanβ)', 1]];
+    st.forEach(function (q) { T(s, lx, cy, q[0], 'note' + (q[1] ? ' key-n' : ''), 'start'); cy += 18; });
+    return s;
+  };
+
+
+  /* 加法定理（引き算 α−β）：{t:"addthm", show:"sin-"|"cos-"|"both-"|"tan-"}（または sign:"-"）
+     OB は角 α、BC は OB に直角で「下向き」、∠BOC = β なので OC の角は α−β。
+     O・B・C を、下と上が横・右が縦の直角台形 ODQB で囲む（C は右の縦の辺の上）。
+     sin/cos：OB = cosβ、BC = sinβ。右の辺 DQ = B の高さ = sinα cosβ、その上の部分 CQ = cosα sinβ、上の辺 BQ = sinα sinβ
+       → sin(α−β) = DC = sinα cosβ − cosα sinβ、cos(α−β) = OD = OP + PD = cosα cosβ + sinα sinβ
+     tan：横 OP = 1、PB = tanα。CQ = tanβ、BQ = tanα tanβ → tan(α−β) = (tanα − tanβ) / (1 + tanα tanβ) */
+  D.addminus = function (p) {
+    var show = String(p.show || 'both').replace(/-$/, ''), isTan = show === 'tan';
+    var al = (p.A == null ? (isTan ? 50 : 60) : +p.A) * PI / 180, be = (p.B == null ? 25 : +p.B) * PI / 180;
+    var len = isTan ? 1 / Math.cos(al) : Math.cos(be), bc = isTan ? Math.tan(be) / Math.cos(al) : Math.sin(be);
+    var B = [len * Math.cos(al), len * Math.sin(al)], C = [B[0] + bc * Math.sin(al), B[1] - bc * Math.cos(al)];
+    var P = [B[0], 0], Dd = [C[0], 0], Q = [C[0], B[1]];
+    var u = isTan ? Math.min(175, 300 / C[0]) : 300, pad = 34, ox = pad + 16, oy = pad + B[1] * u + 4;
+    var lines = isTan ? 8 : (show === 'both' ? 8 : 6), capY = 62, W = Math.max(ox + C[0] * u + 120, 420), H = oy + capY + lines * 18;
+    function X(x) { return ox + x * u; } function Y(y) { return oy - y * u; }
+    var s = svgOf(W, H, '加法定理（引き算）の台形');
+    el('path', { d: 'M' + n1(X(0)) + ' ' + n1(Y(0)) + ' L' + n1(X(Dd[0])) + ' ' + n1(Y(0)) + ' L' + n1(X(Q[0])) + ' ' + n1(Y(Q[1])) + ' L' + n1(X(B[0])) + ' ' + n1(Y(B[1])) + ' Z', 'class': 'shape fill' }, s);
+    L(s, X(0), Y(0), X(C[0]), Y(C[1]), 'main'); L(s, X(B[0]), Y(B[1]), X(C[0]), Y(C[1]), 'main');
+    L(s, X(B[0]), Y(B[1]), X(P[0]), Y(0), 'guide');
+    function rmark(Pt, d1, d2) { var r = 9, px = X(Pt[0]), py = Y(Pt[1]); el('path', { d: 'M' + n1(px + d1[0] * r) + ' ' + n1(py - d1[1] * r) + ' l' + n1(d2[0] * r) + ' ' + n1(-d2[1] * r) + ' l' + n1(-d1[0] * r) + ' ' + n1(d1[1] * r), 'class': 'ang' }, s); }
+    rmark(Dd, [-1, 0], [0, 1]); rmark(Q, [-1, 0], [0, -1]); rmark(B, [-Math.cos(al), -Math.sin(al)], [Math.sin(al), -Math.cos(al)]);
+    var tA = isTan ? 'tanα' : 'sinα cosβ', tU = isTan ? 'tanβ' : 'cosα sinβ', tT = isTan ? 'tanα tanβ' : 'sinα sinβ', tO = isTan ? '1' : 'cosα cosβ';
+    if (show !== 'cos') {
+      /* 右の辺：全体（B の高さ）から上の部分 CQ を引くと C の高さ */
+      L(s, X(Dd[0]), Y(0), X(Q[0]), Y(Q[1]), 'key2'); L(s, X(C[0]), Y(C[1]), X(Q[0]), Y(Q[1]), 'key');
+      T(s, X(Q[0]) + 10, (Y(C[1]) + Y(Q[1])) / 2, tU, 'key-t sm', 'start');
+      T(s, X(Q[0]) + 10, (Y(0) + Y(C[1])) / 2, '右の辺全体 = ' + tA, 'k2-t sm', 'start');
+      if (!isTan) T(s, X(Dd[0]) - 7, Y(C[1] * 0.4), 'DC = sin(α−β)', 'tick', 'end');
+    }
+    if (show !== 'sin') {
+      /* 下の辺：OP（B の真下まで）+ PD（= 上の辺 BQ） */
+      L(s, X(0), Y(0), X(P[0]), Y(0), 'key2'); L(s, X(P[0]), Y(0), X(Dd[0]), Y(0), 'key'); L(s, X(B[0]), Y(B[1]), X(Q[0]), Y(Q[1]), 'key');
+      T(s, X(P[0] / 2), Y(0) + 15, tO, 'k2-t sm'); T(s, X((P[0] + Dd[0]) / 2), Y(0) + 15, tT, 'key-t sm');
+      T(s, X((B[0] + Q[0]) / 2), Y(B[1]) - 13, tT, 'key-t sm');
+      if (!isTan) { var by = Y(0) + 32; L(s, X(0), by, X(Dd[0]), by, 'ang'); L(s, X(0), by - 4, X(0), by + 4, 'ang'); L(s, X(Dd[0]), by - 4, X(Dd[0]), by + 4, 'ang'); T(s, X(Dd[0]) + 6, by, 'OD = cos(α−β)', 'tick', 'start'); }
+    }
+    if (isTan) { L(s, X(B[0]), Y(B[1]), X(Q[0]), Y(Q[1]), 'key'); T(s, X((B[0] + Q[0]) / 2), Y(B[1]) - 13, tT, 'key-t sm'); }
+    T(s, X(C[0] * 0.72) + 2, Y(C[1] * 0.72) + 15, isTan ? '' : '1', 'sub', 'start');
+    T(s, X(B[0] * 0.5) - 10 * Math.sin(al) - 4, Y(B[1] * 0.5) - 10 * Math.cos(al), isTan ? '1/cosα' : 'cosβ', 'sub', 'end');
+    T(s, X((B[0] + C[0]) / 2) - 6, Y((B[1] + C[1]) / 2) + 12, isTan ? '' : 'sinβ', 'sub', 'end');
+    /* 角：O の α（x 軸から OB）、β（OC から OB）、C の α（縦の辺と CB の間） */
+    var ac = Math.atan2(C[1], C[0]);
+    el('path', { d: arc(X(0), Y(0), 34, 0, al * 180 / PI), 'class': 'ang' }, s); T(s, X(0) + 47 * Math.cos(al * 0.62), Y(0) - 47 * Math.sin(al * 0.62), 'α', 'ang-t');
+    el('path', { d: arc(X(0), Y(0), 56, ac * 180 / PI, al * 180 / PI), 'class': 'ang' }, s); T(s, X(0) + 69 * Math.cos((ac + al) / 2), Y(0) - 69 * Math.sin((ac + al) / 2), 'β', 'ang-t');
+    el('path', { d: arc(X(C[0]), Y(C[1]), 22, 90, 90 + al * 180 / PI), 'class': 'ang' }, s);
+    T(s, X(C[0]) + 33 * Math.cos(PI / 2 + al / 2), Y(C[1]) - 33 * Math.sin(PI / 2 + al / 2), 'α', 'ang-t');
+    [[C, 'C', 9, 4], [B, 'B', -4, -12], [P, 'P', 0, 15], [Q, 'Q', 8, -10], [Dd, 'D', 8, 12]].forEach(function (q) { T(s, X(q[0][0]) + q[2], Y(q[0][1]) + q[3], q[1], 'tick', q[1] === 'C' || q[1] === 'D' ? 'start' : 'middle'); });
+    el('circle', { cx: n1(X(C[0])), cy: n1(Y(C[1])), r: 4, 'class': 'dot key-dot' }, s);
+    T(s, X(0) - 10, Y(0) + 12, 'O', 'sub');
+    var cy = oy + capY, lx = 6, st;
+    if (isTan) st = [
+      ['① 横 1 の OP、その真上に B（PB = tanα）。OB の角は α', 0],
+      ['② B で OB に直角に「下向き」に BC、∠BOC = β（OC の角は α−β）', 0],
+      ['③ BC は縦から α 傾く → CQ = tanβ、BQ = tanα tanβ', 0],
+      ['④ C の高さ = 右の辺 − CQ = tanα − tanβ', 0],
+      ['⑤ C の横 = OP + PD = 1 + tanα tanβ（PD = BQ）', 0],
+      ['⑥ OC の傾き = 高さ ÷ 横', 0],
+      ['　 → tan(α−β) = (tanα − tanβ) / (1 + tanα tanβ)', 1]];
+    else {
+      st = [
+        ['① 角 α の OB（= cosβ）から、直角に「下向き」に BC（= sinβ）', 0],
+        ['② OC は長さ 1、角は α−β（β だけ下がる）', 0],
+        ['③ O・B・C を、下と上が横・右が縦の台形 ODQB で囲む', 0],
+        ['④ BC は縦から α 傾く → CQ = cosα sinβ、BQ = sinα sinβ', 0]];
+      if (show !== 'cos') st.push(['⑤ C の高さ = 右の辺（B の高さ）− CQ', 0], ['　 → sin(α−β) = sinα cosβ − cosα sinβ', 1]);
+      if (show !== 'sin') st.push([(show === 'both' ? '⑥' : '⑤') + ' C の横 = OP + PD（PD = BQ）', 0], ['　 → cos(α−β) = cosα cosβ + sinα sinβ', 1]);
+    }
     st.forEach(function (q) { T(s, lx, cy, q[0], 'note' + (q[1] ? ' key-n' : ''), 'start'); cy += 18; });
     return s;
   };
