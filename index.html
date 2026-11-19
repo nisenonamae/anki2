@@ -1049,7 +1049,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.97";
+A2.VER = "r4.98";
 window.A2 = A2;
 
 </script>
@@ -1057,7 +1057,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.97"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r4.98"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -2675,7 +2675,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
   if (sh.k === "import") return `<h3>Ankiから読み込む</h3><p class="note" style="margin-top:0">Ankiで「書き出す」→「スケジュール情報を含める」「メディアを含める」にして作ったファイルを選ぶ。何度読み込んでも重ならない(同じノート・カードは1つにまとめ、新しいほうを残す。記録は足すだけ)。</p><div class="imp"><label class="btn shu" style="cursor:pointer">ファイルを選ぶ<input type="file" id="imp-file" accept=".apkg,.colpkg,application/zip" hidden></label><div class="steplog" id="imp-log"></div></div>`;
   if (sh.k === "prefs") return `<h3>設定</h3><label class="chk" style="border:0"><input type="checkbox" id="pf-se"${A2.S.meta.se === false ? "" : " checked"}> 効果音を鳴らす</label><h2>声の言葉<small>判定ごとに、受け付ける言葉(「,」で区切っていくつでも)</small></h2>${Object.keys(VOICE_WORDS).map(k => `<div class="f"><label>${VOICE_LABEL[k]}</label><input data-vw="${k}" value="${esc(((A2.S.meta.voiceWords || {})[k]) || VOICE_WORDS[k])}" style="width:100%;padding:.35rem .5rem;border:1px solid var(--rule);border-radius:3px"></div>`).join("")}<button class="linkx" data-vwreset>初めの言葉に戻す</button>
     <label class="chk" style="border:0"><input type="checkbox" id="pf-vwhole"${A2.S.meta.voiceWhole !== false ? " checked" : ""}> 最後がその言葉で終わったときに動く(英語を話したあと続けて言ってもよい。文の途中に出てきても動かない)</label>
-    <label class="chk" style="border:0"><input type="checkbox" id="pf-fs"${wantFull() ? " checked" : ""}> 復習・演習のとき全画面にする(スマホでは、下に案内が出てボタンが隠れることがある)</label><label class="chk" style="border:0"><input type="checkbox" id="pf-ap"${A2.S.meta.autoplay === false ? "" : " checked"}> 音声を自動で再生する</label>${vibPrefs()}${gmPrefs()}${rwPrefs()}`;
+    <label class="chk" style="border:0"><input type="checkbox" id="pf-fs"${wantFull() ? " checked" : ""}> 復習・演習を始めるとき全画面にする(復習中も「その他」で切り替えられる。スマホでは、下に案内が出てボタンが隠れることがある)</label><label class="chk" style="border:0"><input type="checkbox" id="pf-ap"${A2.S.meta.autoplay === false ? "" : " checked"}> 音声を自動で再生する</label>${vibPrefs()}${gmPrefs()}${rwPrefs()}`;
   if (sh.k === "dopt") { const d = A2.S.decks.get(sh.id), o = Object.assign(A2.defaultOpt(), d.opt || {}); if (sh.stBefore == null) sh.stBefore = o.stage || ""; const f = (k, t, v, s) => `<div class="f"><label>${t}</label><input data-opt="${k}" value="${esc(v)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">${s ? `<div class="note">${s}</div>` : ""}</div>`;
     return `<h3>デッキのオプション</h3><div class="f"><label>場所と名前(「::」で区切る。いちばん左が分野)</label><input id="do-name" value="${esc(d.name)}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><div class="note">例:英語::英単語::単語帳。中のデッキも一緒に動く</div></div><div class="f"><label>段階の型(このデッキと、中のデッキのカード)</label><select data-opt="stage" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><option value=""${!o.stage ? " selected" : ""}>決めない(親のデッキ → ノートタイプに従う)</option><option value="none"${o.stage === "none" ? " selected" : ""}>段階なし</option>${[...A2.S.stages.values()].sort((a, b) => (a.ord || 0) - (b.ord || 0)).map(t => `<option value="${t.id}"${o.stage === t.id ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</select><div class="note">同じノートタイプでも、デッキごとに段階を使う・使わないを決められる。カードごとに決めたものがあれば、そちらが先。段階の途中で「段階なし」にしたカードは、ふつうの復習として続き、戻せば続きから</div></div>${f("newDay", "1日の新しいカード", o.newDay)}${f("revDay", "1日の復習の上限", o.revDay)}${f("steps", "学習ステップ", o.steps, "例:1m 10m")}${f("relearn", "再学習のステップ", o.relearn)}${f("retention", "覚えておきたい割合(%)", o.retention, "FSRS。高いほど復習が増える")}${f("maxIvl", "最大の間隔(日)", o.maxIvl)}${f("leech", "リーチ(忘れた回数)", o.leech, "この回数忘れたら「leech」のタグを付ける")}${f("fsrs", "FSRS のパラメータ(Anki のデッキの設定からコピー)", o.fsrs || "", "空なら標準の値" + (o.decay || A2.S.meta.fsrsDecay ? "(忘れ方の曲がり " + (o.decay || A2.S.meta.fsrsDecay) + " は Anki から)" : ""))}
       <label class="chk" style="border:0"><input type="checkbox" data-opt="burySib"${o.burySib ? " checked" : ""}> 兄弟カード(同じノートの別のカード)は次の日へ延期する</label><label class="chk" style="border:0"><input type="checkbox" data-opt="noAuto"${o.noAuto ? " checked" : ""}> このデッキでは音声を自動で再生しない(Anki の「音声を自動で再生しない」と同じ。カードの ▶ と R キーでは鳴る)</label><div class="row"><button class="btn sm" data-optsave="${d.id}">保存</button><button class="btn ghost sm" data-dinfo="${esc(d.name)}">中身を調べる</button><button class="linkx" data-ddel="${d.id}" style="color:var(--shu);margin-left:auto">このデッキを消す</button></div>`; }
@@ -2690,7 +2690,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
     return `<h3>デッキを作る</h3><div class="f"><label>分野</label><select id="nd-s">${subs.map(x => `<option value="${x.id}"${x.id === sid ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></div><div class="f"><label>どのデッキの中に作るか</label><select id="nd-p"><option value="">(分野のすぐ下)</option>${[...new Set(parents)].map(p => `<option value="${esc(p)}">${esc(p.replace(/::/g, " › "))}</option>`).join("")}</select></div><div class="f"><label>デッキの名前</label><input id="nd-n" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"></div><button class="btn" data-ndsave>作る</button>`; }
   if (sh.k === "custom") return `<h3>カスタム学習</h3><p class="note" style="margin-top:0">検索の書き方で集めたカードを、今だけ回す。</p><div class="mlist">${[["is:due prop:lapses>2", "忘れやすいカード"], ["flag:1", "赤い旗のカード"], ["rated:1", "今日復習したカード"], ["tag:leech", "何度も忘れたカード(leech)"]].map(([q, t]) => `<button data-custgo="${esc(q)}"><b>${t}</b><small>${esc(q)}</small></button>`).join("")}</div><div class="f" style="margin-top:.5rem"><label>自分で書く</label><input id="cust-q" placeholder="例:deck:英語* is:due" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"></div><button class="btn sm" data-custgo="">このカードで回す</button>`;
   if (sh.k === "rvmore") { const c = A2.S.cards.get(sh.id), n = A2.S.notes.get(c.nid); return `<h3>このカード</h3><button class="bigedit" data-rvedit><i>✎</i>カードを編集<small>直すと、見た目がすぐ変わる</small></button><div class="flgrid">${["なし", "赤", "橙", "緑", "青", "桃", "水", "紫"].map((t, i) => `<button data-setflag="${i}" aria-pressed="${(c.flag || 0) === i}"><span class="fl" style="background:${FL[i] || "transparent"}"></span>${t}</button>`).join("")}</div>
-      <div class="bigacts"><button data-rvmark><i>★</i>${n.tags.includes("marked") ? "印を外す" : "印を付ける"}</button><button data-rvbury><i>⏭</i>明日へ延期</button><button data-rvsusp><i>⏸</i>一時停止</button><button data-rvinfo><i>ⓘ</i>カードの情報</button><button data-rvbrowse><i>🔎</i>ブラウザで見る</button><button data-rvstg><i>▤</i>段階</button><button data-rvreplay><i>🔊</i>音をもう一度</button><button data-wbtoggle><i>✐</i>${WB.on ? "ホワイトボードを閉じる" : "ホワイトボード"}</button><button data-rvmemo><i>📝</i>このデッキのメモ${rvCur() && memoOpenN(rvCur().deck) ? "(" + memoOpenN(rvCur().deck) + ")" : ""}</button><button data-rvrec><i>●</i>録音(自分の声)</button><button data-voice><i>🎤</i>声で操作 ${VOICE.on ? "入" : "切"}</button></div>`; }
+      <div class="bigacts"><button data-rvmark><i>★</i>${n.tags.includes("marked") ? "印を外す" : "印を付ける"}</button><button data-rvbury><i>⏭</i>明日へ延期</button><button data-rvsusp><i>⏸</i>一時停止</button><button data-rvinfo><i>ⓘ</i>カードの情報</button><button data-rvbrowse><i>🔎</i>ブラウザで見る</button><button data-rvstg><i>▤</i>段階</button><button data-rvreplay><i>🔊</i>音をもう一度</button><button data-rvfs><i>⛶</i>${document.fullscreenElement ? "全画面をやめる" : "全画面にする"}</button><button data-wbtoggle><i>✐</i>${WB.on ? "ホワイトボードを閉じる" : "ホワイトボード"}</button><button data-rvmemo><i>📝</i>このデッキのメモ${rvCur() && memoOpenN(rvCur().deck) ? "(" + memoOpenN(rvCur().deck) + ")" : ""}</button><button data-rvrec><i>●</i>録音(自分の声)</button><button data-voice><i>🎤</i>声で操作 ${VOICE.on ? "入" : "切"}</button></div>`; }
   if (sh.k === "flag") return `<h3>旗</h3><div class="flgrid">${["なし", "赤", "橙", "緑", "青", "桃", "水", "紫"].map((t, i) => `<button data-setflag="${i}"><span class="fl" style="background:${FL[i] || "transparent"}"></span>${t}</button>`).join("")}</div>`;
   if (sh.k === "info") { const c = A2.S.cards.get(sh.id), n = A2.S.notes.get(c.nid), today = A2.today(), revs = [...A2.S.revlog.values()].filter(r => r.cid === c.id).sort((a, b) => b.t - a.t);
     setTimeout(() => mediaDiag(c.id), 0);
@@ -3002,6 +3002,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-brall")) { V.brBack = null; V.bq = ""; render(); return; }
   if (b.hasAttribute("data-rvundo")) { undo(); return; }
   if (b.hasAttribute("data-voice")) { VOICE.on ? voiceStop() : voiceStart(); return; }
+  if (b.hasAttribute("data-rvfs")) { const on = !document.fullscreenElement; await A2.setMeta("fullscreen", on); try { if (on) await document.documentElement.requestFullscreen(); else await document.exitFullscreen(); } catch (er) { toast(on ? "この画面では全画面にできない" : "全画面をやめられなかった"); } V.sheet = null; render(); toast(on ? "全画面にした(次の復習からも全画面)" : "全画面をやめた(次の復習からも全画面にしない)"); return; }
   if (b.hasAttribute("data-rvmore")) { V.sheet = { k: "rvmore", id: rvCur().id }; render(); return; }
   if (b.hasAttribute("data-rvedit")) { V.sheet = { k: "card", id: rvCur().id, back: V.rv.back }; render(); return; }
   if (b.hasAttribute("data-rvinfo")) { V.sheet = { k: "info", id: V.rv ? rvCur().id : V.sheet.id }; render(); return; }
@@ -3178,7 +3179,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.97";
+window.APP_VER_EX = "r4.98";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -3413,7 +3414,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.97";
+window.APP_VER_SYNC = "r4.98";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
