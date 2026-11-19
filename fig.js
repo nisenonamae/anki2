@@ -384,57 +384,58 @@
 
 
   /* 加法定理（台形）：{t:"addthm", show:"sin"|"cos"|"both", A:25, B:40}
-     OC=1 を角 α+β に。OB=cosβ（角 α）、BC=sinβ（OB に直角）。B・C から x 軸へ垂線 BA・CD → ABCD は台形。
-     B から横に BE。∠BCE=α。CD = AB + EC、OD = OA − BE */
+     左下 O から長さ 1 の OC（角 α+β）。OB = cosβ（角 α）、BC = sinβ（OB に直角）。
+     O・B・C を囲む直角台形 OPQC（下 OP・上 QC は横、右 PQ は縦、左 OC は斜め）。
+     右の辺 PQ = PB + BQ = cosβ sinα + sinβ cosα = sin(α+β)、下 − 上 = cosβ cosα − sinβ sinα = cos(α+β) */
   D.addthm = function (p) {
     var al = (p.A == null ? 25 : +p.A) * PI / 180, be = (p.B == null ? 40 : +p.B) * PI / 180, show = p.show || 'both';
     var cb = Math.cos(be), sb = Math.sin(be);
-    var B = [cb * Math.cos(al), cb * Math.sin(al)], C = [Math.cos(al + be), Math.sin(al + be)], A = [B[0], 0], Dd = [C[0], 0], E = [C[0], B[1]];
-    var u = 250, pad = 30, left = 70, ox = pad + left, oy = pad + C[1] * u + 6;
-    var steps = show === 'both' ? 8 : 6, W = Math.max(ox + B[0] * u + 120, 420), H = oy + (show === 'sin' ? 30 : 58) + steps * 18;
+    var B = [cb * Math.cos(al), cb * Math.sin(al)], C = [Math.cos(al + be), Math.sin(al + be)], P = [B[0], 0], Q = [B[0], C[1]];
+    var u = 270, pad = 34, ox = pad + 16, oy = pad + C[1] * u + 4;
+    var nst = show === 'both' ? 8 : 6, capY = show === 'sin' ? 46 : 62, W = Math.max(ox + P[0] * u + 120, 420), H = oy + capY + nst * 18;
     function X(x) { return ox + x * u; } function Y(y) { return oy - y * u; }
     var s = svgOf(W, H, '加法定理の台形');
-    L(s, ox - 14, oy, X(B[0]) + 40, oy, 'axis', 'fgA'); L(s, ox, oy + 12, ox, Y(C[1]) - 18, 'axis', 'fgA');
-    /* 台形 ABCD */
-    el('path', { d: 'M' + n1(X(A[0])) + ' ' + n1(Y(0)) + ' L' + n1(X(B[0])) + ' ' + n1(Y(B[1])) + ' L' + n1(X(C[0])) + ' ' + n1(Y(C[1])) + ' L' + n1(X(Dd[0])) + ' ' + n1(Y(0)) + ' Z', 'class': 'shape fill' }, s);
-    /* 三角形 OBC */
-    L(s, ox, oy, X(B[0]), Y(B[1]), 'main'); L(s, X(B[0]), Y(B[1]), X(C[0]), Y(C[1]), 'main'); L(s, ox, oy, X(C[0]), Y(C[1]), 'main');
-    L(s, X(B[0]), Y(B[1]), X(E[0]), Y(E[1]), 'guide');
-    function rmark(P, d1, d2) { var r = 8, px = X(P[0]), py = Y(P[1]); el('path', { d: 'M' + n1(px + d1[0] * r) + ' ' + n1(py - d1[1] * r) + ' l' + n1(d2[0] * r) + ' ' + n1(-d2[1] * r) + ' l' + n1(-d1[0] * r) + ' ' + n1(d1[1] * r), 'class': 'ang' }, s); }
-    rmark(A, [-1, 0], [0, 1]); rmark(Dd, [1, 0], [0, 1]); rmark(E, [1, 0], [0, 1]);
+    /* 台形 OPQC */
+    el('path', { d: 'M' + n1(X(0)) + ' ' + n1(Y(0)) + ' L' + n1(X(P[0])) + ' ' + n1(Y(0)) + ' L' + n1(X(Q[0])) + ' ' + n1(Y(Q[1])) + ' L' + n1(X(C[0])) + ' ' + n1(Y(C[1])) + ' Z', 'class': 'shape fill' }, s);
+    /* 中の線 OB・BC */
+    L(s, X(0), Y(0), X(B[0]), Y(B[1]), 'main'); L(s, X(B[0]), Y(B[1]), X(C[0]), Y(C[1]), 'main');
+    function rmark(Pt, d1, d2) { var r = 9, px = X(Pt[0]), py = Y(Pt[1]); el('path', { d: 'M' + n1(px + d1[0] * r) + ' ' + n1(py - d1[1] * r) + ' l' + n1(d2[0] * r) + ' ' + n1(-d2[1] * r) + ' l' + n1(-d1[0] * r) + ' ' + n1(d1[1] * r), 'class': 'ang' }, s); }
+    rmark(P, [-1, 0], [0, 1]); rmark(Q, [-1, 0], [0, -1]);
     rmark(B, [-Math.cos(al), -Math.sin(al)], [-Math.sin(al), Math.cos(al)]);
-    /* 強調：sin は縦（AB と EC）、cos は横（OA と BE） */
+    /* 辺の強調：sin は右の辺（下 PB・上 BQ）、cos は下の辺と上の辺 */
     if (show !== 'cos') {
-      L(s, X(Dd[0]), oy, X(E[0]), Y(E[1]), 'key2'); L(s, X(E[0]), Y(E[1]), X(C[0]), Y(C[1]), 'key');
-      L(s, X(A[0]), oy, X(B[0]), Y(B[1]), 'key2');
-      T(s, X(C[0]) - 7, (Y(E[1]) + Y(C[1])) / 2, 'sinβ cosα', 'key-t sm', 'end');
-      T(s, X(A[0]) + 7, (oy + Y(B[1])) / 2, 'cosβ sinα', 'k2-t sm', 'start');
+      L(s, X(P[0]), Y(0), X(B[0]), Y(B[1]), 'key2'); L(s, X(B[0]), Y(B[1]), X(Q[0]), Y(Q[1]), 'key');
+      T(s, X(P[0]) + 10, (Y(0) + Y(B[1])) / 2, 'cosβ sinα', 'k2-t sm', 'start');
+      T(s, X(Q[0]) + 10, (Y(B[1]) + Y(Q[1])) / 2, 'sinβ cosα', 'key-t sm', 'start');
     }
     if (show !== 'sin') {
-      var yy = oy + 28;
-      L(s, ox, yy, X(A[0]), yy, 'key2'); T(s, X(A[0]) + 6, yy, 'cosβ cosα', 'k2-t sm', 'start');
-      L(s, X(E[0]), Y(E[1]) - (show === 'both' ? 0 : 0), X(B[0]), Y(B[1]), 'key'); T(s, (X(E[0]) + X(B[0])) / 2 + 4, Y(B[1]) - 10, 'sinβ sinα', 'key-t sm', 'start');
-      L(s, ox, yy + 14, X(Dd[0]), yy + 14, 'ang'); L(s, ox, yy + 10, ox, yy + 18, 'ang'); L(s, X(Dd[0]), yy + 10, X(Dd[0]), yy + 18, 'ang'); T(s, X(Dd[0]) + 6, yy + 14, 'OD = cos(α+β)', 'tick', 'start');
+      L(s, X(0), Y(0), X(P[0]), Y(0), 'key2'); L(s, X(C[0]), Y(C[1]), X(Q[0]), Y(Q[1]), 'key');
+      T(s, X(P[0] / 2), Y(0) + 15, 'cosβ cosα', 'k2-t sm');
+      T(s, X((C[0] + Q[0]) / 2), Y(C[1]) - 13, 'sinβ sinα', 'key-t sm');
+      /* C の真下 D まで点線。OD = OP − QC = cos(α+β) */
+      L(s, X(C[0]), Y(C[1]), X(C[0]), Y(0), 'guide');
+      var by = Y(0) + 32; L(s, X(0), by, X(C[0]), by, 'ang'); L(s, X(0), by - 4, X(0), by + 4, 'ang'); L(s, X(C[0]), by - 4, X(C[0]), by + 4, 'ang');
+      T(s, X(C[0]) + 6, by, 'cos(α+β)', 'tick', 'start');
     }
-    /* 長さ */
-    T(s, X(B[0] * 0.5) + 10 * Math.sin(al), Y(B[1] * 0.5) + 12 * Math.cos(al), 'cosβ', 'sub', 'start');
-    T(s, X((B[0] + C[0]) / 2) + 8, Y((B[1] + C[1]) / 2) - 2, 'sinβ', 'sub', 'start');
-    T(s, X(C[0] / 2) - 8, Y(C[1] / 2) - 2, '1', 'sub', 'end');
-    /* 角：O の α・β、C の α */
-    el('path', { d: arc(ox, oy, 34, 0, al * 180 / PI), 'class': 'ang' }, s); T(s, ox + 47 * Math.cos(al / 2), oy - 47 * Math.sin(al / 2), 'α', 'ang-t');
-    el('path', { d: arc(ox, oy, 52, al * 180 / PI, (al + be) * 180 / PI), 'class': 'ang' }, s); T(s, ox + 64 * Math.cos(al + be / 2), oy - 64 * Math.sin(al + be / 2), 'β', 'ang-t');
-    el('path', { d: arc(X(C[0]), Y(C[1]), 22, 270, 270 + al * 180 / PI), 'class': 'ang' }, s); T(s, X(C[0]) + 30 * Math.cos((270 + al * 90 / PI) * PI / 180) + 3, Y(C[1]) - 30 * Math.sin((270 + al * 90 / PI) * PI / 180), 'α', 'ang-t');
-    [[C, 'C', 0, -12], [B, 'B', 10, 2], [A, 'A', 0, 13], [Dd, 'D', 0, 13], [E, 'E', -9, 9]].forEach(function (q) { T(s, X(q[0][0]) + q[2], Y(q[0][1]) + q[3], q[1], 'tick'); });
-    el('circle', { cx: n1(X(C[0])), cy: n1(Y(C[1])), r: 4, 'class': 'dot key-dot' }, s);
-    T(s, ox - 10, oy + 12, 'O', 'sub');
-    var cy = oy + (show === 'sin' ? 30 : 58), lx = 6, st = [
-      '① 長さ 1 の線 OC を角 α+β の向きにとる',
-      '② OC を、角 α の線 OB と直角な BC に分ける（OB = cosβ、BC = sinβ）',
-      '③ B・C から x 軸に垂線 BA・CD → ABCD は台形（AB ∥ DC）',
-      '④ B から横に BE。BC は OB に直角なので ∠BCE = α'];
-    if (show !== 'cos') st.push('⑤ 高さ：CD = DE + EC = AB + EC', '　 → sin(α+β) = sinα cosβ + cosα sinβ');
-    if (show !== 'sin') st.push((show === 'both' ? '⑥' : '⑤') + ' 横：OD = OA − BE', '　 → cos(α+β) = cosα cosβ − sinα sinβ');
-    st.forEach(function (t, k) { T(s, lx, cy, t, 'note' + (/^\s*→|^　 →/.test(t) ? ' key-n' : ''), 'start'); cy += 18; });
+    /* 中の長さ */
+    T(s, X(B[0] * 0.74) + 4, Y(B[1] * 0.74) + 16, 'cosβ', 'sub', 'start');
+    T(s, X(B[0] * 0.7 + C[0] * 0.3) - 9, Y(B[1] * 0.7 + C[1] * 0.3) - 4, 'sinβ', 'sub', 'end');
+    T(s, X(C[0] / 2) - 10, Y(C[1] / 2), '1', 'sub', 'end');
+    /* 角：O の α・β、B の α（縦の辺 BQ と BC の間） */
+    el('path', { d: arc(X(0), Y(0), 36, 0, al * 180 / PI), 'class': 'ang' }, s); T(s, X(0) + 50 * Math.cos(al / 2), Y(0) - 50 * Math.sin(al / 2), 'α', 'ang-t');
+    el('path', { d: arc(X(0), Y(0), 56, al * 180 / PI, (al + be) * 180 / PI), 'class': 'ang' }, s); T(s, X(0) + 69 * Math.cos(al + be / 2), Y(0) - 69 * Math.sin(al + be / 2), 'β', 'ang-t');
+    el('path', { d: arc(X(B[0]), Y(B[1]), 24, 90, 90 + al * 180 / PI), 'class': 'ang' }, s);
+    T(s, X(B[0]) + 36 * Math.cos(PI / 2 + al / 2), Y(B[1]) - 36 * Math.sin(PI / 2 + al / 2), 'α', 'ang-t');
+    [[C, 'C', -4, -12], [B, 'B', -12, 10], [P, 'P', 0, 15], [Q, 'Q', 8, -10]].forEach(function (q) { T(s, X(q[0][0]) + q[2], Y(q[0][1]) + q[3], q[1], 'tick'); });
+    T(s, X(0) - 10, Y(0) + 12, 'O', 'sub');
+    var cy = oy + capY, lx = 6, st = [
+      ['① 長さ 1 の OC を角 α+β にとる（C の高さ = sin(α+β)、横 = cos(α+β)）', 0],
+      ['② OC を、角 α の OB（= cosβ）と、OB に直角な BC（= sinβ）に分ける', 0],
+      ['③ O・B・C を、下と上が横・右が縦の台形 OPQC で囲む', 0],
+      ['④ BC は縦の辺 BQ から α だけ傾く（直角どうしで角が移る）', 0]];
+    if (show !== 'cos') st.push(['⑤ 右の辺 = C の高さ：PQ = PB + BQ', 0], ['　 → sin(α+β) = sinα cosβ + cosα sinβ', 1]);
+    if (show !== 'sin') st.push([(show === 'both' ? '⑥' : '⑤') + ' 下 − 上 = C の横：OP − QC', 0], ['　 → cos(α+β) = cosα cosβ − sinα sinβ', 1]);
+    st.forEach(function (q) { T(s, lx, cy, q[0], 'note' + (q[1] ? ' key-n' : ''), 'start'); cy += 18; });
     return s;
   };
 
