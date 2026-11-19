@@ -388,6 +388,7 @@
      O・B・C を囲む直角台形 OPQC（下 OP・上 QC は横、右 PQ は縦、左 OC は斜め）。
      右の辺 PQ = PB + BQ = cosβ sinα + sinβ cosα = sin(α+β)、下 − 上 = cosβ cosα − sinβ sinα = cos(α+β) */
   D.addthm = function (p) {
+    if (p.show === 'tan') return D.addtan(p);
     var al = (p.A == null ? 25 : +p.A) * PI / 180, be = (p.B == null ? 40 : +p.B) * PI / 180, show = p.show || 'both';
     var cb = Math.cos(be), sb = Math.sin(be);
     var B = [cb * Math.cos(al), cb * Math.sin(al)], C = [Math.cos(al + be), Math.sin(al + be)], P = [B[0], 0], Q = [B[0], C[1]];
@@ -435,6 +436,52 @@
       ['④ BC は縦の辺 BQ から α だけ傾く（直角どうしで角が移る）', 0]];
     if (show !== 'cos') st.push(['⑤ 右の辺 = C の高さ：PQ = PB + BQ', 0], ['　 → sin(α+β) = sinα cosβ + cosα sinβ', 1]);
     if (show !== 'sin') st.push([(show === 'both' ? '⑥' : '⑤') + ' 下 − 上 = C の横：OP − QC', 0], ['　 → cos(α+β) = cosα cosβ − sinα sinβ', 1]);
+    st.forEach(function (q) { T(s, lx, cy, q[0], 'note' + (q[1] ? ' key-n' : ''), 'start'); cy += 18; });
+    return s;
+  };
+
+
+  /* 加法定理（正接）：同じ直角台形で、下の辺を 1 にしたもの。{t:"addthm", show:"tan"}
+     OP = 1、PB = tanα、BC ⊥ OB で ∠BOC = β。BQ = tanβ、QC = tanα tanβ。tan(α+β) = (tanα + tanβ) / (1 − tanα tanβ) */
+  D.addtan = function (p) {
+    var al = (p.A == null ? 25 : +p.A) * PI / 180, be = (p.B == null ? 35 : +p.B) * PI / 180, ta = Math.tan(al), tb = Math.tan(be);
+    var P = [1, 0], B = [1, ta], Q = [1, ta + tb], C = [1 - ta * tb, ta + tb];
+    var u = 200, pad = 34, ox = pad + 16, oy = pad + Q[1] * u + 4, capY = 62, W = Math.max(ox + u + 130, 420), H = oy + capY + 8 * 18;
+    function X(x) { return ox + x * u; } function Y(y) { return oy - y * u; }
+    var s = svgOf(W, H, '正接の加法定理の台形');
+    el('path', { d: 'M' + n1(X(0)) + ' ' + n1(Y(0)) + ' L' + n1(X(P[0])) + ' ' + n1(Y(0)) + ' L' + n1(X(Q[0])) + ' ' + n1(Y(Q[1])) + ' L' + n1(X(C[0])) + ' ' + n1(Y(C[1])) + ' Z', 'class': 'shape fill' }, s);
+    L(s, X(0), Y(0), X(B[0]), Y(B[1]), 'main'); L(s, X(B[0]), Y(B[1]), X(C[0]), Y(C[1]), 'main');
+    function rmark(Pt, d1, d2) { var r = 9, px = X(Pt[0]), py = Y(Pt[1]); el('path', { d: 'M' + n1(px + d1[0] * r) + ' ' + n1(py - d1[1] * r) + ' l' + n1(d2[0] * r) + ' ' + n1(-d2[1] * r) + ' l' + n1(-d1[0] * r) + ' ' + n1(d1[1] * r), 'class': 'ang' }, s); }
+    rmark(P, [-1, 0], [0, 1]); rmark(Q, [-1, 0], [0, -1]); rmark(B, [-Math.cos(al), -Math.sin(al)], [-Math.sin(al), Math.cos(al)]);
+    /* 辺：右（PB・BQ）と上（QC）、下（OP = 1） */
+    L(s, X(P[0]), Y(0), X(B[0]), Y(B[1]), 'key2'); L(s, X(B[0]), Y(B[1]), X(Q[0]), Y(Q[1]), 'key');
+    L(s, X(C[0]), Y(C[1]), X(Q[0]), Y(Q[1]), 'key'); L(s, X(0), Y(0), X(P[0]), Y(0), 'key2');
+    T(s, X(P[0]) + 10, (Y(0) + Y(B[1])) / 2, 'tanα', 'k2-t sm', 'start');
+    T(s, X(Q[0]) + 10, (Y(B[1]) + Y(Q[1])) / 2, 'tanβ', 'key-t sm', 'start');
+    T(s, X((C[0] + Q[0]) / 2), Y(C[1]) - 13, 'tanα tanβ', 'key-t sm');
+    T(s, X(0.5), Y(0) + 15, '1', 'k2-t sm');
+    /* C の真下まで点線。横 = 1 − tanα tanβ、高さ = tanα + tanβ */
+    L(s, X(C[0]), Y(C[1]), X(C[0]), Y(0), 'guide');
+    var by = Y(0) + 32; L(s, X(0), by, X(C[0]), by, 'ang'); L(s, X(0), by - 4, X(0), by + 4, 'ang'); L(s, X(C[0]), by - 4, X(C[0]), by + 4, 'ang');
+    T(s, X(C[0]) + 6, by, '横 = 1 − tanα tanβ', 'tick', 'start');
+    /* 中の長さ */
+    T(s, X(0.78) + 2, Y(0.78 * ta) + 16, '1/cosα', 'sub', 'start');
+    /* 角 */
+    el('path', { d: arc(X(0), Y(0), 36, 0, al * 180 / PI), 'class': 'ang' }, s); T(s, X(0) + 50 * Math.cos(al / 2), Y(0) - 50 * Math.sin(al / 2), 'α', 'ang-t');
+    el('path', { d: arc(X(0), Y(0), 56, al * 180 / PI, (al + be) * 180 / PI), 'class': 'ang' }, s); T(s, X(0) + 69 * Math.cos(al + be / 2), Y(0) - 69 * Math.sin(al + be / 2), 'β', 'ang-t');
+    el('path', { d: arc(X(B[0]), Y(B[1]), 24, 90, 90 + al * 180 / PI), 'class': 'ang' }, s);
+    T(s, X(B[0]) + 36 * Math.cos(PI / 2 + al / 2), Y(B[1]) - 36 * Math.sin(PI / 2 + al / 2), 'α', 'ang-t');
+    [[C, 'C', -4, -12], [B, 'B', -12, 10], [P, 'P', 0, 15], [Q, 'Q', 8, -10]].forEach(function (q) { T(s, X(q[0][0]) + q[2], Y(q[0][1]) + q[3], q[1], 'tick'); });
+    T(s, X(0) - 10, Y(0) + 12, 'O', 'sub');
+    var cy = oy + capY, lx = 6, st = [
+      ['① 横 1 の OP、その真上に B（PB = tanα）。OB = 1/cosα', 0],
+      ['② B で OB に直角に BC、∠BOC = β（BC = OB tanβ = tanβ/cosα）', 0],
+      ['③ BC は縦から α 傾く → BQ = BC cosα = tanβ', 0],
+      ['　 QC = BC sinα = tanα tanβ', 0],
+      ['④ C の高さ = PB + BQ = tanα + tanβ', 0],
+      ['⑤ C の横 = OP − QC = 1 − tanα tanβ', 0],
+      ['⑥ OC の傾き = 高さ ÷ 横（角は α+β）', 0],
+      ['　 → tan(α+β) = (tanα + tanβ) / (1 − tanα tanβ)', 1]];
     st.forEach(function (q) { T(s, lx, cy, q[0], 'note' + (q[1] ? ' key-n' : ''), 'start'); cy += 18; });
     return s;
   };
