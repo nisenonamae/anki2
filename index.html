@@ -262,6 +262,42 @@ body.rvmode .wrap{max-width:none;padding:0}
 .maddf{margin:.6rem 0 0;background:var(--white);border:1px solid var(--rule);border-radius:10px;padding:.6rem;display:flex;flex-direction:column;gap:.4rem}
 .maddf input,.maddf textarea{width:100%;padding:.45rem .55rem;border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
 
+/* 解法の地図:フローチャート */
+.xfsw{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden;margin:0 0 .55rem}.xfsw button{border:0;background:var(--white);padding:.3rem .7rem;font:inherit;font-size:.8rem;color:var(--sub);cursor:pointer}.xfsw button+button{border-left:1px solid var(--rule)}.xfsw button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.xfcrumb{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem;font-size:.85rem;margin:0 0 .4rem}.xfcrumb button{border:0;background:none;padding:.1rem .15rem;font:inherit;font-weight:700;color:var(--wave);cursor:pointer}.xfcrumb button:disabled{color:var(--ink);cursor:default}.xfcrumb span{color:var(--sub)}.xfcrumb .linkx{margin-left:auto;font-weight:400}
+.xfwrap{overflow:auto;border:1px solid var(--rule);border-radius:8px;background:color-mix(in srgb,var(--ink) 3%,var(--paper));-webkit-overflow-scrolling:touch;max-height:70vh}
+.xflow{position:relative;margin:0 auto}
+.xfsvg{position:absolute;left:0;top:0;overflow:visible}.xfsvg path{fill:none;stroke:var(--sub);stroke-width:1.6}.xfsvg path.bk{stroke-dasharray:4 3}.xfsvg marker path{fill:var(--sub);stroke:none}
+.xflab{position:absolute;transform:translateX(-50%);font-size:.66rem;line-height:1.2;padding:.05rem .35rem;border-radius:9px;background:var(--paper);border:1px solid var(--rule);color:var(--ink);white-space:nowrap;pointer-events:none;max-width:120px;overflow:hidden;text-overflow:ellipsis}.xflab.bk{transform:none}
+.xfn{position:absolute;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.1rem;padding:.25rem .4rem;border:1.5px solid var(--ink);border-radius:6px;background:var(--white);color:var(--ink);font:inherit;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
+.xfn b{font-size:.76rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-weight:700}
+.xfn.k-ask{border-color:var(--wave);background:color-mix(in srgb,var(--wave) 9%,var(--white));border-radius:22px/30px}.xfn.k-ask b::before{content:"? ";color:var(--wave)}
+.xfn.k-end{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 9%,var(--white));border-radius:30px}
+.xfn .st{position:absolute;top:-.62rem;left:.4rem;font-style:normal;font-size:.58rem;font-weight:700;background:var(--ink);color:var(--paper);border-radius:4px;padding:0 .3rem}
+.xfn em{font-style:normal;font-size:.6rem;font-weight:700;color:var(--shu)}
+.xfn.on{box-shadow:0 0 0 3px color-mix(in srgb,var(--shu) 45%,transparent)}.xfn.pick{animation:xfpick 1s ease-in-out infinite}
+@keyframes xfpick{50%{box-shadow:0 0 0 3px color-mix(in srgb,var(--wave) 40%,transparent)}}
+.xfbanner{display:flex;justify-content:space-between;gap:.5rem;align-items:center;font-size:.8rem;background:var(--wave-soft);color:var(--wave);border-radius:6px;padding:.35rem .6rem;margin:0 0 .4rem}
+.xfpanel{border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:0 8px 8px 0;background:var(--white);padding:.55rem .7rem;margin:.55rem 0 0}.xfpanel.k-ask{border-left-color:var(--wave)}.xfpanel.k-end{border-left-color:var(--ok)}
+.xfph{display:flex;gap:.5rem;align-items:baseline}.xfph small{color:var(--sub);font-size:.7rem}.xfph b{font-size:.98rem}.xfpanel p{margin:.35rem 0 0;font-size:.88rem;line-height:1.6;white-space:pre-wrap}
+.xfouts{display:flex;flex-wrap:wrap;gap:.3rem .7rem;margin:.4rem 0 0;font-size:.8rem;color:var(--sub)}.xfouts i{font-style:normal;font-weight:700;color:var(--wave);margin-right:.2rem}
+.xfacts{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.55rem}
+.xfempty{border:1px dashed var(--rule);border-radius:8px;padding:.8rem;text-align:center}.xfhint{margin:.4rem 0 0}
+.xfeo{display:flex;gap:.4rem;align-items:center;margin:.25rem 0;font-size:.82rem}.xfeo input{flex:0 0 9.5em;padding:.3rem .4rem;border:1px solid var(--rule);border-radius:3px;font:inherit}.xfeo span{flex:1;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.xfn.pick{animation:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--wave) 40%,transparent)}}
+
+.xfsvg path.st{stroke:var(--shu);stroke-dasharray:5 3}.xfsvg marker path.st{fill:var(--shu)}.xflab.st{color:var(--shu);border-color:var(--shu)}.xfouts span.st i{color:var(--shu)}
+.xfn.pt{border-color:#C99A1A;box-shadow:0 0 0 2px #F2C94C,0 0 14px 4px rgba(242,190,40,.55);animation:xfglow 1.8s ease-in-out infinite}
+@keyframes xfglow{50%{box-shadow:0 0 0 2px #F2C94C,0 0 24px 9px rgba(242,190,40,.75)}}
+.xfn .ptm{position:absolute;top:-.62rem;right:.35rem;font-style:normal;font-size:.7rem;line-height:1;background:#F2C94C;color:#5a4200;border-radius:9px;padding:.12rem .3rem}
+.xfn em.lib{color:var(--wave)}
+.xfpanel.pt{border-left-color:#E0B43A;box-shadow:0 0 0 1px #F2C94C inset}.xfpt{margin:.35rem 0 0;font-size:.82rem;font-weight:700;color:#8a6500;background:#FFF5D6;border-radius:5px;padding:.3rem .5rem}.xfpt span{display:block;font-weight:400;color:var(--ink);margin-top:.1rem}
+.xfalw{margin:0 0 .5rem}.xfnotes{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.3rem}.xfnotes div{background:#FFF7D1;border:1px solid #EBD98F;border-radius:4px;padding:.3rem .5rem;font-size:.78rem;line-height:1.45;max-width:100%;box-shadow:1px 1px 0 rgba(0,0,0,.05)}.xfnotes b{display:block;font-size:.8rem}.xfnotes span{color:#5c5230}
+.xflibnote{font-size:.78rem;color:var(--wave);background:var(--wave-soft);border-radius:5px;padding:.3rem .55rem;margin:0 0 .4rem}
+.xfeo .xfes{display:flex;align-items:center;gap:.15rem;font-size:.72rem;color:var(--shu);white-space:nowrap}.xfeo .xfes input{flex:none;width:auto}
+@media (prefers-color-scheme:dark){.xfnotes div{background:#3a3520;border-color:#5a5030}.xfnotes span{color:#d8cfa8}.xfpt{background:#3a3218;color:#f2d27a}}
+@media (prefers-reduced-motion:reduce){.xfn.pt{animation:none}}
+@media (min-width:860px){.expane.p-流れ{flex:1.2;border-right:1px solid var(--rule)}}
 /* 解法の地図:形ごと */
 .mapl.k-常に{display:grid;grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr));gap:.5rem}
 .mtile{background:var(--white);border:1px solid var(--rule);border-top:4px solid var(--wave);border-radius:10px;padding:.6rem .7rem .45rem;display:flex;flex-direction:column}
@@ -1049,7 +1085,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r4.98";
+A2.VER = "r5.00";
 window.A2 = A2;
 
 </script>
@@ -1057,7 +1093,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r4.98"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r5.00"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -3179,9 +3215,9 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r4.98";
+window.APP_VER_EX = "r5.00";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
-let EXV = { sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
+let EXV = { fview: "flow", fpath: [], fsel: null, flink: null, fsx: 0, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
 const exSave = doc => A2.save("exsub", [doc]);
 const exSubj = () => A2.S.subjects.get(EXV.sub);
@@ -3201,8 +3237,8 @@ function exSubject(){ const s = exSubj(), doc = exDoc(s.id); let body = "";
     `<button class="madd" data-xmatnew>+ 問題集を足す</button><h2>ばらの問題<small>問題集に入っていない1問ずつ</small></h2><div class="card">${doc.loose.map(q => `<div class="loose"><span class="gb g-${q.s}">${q.s || "まだ"}</span><div class="nm">${esc(q.n)}<small>${esc(q.src || "")}${q.area ? (q.src ? "・" : "") + "地図「" + esc(q.area) + "」" : ""}</small></div><button class="btn ghost sm" data-xq="loose|${q.id}">開く</button></div>`).join("") || '<p class="note" style="margin:0">まだない。</p>'}</div><button class="madd" data-xloosenew>+ 問題を1つ足す</button>`;
   if (EXV.tab === "解法の地図") { const areas = exAreas(doc); if (!EXV.area || !areas.includes(EXV.area)) EXV.area = areas[0];
     const its = doc.map.filter(x => x.area === EXV.area && x.kind === EXV.kind), k = EXK.find(x => x[0] === EXV.kind), allOpen = its.length && its.every(x => EXV.mopen[x.id]);
-    body = `<nav class="marea">${areas.map(a => `<button data-xarea="${esc(a)}" aria-pressed="${EXV.area === a}">${esc(a)}<small>${doc.map.filter(x => x.area === a).length}</small></button>`).join("")}<button data-xareanew style="color:var(--wave)">+ 領域</button></nav>
-      ${!areas.length ? '<p class="note">まず「+ 領域」で、地図の領域(例:長文読解・英作文)を作る。AIに作ってもらってもよい。</p><button class="btn sm shu" data-xai>AIに作ってもらう</button>' : `<div class="mkind">${EXK.map(([kk, t]) => `<button data-xkind="${kk}" aria-pressed="${EXV.kind === kk}">${t}<small>${doc.map.filter(x => x.area === EXV.area && x.kind === kk).length}</small></button>`).join("")}</div>
+    body = `<nav class="marea">${areas.map(a => `<button data-xarea="${esc(a)}" aria-pressed="${EXV.area === a}">${esc(a)}<small>${doc.map.filter(x => x.area === a).length + xfCount((doc.flows || {})[a])}</small></button>`).join("")}<button data-xareanew style="color:var(--wave)">+ 領域</button></nav>
+      ${areas.length ? exFlowSwitch() : ""}${areas.length && EXV.fview !== "list" ? exFlowView(doc, EXV.area) : !areas.length ? '<p class="note">まず「+ 領域」で、地図の領域(例:長文読解・英作文)を作る。AIに作ってもらってもよい。</p><button class="btn sm shu" data-xai>AIに作ってもらう</button>' : `<div class="mkind">${EXK.map(([kk, t]) => `<button data-xkind="${kk}" aria-pressed="${EXV.kind === kk}">${t}<small>${doc.map.filter(x => x.area === EXV.area && x.kind === kk).length}</small></button>`).join("")}</div>
       <div class="mdesc"><span>${k[2]}</span>${its.length ? `<button class="linkx" data-xmall="${allOpen ? "close" : "open"}">${allOpen ? "全部たたむ" : "全部ひらく"}</button>` : ""}</div>
       <div class="mapl k-${EXV.kind}">${its.map(exItem).join("") || '<p class="note" style="padding:.6rem 0">まだない。下の「+ 書き足す」から。</p>'}</div>
       <div class="row" style="margin:.6rem 0 0;gap:.6rem"><button class="btn sm shu" data-xai>AIに作ってもらう</button><button class="btn ghost sm" data-xmapcopy>この領域の地図をコピー</button></div>
@@ -3230,6 +3266,150 @@ function exItem(it){ const open = !!EXV.mopen[it.id], tools = `<button class="mm
     return `<article class="mflow"><div class="mfh"><b>${esc(it.h)}</b>${tools}</div>${it.t ? `<p class="mft">${esc(it.t)}</p>` : ""}<div class="mfsteps">${ks.map((k, j) => `${j ? '<span class="mfa">→</span>' : ""}<button class="mfs${sel === j ? " on" : ""}" data-xmstep="${it.id}|${j}"><i>${j + 1}</i>${esc(k.h)}</button>`).join("") || '<span class="note">段はまだない。「⋯」から足す。</span>'}</div>
       ${sel != null && ks[sel] ? `<div class="mfdet"><b>${sel + 1}. ${esc(ks[sel].h)}</b><p>${esc(ks[sel].t || "")}</p>${ks[sel].detail ? `<p class="note">${esc(ks[sel].detail)}</p>` : ""}${exKids(ks[sel].kids, it, [sel])}</div>` : ""}<div class="mcf">${exBar(it)}</div></article>`; }
   return `<article class="mrule"><div class="mrow top"><div class="mcond"><small>${it.kind === "型" ? "この型が出たら" : "もし"}</small>${esc(it.h)}</div><div class="marr">→</div><div class="mact">${esc(it.t || "")}${exHasDet(it) ? ` <button class="mdtg" data-xmopen="${it.id}">${open ? "詳細をとじる" : "詳細"}</button>` : ""}</div></div>${exDet(it, open)}${exKids(it.kids, it, [])}<div class="mcf">${exBar(it)}${(it.kids || []).length ? `<span class="mlvt">場合分け ${exCount(it)}</span>` : ""}${tools}</div></article>`; }
+/* ───── 解法の地図:フローチャート(領域ごと。箱の中に、もう1つのフローチャートを入れられる) ─────
+   doc.flows[領域] = { n: [箱], e: [矢印] }。n の最初の箱が「はじめ」。
+   箱 = { id, k: "do"(すること)|"ask"(分かれ道)|"end"(終わり), h: 見出し, t: くわしく, sub: 中のフローチャート, ref: 共通の手順の id, p: ポイントか, pt: なぜポイントか }
+   矢印 = { f: 元, to: 先, l: 名前(例:はい), s: 1 なら「詰まったら」の道 }
+   doc.lib = [{ id, name, ch }] … 共通の手順(分野の中で使い回す。直すと、使っている箱すべてに効く) */
+const XF = { H: 60, GX: 12, GY: 46, P: 12, w: () => innerWidth < 520 ? 112 : 140 };
+const XFK = { do: "すること", ask: "分かれ道", end: "終わり" };
+const xfId = () => "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const xfNew = () => ({ n: [], e: [] });
+const xfLib = (doc, id) => (doc.lib || []).find(x => x.id === id);
+const xfCopy = ch => JSON.parse(JSON.stringify(ch || xfNew()));
+/* 今見ているフローチャート(領域のいちばん外から、EXV.fpath の箱をたどって中へ。共通の手順を使う箱なら、その手順へ) */
+function xfChart(doc, area, make){ doc.flows = doc.flows || {}; let ch = doc.flows[area]; if (!ch) { if (!make) return null; ch = doc.flows[area] = xfNew(); }
+  for (const id of (EXV.fpath || [])) { const nd = ch.n.find(x => x.id === id); if (!nd) { EXV.fpath = []; return doc.flows[area]; }
+    const lib = nd.ref && xfLib(doc, nd.ref); if (lib) { ch = lib.ch = lib.ch || xfNew(); continue; }
+    if (!nd.sub) { if (!make) return null; nd.sub = xfNew(); } ch = nd.sub; } return ch; }
+const xfCount = ch => ch ? ch.n.reduce((a, x) => a + 1 + xfCount(x.sub), 0) : 0;
+/* 並べ方:はじめから矢印をたどって段を決める(戻る矢印は段に数えない)。2段以上とぶ矢印は、途中の段に細い「通り道」を置いて、箱の上を通らないようにする */
+function xfLay(ch){ const W = XF.w(), DW = 18, N = ch.n, has = new Set(N.map(x => x.id)), out = new Map(N.map(x => [x.id, []]));
+  ch.e.forEach((e, i) => { if (has.has(e.f) && has.has(e.to) && e.f !== e.to) out.get(e.f).push({ i, f: e.f, to: e.to }); });
+  const st = {}, back = new Set(), order = [], dfs = id => { st[id] = 1; for (const e of out.get(id)) { if (st[e.to] === 1) back.add(e.i); else if (!st[e.to]) dfs(e.to); } st[id] = 2; order.push(id); };
+  N.forEach(x => { if (!st[x.id]) dfs(x.id); }); order.reverse();
+  const lv = {}; order.forEach(id => { lv[id] = lv[id] || 0; for (const e of out.get(id)) if (!back.has(e.i)) lv[e.to] = Math.max(lv[e.to] || 0, lv[id] + 1); });
+  const rows = [], par = {}, chains = {}, put = (id, L) => (rows[L] = rows[L] || []).push(id), addPar = (v, u, k) => (par[v] = par[v] || []).push({ u, k });
+  order.forEach(id => put(id, lv[id]));
+  ch.e.forEach((e, i) => { if (back.has(i) || !has.has(e.f) || !has.has(e.to) || e.f === e.to) return; const a = lv[e.f], b = lv[e.to], ch2 = [e.f];
+    for (let L = a + 1; L < b; L++) { const d = "~" + i + "_" + L; put(d, L); ch2.push(d); } ch2.push(e.to); chains[i] = ch2; for (let j = 1; j < ch2.length; j++) addPar(ch2[j], ch2[j - 1], i); });
+  const pos = {}; rows.forEach((row, L) => { if (L) { const key = id => { const ps = (par[id] || []).filter(p => pos[p.u] != null); return ps.length ? ps.reduce((a, p) => a + pos[p.u] + p.k * 1e-3, 0) / ps.length : 1e9; }; row.sort((a, b) => key(a) - key(b)); } row.forEach((id, k) => { pos[id] = k + (id[0] === "~" ? 0 : 0); }); });
+  const wOf = id => id[0] === "~" ? DW : W, rw = row => row.reduce((a, id) => a + wOf(id), 0) + (row.length - 1) * XF.GX, wide = Math.max(W, ...rows.map(rw)), side = back.size ? 40 : 0, Wt = wide + XF.P * 2 + side, xy = {};
+  rows.forEach((row, L) => { let x = XF.P + (wide - rw(row)) / 2; row.forEach(id => { xy[id] = { x, y: XF.P + L * (XF.H + XF.GY), w: wOf(id) }; x += wOf(id) + XF.GX; }); });
+  return { xy, back, chains, W: Wt, H: XF.P * 2 + rows.length * (XF.H + XF.GY) - XF.GY, bw: W }; }
+function xfSvg(ch, L){ let paths = "", labs = "", bk = 0; const W = L.bw;
+  ch.e.forEach((e, i) => { const a = L.xy[e.f], b = L.xy[e.to]; if (!a || !b) return; const cls = e.s ? " st" : "", lab = e.l || (e.s ? "詰まったら" : "");
+    if (L.back.has(i) || e.f === e.to) { const x = Math.max(a.x, b.x) + W + 14 + (bk++ % 3) * 9, ay = a.y + XF.H / 2, by = b.y + XF.H / 2;
+      paths += `<path class="bk${cls}" d="M${a.x + W} ${ay} C${x} ${ay}, ${x} ${by}, ${b.x + W + 2} ${by}" marker-end="url(#xfar${e.s ? "s" : ""})"/>`;
+      if (lab) labs += `<span class="xflab bk${cls}" style="left:${x - 6}px;top:${(ay + by) / 2 - 9}px">${esc(lab)}</span>`; return; }
+    const cs = L.chains[i] || [e.f, e.to], pts = [];
+    cs.forEach((id, k) => { const p = L.xy[id], cx = p.x + p.w / 2; if (k === 0) pts.push([cx, p.y + XF.H]); else if (k === cs.length - 1) pts.push([cx, p.y - 3]); else { pts.push([cx, p.y]); pts.push([cx, p.y + XF.H]); } });
+    let d = `M${pts[0][0]} ${pts[0][1]}`; for (let k = 1; k < pts.length; k++) { const [x0, y0] = pts[k - 1], [x1, y1] = pts[k]; if (x0 === x1 && k % 2 === 0 && cs.length > 2) d += ` L${x1} ${y1}`; else { const my = (y0 + y1) / 2; d += ` C${x0} ${my}, ${x1} ${my}, ${x1} ${y1}`; } }
+    paths += `<path class="${cls.trim()}" d="${d}" marker-end="url(#xfar${e.s ? "s" : ""})"/>`;
+    if (lab) { const [x0, y0] = pts[0], [x1, y1] = pts[1]; labs += `<span class="xflab${cls}" style="left:${(x0 + x1) / 2}px;top:${(y0 + y1) / 2 - 9}px">${esc(lab)}</span>`; } });
+  const mk = (id, c) => `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="${c}" d="M0 0L10 5L0 10z"/></marker>`;
+  return `<svg class="xfsvg" width="${L.W}" height="${L.H}" aria-hidden="true"><defs>${mk("xfar", "")}${mk("xfars", "st")}</defs>${paths}</svg>${labs}`; }
+/* 常に意識すること(一覧の「常に」)を、フローチャートの上に付箋で出す。出す/隠すは端末ごとに覚える */
+function xfAlways(doc, area){ const its = doc.map.filter(x => x.area === area && x.kind === "常に"); if (!its.length) return ""; const on = A2.S.meta.xfAlways !== false;
+  return `<div class="xfalw"><button class="linkx" data-xfalways>${on ? "常に意識することを隠す" : "常に意識すること(" + its.length + ")を出す"}</button>${on ? `<div class="xfnotes">${its.map(x => `<div><b>${esc(x.h)}</b>${x.t ? `<span>${esc(x.t)}</span>` : ""}</div>`).join("")}</div>` : ""}</div>`; }
+/* 画面:領域の中のフローチャート。ro = 見るだけ(演習中) */
+function exFlowSwitch(){ return `<div class="xfsw"><button data-xfview="flow" aria-pressed="${EXV.fview !== "list"}">フローチャート</button><button data-xfview="list" aria-pressed="${EXV.fview === "list"}">一覧(常に・もし・型・手順)</button></div>`; }
+function exFlowView(doc, area, ro){ const ch = xfChart(doc, area, false), path = EXV.fpath || [];
+  let crumb = `<button data-xfup="-1"${path.length ? "" : " disabled"}>${esc(area)}</button>`, c0 = (doc.flows || {})[area];
+  path.forEach((id, i) => { const nd = c0 && c0.n.find(x => x.id === id), lib = nd && nd.ref && xfLib(doc, nd.ref); crumb += `<span>›</span><button data-xfup="${i}"${i === path.length - 1 ? " disabled" : ""}>${lib ? "◆ " + esc(lib.name) : esc(nd ? nd.h : "?")}</button>`; c0 = lib ? lib.ch : nd && nd.sub; });
+  const inLib = (() => { let c = (doc.flows || {})[area], lib = null; for (const id of path) { const nd = c && c.n.find(x => x.id === id); if (!nd) break; const l = nd.ref && xfLib(doc, nd.ref); if (l) { lib = l; c = l.ch; } else c = nd.sub; } return lib; })();
+  const head = xfAlways(doc, area) + `<div class="xfcrumb">${crumb}${path.length ? `<button class="linkx" data-xfup="${path.length - 2}">‹ 外へ</button>` : ""}</div>` + (inLib ? `<div class="xflibnote">◆ 共通の手順「${esc(inLib.name)}」。ここを直すと、使っているすべての箱に効く</div>` : "");
+  if (!ch || !ch.n.length) return head + `<div class="xfempty"><p class="note">${path.length ? "この中は、まだからっぽ。" : "この領域のフローチャートは、まだない。"}問題に出会ってから解き終わるまでを、箱と矢印でつなぐ。箱の中に、もう1つのフローチャートを入れることもできる。</p>${ro ? "" : '<button class="btn sm" data-xfadd="">最初の箱を作る</button>'}</div>`;
+  const L = xfLay(ch), sel = ch.n.find(x => x.id === EXV.fsel), link = !ro && EXV.flink && ch.n.find(x => x.id === EXV.flink);
+  const boxes = ch.n.map((x, i) => { const p = L.xy[x.id], n = xfCount(x.sub), lib = x.ref && xfLib(doc, x.ref); return `<button class="xfn k-${x.k}${x.p ? " pt" : ""}${x.id === EXV.fsel ? " on" : ""}${link && link.id !== x.id ? " pick" : ""}" data-xfn="${x.id}" style="left:${p.x}px;top:${p.y}px;width:${L.bw}px;height:${XF.H}px">${i === 0 ? '<i class="st">はじめ</i>' : ""}${x.p ? '<i class="ptm">★</i>' : ""}<b>${esc(x.h)}</b>${lib ? `<em class="lib">◆ ${esc(lib.name)}</em>` : n ? `<em>▸ 中に ${n}</em>` : ""}</button>`; }).join("");
+  setTimeout(() => { const w = document.querySelector(".xfwrap"); if (w && EXV.fsx) w.scrollLeft = EXV.fsx; }, 0);
+  return head + (link ? `<div class="xfbanner">「${esc(link.h)}」から${EXV.flinkS ? "「詰まったら」の" : ""}矢印をのばす先の箱を押す<button class="linkx" data-xflinkoff>やめる</button></div>` : "") +
+    `<div class="xfwrap" onscroll="EXV.fsx=this.scrollLeft"><div class="xflow" style="width:${L.W}px;height:${L.H}px">${xfSvg(ch, L)}${boxes}</div></div>` + (sel ? xfPanel(doc, ch, sel, ro) : `<p class="note xfhint">${ro ? "箱を押すと、くわしく見られる。★ の光る箱がポイント。" : "箱を押すと、くわしく見る・次を足す・中を開く。"}</p>`); }
+function xfPanel(doc, ch, x, ro){ const outs = ch.e.filter(e => e.f === x.id), n = xfCount(x.sub), lib = x.ref && xfLib(doc, x.ref), hasIn = lib || (x.sub && n);
+  return `<div class="xfpanel k-${x.k}${x.p ? " pt" : ""}"><div class="xfph"><small>${XFK[x.k]}</small><b>${esc(x.h)}</b></div>${x.p ? `<div class="xfpt">★ ここがポイント${x.pt ? `<span>${esc(x.pt)}</span>` : ""}</div>` : ""}${x.t ? `<p>${esc(x.t)}</p>` : ""}
+    ${outs.length ? `<div class="xfouts">${outs.map(e => { const t = ch.n.find(y => y.id === e.to); return `<span${e.s ? ' class="st"' : ""}>${e.l || e.s ? `<i>${esc(e.l || "詰まったら")}</i>` : ""}→ ${esc(t ? t.h : "?")}</span>`; }).join("")}</div>` : ""}
+    <div class="xfacts">${hasIn ? `<button class="btn sm shu" data-xfin="${x.id}">${lib ? "▸ 共通「" + esc(lib.name) + "」を開く" : "▸ 中を開く(" + n + ")"}</button>` : ro ? "" : `<button class="btn ghost sm" data-xfin="${x.id}">中を作る</button>`}${ro ? "" : `${x.k === "end" ? "" : `<button class="btn ghost sm" data-xfadd="${x.id}">${x.k === "ask" ? "+ 分かれを足す" : "+ 次を足す"}</button><button class="btn ghost sm" data-xfstuck="${x.id}">+ 詰まったら</button><button class="btn ghost sm" data-xflink="${x.id}">→ つなぐ</button>`}<button class="btn ghost sm" data-xfedit="${x.id}">直す</button>`}</div></div>`; }
+/* シート:箱を足す・直す */
+function xfSheet(sh){ const doc = exDoc(EXV.sub), ch = xfChart(doc, EXV.area, true), x = sh.id ? ch.n.find(y => y.id === sh.id) : null, par = sh.from ? ch.n.find(y => y.id === sh.from) : null, k = x ? x.k : sh.kk || "do";
+  const kinds = Object.keys(XFK).map(kk => `<button data-xfkind="${kk}" aria-pressed="${k === kk}">${XFK[kk]}</button>`).join("");
+  const outs = x ? ch.e.map((e, i) => ({ e, i })).filter(({ e }) => e.f === x.id) : [], libs = doc.lib || [], hasSub = x && x.sub && xfCount(x.sub);
+  const refSel = x ? `<div class="f"><label>この箱の中身</label><select id="xf-ref" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><option value="">この箱だけの中身${hasSub ? "(今 " + xfCount(x.sub) + " 個)" : ""}</option>${!x.ref && hasSub ? `<option value="+new">今の中身を、共通の手順「${esc(x.h)}」にする</option>` : ""}${libs.map(l => `<option value="${l.id}"${x.ref === l.id ? " selected" : ""}>◆ 共通「${esc(l.name)}」を使う</option>`).join("")}</select><div class="note">共通の手順は、ほかの箱・ほかの領域からも使える。直すと、使っているところすべてに効く${x.ref ? "。「この箱だけの中身」にすると、今の共通の手順を写して切り離す" : ""}</div></div>` : "";
+  return `<h3>${x ? "箱を直す" : par ? "「" + esc(par.h) + "」の" + (sh.st ? "詰まったときの道" : "次") + "に足す" : "最初の箱を作る"}</h3>
+    <div class="f"><label>種類</label><div class="xfsw" id="xf-k" data-k="${k}">${kinds}</div><div class="note">すること = 作業。分かれ道 = 「〜か?」で道が分かれる。終わり = そこで解き終わる</div></div>
+    ${par && !x ? `<div class="f"><label>矢印の名前${par.k === "ask" ? "" : "(なくてよい)"}</label>${inp("xf-l", sh.l || "", sh.st ? "例:詰まったら・式が立たないとき" : par.k === "ask" ? "例:はい・いいえ・2次式のとき" : "例:できたら")}</div>` : ""}
+    <div class="f"><label>見出し(箱に出る)</label>${inp("xf-h", x ? x.h : "", k === "ask" ? "例:図形が出てくるか" : "例:問題文の条件を全部書き出す")}</div>
+    <div class="f"><label>くわしく(押したときに出る)</label><textarea id="xf-t" rows="3" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">${esc(x ? x.t || "" : "")}</textarea></div>
+    <label class="chk" style="border:0"><input type="checkbox" id="xf-p"${x && x.p ? " checked" : ""}> ★ ここがポイント(箱が光る)</label><div class="f" style="margin-top:.2rem"><textarea id="xf-pt" rows="2" placeholder="なぜポイントか(なくてよい)" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">${esc(x ? x.pt || "" : "")}</textarea></div>
+    ${refSel}
+    ${outs.length ? `<div class="f"><label>この箱から出る矢印</label>${outs.map(({ e, i }) => { const t = ch.n.find(y => y.id === e.to); return `<div class="xfeo"><input data-xfel="${i}" value="${esc(e.l || "")}" placeholder="名前(なくてよい)"><label class="xfes"><input type="checkbox" data-xfes="${i}"${e.s ? " checked" : ""}>詰まったら</label><span>→ ${esc(t ? t.h : "?")}</span><button class="linkx" data-xfedel="${i}">消す</button></div>`; }).join("")}</div>` : ""}
+    <div class="row" style="gap:.6rem;margin-top:.6rem"><button class="btn" data-xfsave>${x ? "直す" : "足す"}</button>${x ? `<button class="linkx" data-xfdel="${x.id}" style="color:var(--shu)">この箱を消す${hasSub ? "(中も消える)" : ""}</button>` : ""}</div>`; }
+async function xfClick(b, d, doc){
+  if (d.xfview) { EXV.fview = d.xfview; render(); return true; }
+  if (b.hasAttribute("data-xfalways")) { await A2.setMeta("xfAlways", A2.S.meta.xfAlways === false); render(); return true; }
+  if (d.xfup != null && b.hasAttribute("data-xfup")) { const i = +d.xfup; EXV.fpath = i < 0 ? [] : (EXV.fpath || []).slice(0, i + 1); EXV.fsel = null; EXV.flink = null; EXV.fsx = 0; render(); return true; }
+  if (d.xfn) { const ch = xfChart(doc, EXV.area, false);
+    if (EXV.flink && ch && EXV.flink !== d.xfn) { const f = EXV.flink, src = ch.n.find(x => x.id === f), s = EXV.flinkS ? 1 : 0; if (!ch.e.some(e => e.f === f && e.to === d.xfn)) ch.e.push(Object.assign({ f, to: d.xfn, l: !s && src && src.k === "ask" ? (prompt("矢印の名前(例:いいえ)", "") || "") : "" }, s ? { s: 1 } : {})); EXV.flink = null; EXV.flinkS = 0; EXV.fsel = f; await exSave(doc); se("add"); render(); return true; }
+    EXV.fsel = EXV.fsel === d.xfn ? null : d.xfn; render(); return true; }
+  if (b.hasAttribute("data-xflinkoff")) { EXV.flink = null; EXV.flinkS = 0; render(); return true; }
+  if (d.xflink) { EXV.flink = d.xflink; EXV.flinkS = 0; render(); return true; }
+  if (d.xfin) { const ch = xfChart(doc, EXV.area, false), nd = ch && ch.n.find(x => x.id === d.xfin); if (!nd) return true; if (!nd.ref && !nd.sub) nd.sub = xfNew();
+    if ((EXV.fpath || []).length > 30) return true; EXV.fpath = (EXV.fpath || []).concat(d.xfin); EXV.fsel = null; EXV.flink = null; EXV.fsx = 0; await exSave(doc); render(); return true; }
+  if (d.xfstuck) { V.sheet = { k: "x-fnode", from: d.xfstuck, kk: "do", st: 1, l: "" }; render(); return true; }
+  if (d.xfadd != null && b.hasAttribute("data-xfadd")) { const ch = xfChart(doc, EXV.area, true), par = d.xfadd && ch.n.find(x => x.id === d.xfadd), used = par ? ch.e.filter(e => e.f === par.id).map(e => e.l) : [];
+    V.sheet = { k: "x-fnode", from: d.xfadd || null, kk: "do", l: par && par.k === "ask" ? (["はい", "いいえ"].find(l => !used.includes(l)) || "") : "" }; render(); return true; }
+  if (d.xfedit) { V.sheet = { k: "x-fnode", id: d.xfedit }; render(); return true; }
+  if (d.xfkind) { const w = $("xf-k"); if (w) { w.dataset.k = d.xfkind; w.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.dataset.xfkind === d.xfkind)); } if (V.sheet) V.sheet.kk = d.xfkind; return true; }
+  if (d.xfedel != null && b.hasAttribute("data-xfedel")) { const ch = xfChart(doc, EXV.area, true); ch.e.splice(+d.xfedel, 1); await exSave(doc); render(); return true; }
+  if (d.xfdel) { const ch = xfChart(doc, EXV.area, true), x = ch.n.find(y => y.id === d.xfdel); if (x && x.sub && xfCount(x.sub) && !confirm("「" + x.h + "」と、その中のフローチャートを消す?")) return true;
+    ch.n = ch.n.filter(y => y.id !== d.xfdel); ch.e = ch.e.filter(e => e.f !== d.xfdel && e.to !== d.xfdel); EXV.fsel = null; await exSave(doc); V.sheet = null; render(); return true; }
+  if (b.hasAttribute("data-xfsave")) { const sh = V.sheet, ch = xfChart(doc, EXV.area, true), h = $("xf-h").value.trim(), t = $("xf-t").value.trim(), k = $("xf-k") ? $("xf-k").dataset.k : "do", p = $("xf-p").checked, pt = $("xf-pt").value.trim(); if (!h) { toast("見出しを書く"); return true; }
+    if (sh.id) { const x = ch.n.find(y => y.id === sh.id); Object.assign(x, { h, t, k }); if (p) Object.assign(x, { p: true, pt }); else { delete x.p; delete x.pt; }
+      document.querySelectorAll("[data-xfel]").forEach(inpt => { const e = ch.e[+inpt.dataset.xfel]; if (e) e.l = inpt.value.trim(); }); document.querySelectorAll("[data-xfes]").forEach(c => { const e = ch.e[+c.dataset.xfes]; if (e) { if (c.checked) e.s = 1; else delete e.s; } });
+      const rs = $("xf-ref"), rv = rs ? rs.value : "";
+      if (rv === "+new") { const lib = { id: xfId(), name: x.h, ch: x.sub || xfNew() }; doc.lib = (doc.lib || []).concat(lib); x.ref = lib.id; delete x.sub; }
+      else if (rv && rv !== x.ref) { if (x.sub && xfCount(x.sub) && !confirm("この箱だけの中身(" + xfCount(x.sub) + " 個)は消えて、共通の手順に置き換わる。よい?")) return true; x.ref = rv; delete x.sub; }
+      else if (!rv && x.ref) { const lib = xfLib(doc, x.ref); x.sub = xfCopy(lib && lib.ch); delete x.ref; } }
+    else { const x = Object.assign({ id: xfId(), k, h, t }, p ? { p: true, pt } : {}); ch.n.push(x); if (sh.from) ch.e.push(Object.assign({ f: sh.from, to: x.id, l: ($("xf-l") || { value: "" }).value.trim() }, sh.st ? { s: 1 } : {})); EXV.fsel = x.id; }
+    await exSave(doc); V.sheet = null; se("add"); render(); return true; }
+  return false; }
+/* ───── フローチャートを文字にする/文字から作る(AIとのやりとり・コピー用) ─────
+   [id] すること | くわしく   <id> 分かれ道 | くわしく   (id) 終わり | くわしく
+   id -> id2   id -はい-> id2(名前つき)   id ~> id2   id ~名前~> id2(詰まったときの道)
+   ★ id | なぜポイントか      => id 共通:手順の名前(その箱は共通の手順を使う)
+   #### 中 id1>id2 … その箱の中のフローチャート(「中 共通:名前>id」で共通の手順の中)
+   ### 共通の手順 → #### 手順の名前 … 共通の手順のフローチャート */
+function xfChartText(ch, doc, pre, used, out){ const sid = new Map(ch.n.map((x, i) => [x.id, "n" + (i + 1)])), q = s => String(s || "").replace(/[\n|]/g, " ").trim();
+  ch.n.forEach(x => { const id = sid.get(x.id), br = x.k === "ask" ? ["<", ">"] : x.k === "end" ? ["(", ")"] : ["[", "]"]; out.push(br[0] + id + br[1] + " " + q(x.h) + (x.t ? " | " + q(x.t) : "")); });
+  ch.n.forEach(x => { if (x.p) out.push("★ " + sid.get(x.id) + (x.pt ? " | " + q(x.pt) : "")); const lib = x.ref && xfLib(doc, x.ref); if (lib) { out.push("=> " + sid.get(x.id) + " 共通:" + q(lib.name)); used.add(lib.id); } });
+  ch.e.forEach(e => { const a = sid.get(e.f), b = sid.get(e.to); if (!a || !b) return; out.push(a + " " + (e.s ? (e.l ? "~" + q(e.l) + "~>" : "~>") : e.l ? "-" + q(e.l) + "->" : "->") + " " + b); });
+  ch.n.forEach(x => { if (!x.ref && x.sub && x.sub.n.length) { out.push("#### 中 " + pre + sid.get(x.id)); xfChartText(x.sub, doc, pre + sid.get(x.id) + ">", used, out); } }); }
+function xfAreaText(doc, area){ const ch = (doc.flows || {})[area]; if (!ch || !ch.n.length) return ""; const out = ["### フローチャート"], used = new Set(); xfChartText(ch, doc, "", used, out);
+  const libs = [...used]; let head = false; for (let i = 0; i < libs.length; i++) { const lib = xfLib(doc, libs[i]); if (!lib) continue; const more = new Set(), tmp = []; xfChartText(lib.ch || xfNew(), doc, "共通:" + lib.name + ">", more, tmp); more.forEach(id => { if (!libs.includes(id)) libs.push(id); }); if (!head) { out.push("### 共通の手順"); head = true; } out.push("#### " + lib.name, ...tmp); }
+  return out.join("\n"); }
+const exAreaText = (doc, area) => [mapToText(doc.map.filter(x => x.area === area)) || "## " + area, xfAreaText(doc, area)].filter(Boolean).join("\n");
+function parseFlowText(text, defArea){ const flows = {}, libs = {}, all = []; let area = defArea || "全体", mode = null, cur = null;
+  const mk = () => { const c = { n: [], e: [], _ids: {}, _e: [] }; all.push(c); return c; };
+  const walk = path => { let c, parts = path.split(">").map(s => s.trim()).filter(Boolean); if (/^共通[:：]/.test(parts[0] || "")) { c = libs[parts[0].replace(/^共通[:：]\s*/, "")]; parts = parts.slice(1); } else c = flows[area];
+    for (const p of parts) { const nd = c && c._ids[p]; if (!nd) return null; nd.sub = nd.sub || mk(); c = nd.sub; } return c; };
+  String(text || "").replace(/\r/g, "").split("\n").forEach(raw => { const t = raw.trim(); let m; if (!t || /^```/.test(t)) return;
+    if ((m = /^##\s+(.+)$/.exec(t))) { area = m[1].trim(); mode = null; cur = null; return; }
+    if ((m = /^###\s+(.+)$/.exec(t))) { const nm = m[1].replace(/\s/g, ""); mode = nm === "フローチャート" ? "flow" : nm === "共通の手順" ? "lib" : null; cur = mode === "flow" ? (flows[area] = mk()) : null; return; }
+    if (!mode) return;
+    if ((m = /^####\s+中\s+(.+)$/.exec(t))) { cur = walk(m[1]); return; }
+    if ((m = /^####\s+(?:共通[:：]?\s*)?(.+)$/.exec(t))) { cur = libs[m[1].trim()] = mk(); return; }
+    if (!cur) return;
+    if ((m = /^([[<(])\s*([\w-]+)\s*[\]>)]\s*(.+)$/.exec(t))) { const [h, ...rest] = m[3].split(/\s*[|｜]\s*/), nd = { id: xfId(), k: m[1] === "<" ? "ask" : m[1] === "(" ? "end" : "do", h: h.trim(), t: rest.join(" ").trim() }; if (!nd.t) delete nd.t; cur.n.push(nd); cur._ids[m[2]] = nd; return; }
+    if ((m = /^[★☆*]\s*([\w-]+)\s*(?:[|｜]\s*(.*))?$/.exec(t))) { const nd = cur._ids[m[1]]; if (nd) { nd.p = true; if (m[2]) nd.pt = m[2].trim(); } return; }
+    if ((m = /^=>\s*([\w-]+)\s+共通[:：]\s*(.+)$/.exec(t))) { const nd = cur._ids[m[1]]; if (nd) nd._ref = m[2].trim(); return; }
+    if ((m = /^([\w-]+)\s+(?:-\s*([^>]*?)\s*->|~\s*([^>]*?)\s*~>|->|~>)\s+([\w-]+)$/.exec(t))) { const st = /^[\w-]+\s+~/.test(t); cur._e.push({ f: m[1], to: m[4], l: (st ? m[3] : m[2]) || "", s: st }); } });
+  all.forEach(c => { c._e.forEach(e => { const a = c._ids[e.f], b = c._ids[e.to]; if (a && b) c.e.push(Object.assign({ f: a.id, to: b.id, l: e.l }, e.s ? { s: 1 } : {})); }); delete c._ids; delete c._e; });
+  return { flows, libs, boxes: all.reduce((a, c) => a + c.n.length, 0) }; }
+/* 取り込む:フローチャートは、書いてあった領域のものを置き換える。共通の手順は、同じ名前があれば置き換え、なければ足す */
+function applyFlowText(doc, fl){ doc.flows = doc.flows || {}; doc.lib = doc.lib || []; const idOf = {};
+  Object.entries(fl.libs).forEach(([name, ch]) => { let lib = doc.lib.find(l => l.name === name); if (lib) lib.ch = ch; else { lib = { id: xfId(), name, ch }; doc.lib.push(lib); } idOf[name] = lib.id; });
+  (doc.lib || []).forEach(l => { if (!idOf[l.name]) idOf[l.name] = l.id; });
+  const fix = ch => ch.n.forEach(nd => { if (nd._ref) { if (idOf[nd._ref]) { nd.ref = idOf[nd._ref]; delete nd.sub; } delete nd._ref; } if (nd.sub) fix(nd.sub); });
+  Object.values(fl.libs).forEach(fix); Object.entries(fl.flows).forEach(([a, ch]) => { fix(ch); doc.flows[a] = ch; if (!exAreas(doc).includes(a)) doc.areas = [...new Set((doc.areas || []).concat(a))]; }); }
 /* ───── 解法の地図を、AIに作ってもらって取り込む(決まった書き方) ─────
    ## 領域 / ### 常に・もし・型・手順 / - 見出し | すること / 字下げ2つで入れ子(手順は段) / > 詳細 / ```mermaid … ``` で図 */
 const KIND_ALIAS = { 常に: "常に", 常に意識: "常に", 意識: "常に", もし: "もし", "もし〜なら": "もし", もしなら: "もし", 型: "型", 問題の型: "型", 手順: "手順" };
@@ -3244,7 +3424,8 @@ function parseMapText(text, defArea){ const out = []; let area = defArea || "全
     if (/^```mermaid/i.test(t)) { figInd = line.length - line.trimStart().length; fig = { node: owner(figInd), lines: [] }; return; }
     if (/^```/.test(t)) return;
     if ((m = /^##\s+(.+)$/.exec(t)) && !/^###/.test(t)) { area = m[1].trim(); stack = []; return; }
-    if ((m = /^###\s+(.+)$/.exec(t))) { kind = KIND_ALIAS[m[1].trim().replace(/\s/g, "")] || "常に"; stack = []; return; }
+    if ((m = /^###\s+(.+)$/.exec(t))) { const nm = m[1].trim().replace(/\s/g, ""); kind = nm === "フローチャート" || nm === "共通の手順" ? null : KIND_ALIAS[nm] || "常に"; stack = []; return; }
+    if (!kind) return;
     if ((m = /^>\s?(.*)$/.exec(t))) { const n = owner(line.length - line.trimStart().length); if (n) n.detail = (n.detail ? n.detail + " " : "") + m[1].trim(); return; }
     if ((m = /^[-*・]\s+(.+)$/.exec(t))) { const ind = Math.floor((line.length - line.trimStart().length) / 2), parts = m[1].split(/\s*[|｜]\s*/), n = { h: parts[0].trim(), t: parts.slice(1).join(" | ").trim(), kids: [] };
       while (stack.length && stack[stack.length - 1].ind >= ind) stack.pop();
@@ -3259,17 +3440,18 @@ function planMerge(doc, items){ let add = 0, merge = 0, kidsAdded = 0; const add
 function mapPrompt(doc, area, req, withNow){ const now = doc.map.filter(x => !area || x.area === area);
   return ["あなたは、受験生の「解法の地図」を作る担当です。解法の地図は、問題を解くときに意識すること・出会ったときにすること・問題の型ごとの解き方・手順を、あとで演習のときに見ながら使えるように整理したものです。", "",
     "# 作ってほしいもの", (area ? "領域「" + area + "」について。" : "") + (req || "(ここに何をもとに作るかを書く)"), "",
-    "# 書き方(この形だけで、1つのコードブロックにして出す。前置きや説明は書かない)", "```", "## 領域の名前", "### 常に", "- 見出し | どう意識するか", "  > 詳細(長い説明。なくてよい)", "### もし", "- 〜が出たら | こうする", "  - この場合(〜なら) | こうする", "    - さらにこの場合 | こうする", "### 型", "- 問題の型の名前 | こう解く", "  - ただし〜のとき | こうする", "### 手順", "- 手順の名前 | ひとことで", "  - 1つ目の段 | すること", "  - 2つ目の段 | すること", "```", "",
+    "# 書き方(この形だけで、1つのコードブロックにして出す。前置きや説明は書かない)", "```", "## 領域の名前", "### 常に", "- 見出し | どう意識するか", "  > 詳細(長い説明。なくてよい)", "### もし", "- 〜が出たら | こうする", "  - この場合(〜なら) | こうする", "    - さらにこの場合 | こうする", "### 型", "- 問題の型の名前 | こう解く", "  - ただし〜のとき | こうする", "### 手順", "- 手順の名前 | ひとことで", "  - 1つ目の段 | すること", "  - 2つ目の段 | すること", "### フローチャート", "[n1] すること | くわしく(なくてよい)", "<n2> 分かれ道(〜か?) | くわしく", "(n3) 終わり", "n1 -> n2", "n2 -はい-> n3", "n2 -いいえ-> n4", "n4 ~詰まったら~> n5", "★ n4 | なぜここがポイントか", "=> n5 共通:手順の名前", "#### 中 n1", "[n1] 箱 n1 の中でする1つ目", "[n2] 2つ目", "n1 -> n2", "### 共通の手順", "#### 手順の名前", "[n1] …", "```", "",
     "# 決まり", "- 「常に」は読んでいるあいだずっと意識すること、「もし」は何かに出会ったときにすること、「型」は問題の型ごとの解き方、「手順」は順番に進めること", "- 入れ子は、行の頭の空白2つで1段。「もし」と「型」の入れ子は場合分け、「手順」の入れ子は段(左から順)", "- 見出しは短く(20字くらいまで)。すること は具体的に、その場でできる動きで書く", "- 図があると分かりやすいときだけ、項目の下に ```mermaid のコードブロックで矢印の図を入れる(字下げをそろえる)", "- 「|」と「>」は書き方の印なので、中身には使わない",
-    withNow && now.length ? "\n# 今の地図(これと同じことは書かない。足すことだけ書く。同じ見出しに場合分けを足すときは、同じ見出しで書いてよい)\n```\n" + mapToText(now) + "\n```" : ""].join("\n"); }
+      "- フローチャートは、その領域の問題に出会ってから解き終わるまでの流れ。箱は [id] すること・<id> 分かれ道・(id) 終わり。最初に書いた箱が「はじめ」。id は n1, n2 … の半角英数字で、フローチャートごとに付け直してよい", "- 矢印は「元 -> 先」。分かれ道から出る矢印には「-はい->」のように名前を付ける。行き詰まったときに試す道は「~>」(名前を付けるなら「~名前~>」)。前の箱に戻る矢印(くり返し)も書いてよい", "- 1つの箱の中にさらに細かい流れがあるときは「#### 中 箱のid」の下に、その中のフローチャートを書く(さらに中は「#### 中 n1>n3」)", "- いろいろな箱・領域で同じ手順を使うときは「### 共通の手順」の下に「#### 手順の名前」で1度だけ書き、使う箱に「=> 箱のid 共通:手順の名前」と書く", "- 特に大事な箱には「★ 箱のid | なぜ大事か」を付ける(多くしすぎない)", "- 今のフローチャートを渡したときは、直したあとの全体を書く(取り込むと置き換わる)",
+    withNow && (now.length || (area && xfAreaText(doc, area))) ? "\n# 今の地図(常に・もし・型・手順は、これと同じことは書かない。足すことだけ書く。同じ見出しに場合分けを足すときは、同じ見出しで書いてよい。フローチャートは、直したあとの全体を書く)\n```\n" + (area ? exAreaText(doc, area) : mapToText(now)) + "\n```" : ""].join("\n"); }
 /* ───── 演習(画面いっぱい) ───── */
 let exTimer = null;
 function exStart(mid, qid){ EXV.run = { mat: mid, q: qid, sec: 0, go: true, mark: {}, done: false, grade: "", note: "", pane: null }; V.sheet = null; se("add");
   goFull(); wakeOn();
   clearInterval(exTimer); exTimer = setInterval(() => { const r = EXV.run; if (!r || !r.go || r.done) return; r.sec++; const el = document.querySelector(".exbar .timer"); if (el) el.textContent = String(Math.floor(r.sec / 60)).padStart(2, "0") + ":" + String(r.sec % 60).padStart(2, "0"); }, 1000); go({}); }
 function exEnd(){ clearInterval(exTimer); wakeOff(); try { document.fullscreenElement && document.exitFullscreen(); } catch (e) {} EXV.run = null; go({}); }
-function exRun(){ const s = exSubj(), doc = exDoc(s.id), r = EXV.run, m = exMat(doc, r.mat), q = m.items.find(x => x.id === r.q), area = q.area || m.area, items = doc.map.filter(x => x.area === area);
-  const mm = String(Math.floor(r.sec / 60)).padStart(2, "0") + ":" + String(r.sec % 60).padStart(2, "0"), qn = (m.id === "loose" ? "" : m.name.slice(0, 14) + " ") + q.n, has = q.body || q.qs, pane = r.pane || (has ? "問題" : "地図");
+function exRun(){ const s = exSubj(), doc = exDoc(s.id), r = EXV.run, m = exMat(doc, r.mat), q = m.items.find(x => x.id === r.q), area = q.area || m.area, items = doc.map.filter(x => x.area === area), hasFlow = !!(area && ((doc.flows || {})[area] || { n: [] }).n.length); if (area && EXV.area !== area) { EXV.area = area; EXV.fpath = []; EXV.fsel = null; }
+  const mm = String(Math.floor(r.sec / 60)).padStart(2, "0") + ":" + String(r.sec % 60).padStart(2, "0"), qn = (m.id === "loose" ? "" : m.name.slice(0, 14) + " ") + q.n, has = q.body || q.qs, pane = r.pane || (has ? "問題" : hasFlow ? "流れ" : "地図");
   const prob = has ? `<div class="exprob">${q.body ? `<div class="exbody">${q.body}</div>` : ""}${q.qs ? `<div class="exqs">${q.qs}</div>` : ""}${(r.done && (q.ans || q.expl)) ? `<div class="exansw">${q.ans ? `<b>解答</b><div>${q.ans}</div>` : ""}${q.expl ? `<b>解説</b><div>${q.expl}</div>` : ""}</div>` : ""}</div>` : `<div class="exprob note">この問題は、本文を入れていない問題(番号だけ)。手元の問題集で解く。</div>`;
   const subl = kids => (kids || []).length ? `<ul class="exkids">${kids.map(k => `<li><b>${esc(k.h)}</b>${k.t ? " → " + esc(k.t) : ""}${subl(k.kids)}</li>`).join("")}</ul>` : "";
   const mapH = EXK.map(([k, t]) => { const its = items.filter(it => it.kind === k); return its.length ? `<h2>${t}</h2><div class="card">${its.map(it => `<div class="chk"><div class="t">${it.kind === "型" ? "<small>この型が出たら</small>" : it.kind === "もし" ? "<small>もし</small>" : ""}<b>${esc(it.h)}</b>${it.t ? `<span class="exact">${it.kind === "常に" ? "" : "→ "}${esc(it.t)}</span>` : ""}${it.kind === "手順" ? `<div class="exsteps">${(it.kids || []).map((x, j) => `<span>${j + 1}. ${esc(x.h)}</span>`).join("<i>→</i>")}</div>` : subl(it.kids)}</div><div class="seg3"><button class="o" data-xmk="${it.id}|o" aria-pressed="${r.mark[it.id] === "o"}">できた</button><button class="x" data-xmk="${it.id}|x" aria-pressed="${r.mark[it.id] === "x"}">忘れた</button><button class="n" data-xmk="${it.id}|n" aria-pressed="${r.mark[it.id] === "n"}">出ず</button></div></div>`).join("")}</div>` : ""; }).join("") || '<p class="note">この問題につないだ解法の地図はない。</p>';
@@ -3279,8 +3461,8 @@ function exRun(){ const s = exSubj(), doc = exDoc(s.id), r = EXV.run, m = exMat(
       <h2>出来は?</h2><div class="row">${["○", "△", "×"].map(k => `<button class="btn ${r.grade === k ? "" : "ghost"} sm" data-xgrade="${k}">${k} ${k === "○" ? "できた" : k === "△" ? "あやしい" : "できなかった"}</button>`).join("")}</div>
       <h2>気づいたこと<small>結果に残る。地図にも書き足せる</small></h2><div class="card"><textarea id="xfb" rows="2" style="width:100%">${esc(r.note || "")}</textarea><div class="row" style="margin-top:.3rem"><select id="xfbk">${EXK.map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select><button class="btn ghost sm" data-xfbadd>地図に書き足す</button></div></div>
       <div class="row" style="margin:.8rem 0 1.5rem"><button class="btn" data-xfinish${r.grade ? "" : " disabled"}>記録して終える</button></div></div></div>`;
-  return `<div class="exfull">${head}${past.length ? `<div class="note" style="padding:.3rem .9rem;background:var(--sheet)">前回 ${A2.dayStr(A2.dayOf(past[0].t))} ${past[0].g}${past[0].note ? "・" + esc(past[0].note) : ""}</div>` : ""}<div class="expanes"><div class="exseg">${["問題", "地図"].map(k => `<button data-xpane="${k}" aria-pressed="${pane === k}">${k === "問題" ? "問題" : "意識すること"}</button>`).join("")}</div>
-    <div class="expane p-問題${pane === "問題" ? " on" : ""}">${prob}</div><div class="expane p-地図${pane === "地図" ? " on" : ""}">${mapH}</div></div><div class="exfoot"><button class="btn" data-xend>解き終わった</button></div></div>`; }
+  return `<div class="exfull">${head}${past.length ? `<div class="note" style="padding:.3rem .9rem;background:var(--sheet)">前回 ${A2.dayStr(A2.dayOf(past[0].t))} ${past[0].g}${past[0].note ? "・" + esc(past[0].note) : ""}</div>` : ""}<div class="expanes"><div class="exseg">${["問題"].concat(hasFlow ? ["流れ"] : [], ["地図"]).map(k => `<button data-xpane="${k}" aria-pressed="${pane === k}">${k === "問題" ? "問題" : k === "流れ" ? "フローチャート" : "意識すること"}</button>`).join("")}</div>
+    <div class="expane p-問題${pane === "問題" ? " on" : ""}">${prob}</div>${hasFlow ? `<div class="expane p-流れ${pane === "流れ" ? " on" : ""}">${exFlowView(doc, area, true)}</div>` : ""}<div class="expane p-地図${pane === "地図" ? " on" : ""}">${mapH}</div></div><div class="exfoot"><button class="btn" data-xend>解き終わった</button></div></div>`; }
 function exView(){ if (!EXV.sub || !A2.S.subjects.get(EXV.sub)) { EXV.sub = null; return exHome(); } if (EXV.run) return exRun(); if (EXV.mat) return exMaterial(); return exSubject(); }
 /* ───── 下から出る画面(演習) ───── */
 const inp = (id, v, ph) => `<input id="${id}" value="${esc(v || "")}" placeholder="${esc(ph || "")}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">`;
@@ -3301,14 +3483,15 @@ function exSheet(sh){ if (!sh || !/^x-/.test(sh.k)) return null; const s = exSub
   if (sh.k === "x-h") { const h = doc.hist.find(x => x.id === sh.id), items = doc.map.filter(it => (h.marks || {})[it.id]);
     return `<h3>${esc(h.qn)}</h3><div class="note">${A2.dayStr(A2.dayOf(h.t))}・${exTm(h.sec)}・<span class="gb g-${h.g}">${h.g}</span></div>${h.note ? `<div class="pkv"><span class="k">気づいたこと</span><span class="v">${esc(h.note)}</span></div>` : ""}
       ${items.length ? `<h2>意識できたか</h2><div class="card">${items.map(it => `<div class="chk"><div class="t"><b>${esc(it.h)}</b></div><span class="gb g-${h.marks[it.id] === "o" ? "○" : h.marks[it.id] === "x" ? "×" : ""}">${h.marks[it.id] === "o" ? "できた" : h.marks[it.id] === "x" ? "忘れた" : "出ず"}</span></div>`).join("")}</div>` : ""}<div class="row"><button class="linkx" data-xhistdel="${h.id}" style="color:var(--shu)">この記録を消す</button></div>`; }
-  if (sh.k === "x-ai") { const its = sh.text ? parseMapText(sh.text, sh.area || EXV.area) : [], plan = its.length ? planMerge(doc, { list: its, apply: false }) : null;
+  if (sh.k === "x-ai") { const its = sh.text ? parseMapText(sh.text, sh.area || EXV.area) : [], plan = its.length ? planMerge(doc, { list: its, apply: false }) : null, xfl = sh.text ? parseFlowText(sh.text, sh.area || EXV.area) : { flows: {}, libs: {}, boxes: 0 };
     return `<h3>AIに解法の地図を作ってもらう</h3><p class="note" style="margin-top:0">1. 何をもとに作るかを書いて、指示文をコピーする → 2. Claude に貼る → 3. 返ってきたものを下に貼って取り込む。</p>
       <div class="f"><label>領域(新しい名前でもよい)</label><input id="xai-a" list="xai-al" value="${esc(sh.area != null ? sh.area : (EXV.area || ""))}" placeholder="例:長文読解" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"><datalist id="xai-al">${areas.map(a => `<option value="${esc(a)}">`).join("")}</datalist></div>
       <div class="f"><label>何をもとに作るか(資料を貼ってもよい)</label><textarea id="xai-r" rows="4" style="width:100%" placeholder="例:東大の英語の長文読解の設問の解き方。いつも時間が足りなくなる">${esc(sh.req || "")}</textarea></div>
       <label class="chk" style="border:0"><input type="checkbox" id="xai-now"${sh.now === false ? "" : " checked"}> 今の地図も一緒に渡す(同じことを重ねずに、足してもらう)</label>
       <div class="row"><button class="btn shu" data-xaicopy>指示文をコピー</button></div>
       <h2>取り込む<small>返ってきたものを、そのまま貼る</small></h2><textarea id="xai-t" rows="7" style="width:100%;font-family:ui-monospace,monospace;font-size:.78rem" placeholder="## 長文読解&#10;### もし&#10;- 知らない単語が出たら | …">${esc(sh.text || "")}</textarea>
-      ${sh.text ? (its.length ? `<div class="aiim"><div class="note">${[...new Set(its.map(x => x.area))].map(esc).join("・")}:新しい項目 <b>${plan.add}</b>・今ある項目に足す ${plan.merge}・場合分けや段 <b>${plan.kidsAdded}</b></div><div class="aiil">${its.slice(0, 40).map(x => `<div class="aiir"><b>${esc(x.h)}</b><span>${esc(x.area)} › ${{ 常に: "常に", もし: "もし〜なら", 型: "問題の型", 手順: "手順" }[x.kind]}${x.kids.length ? "・中に " + x.kids.length : ""}</span></div>`).join("")}</div><div class="row" style="margin-top:.4rem"><button class="btn" data-xaiimport>取り込む</button></div></div>` : '<div class="mkneed" style="margin-top:.3rem">読み取れる項目がない。「## 領域」「### 形」「- 見出し | すること」の形か確かめる。</div>') : ""}`; }
+      ${sh.text ? (its.length || xfl.boxes ? `<div class="aiim">${xfl.boxes ? `<div class="note">フローチャート:${Object.entries(xfl.flows).map(([a, c]) => esc(a) + "(箱 " + xfCount(c) + ")").join("・") || "なし"}${Object.keys(xfl.libs).length ? "・共通の手順:" + Object.keys(xfl.libs).map(esc).join("・") : ""}。<b>今のフローチャートは、これに置き換わる</b></div>` : ""}${its.length ? `<div class="note">${[...new Set(its.map(x => x.area))].map(esc).join("・")}:新しい項目 <b>${plan.add}</b>・今ある項目に足す ${plan.merge}・場合分けや段 <b>${plan.kidsAdded}</b></div><div class="aiil">${its.slice(0, 40).map(x => `<div class="aiir"><b>${esc(x.h)}</b><span>${esc(x.area)} › ${{ 常に: "常に", もし: "もし〜なら", 型: "問題の型", 手順: "手順" }[x.kind]}${x.kids.length ? "・中に " + x.kids.length : ""}</span></div>`).join("")}</div>` : ""}<div class="row" style="margin-top:.4rem"><button class="btn" data-xaiimport>取り込む</button></div></div>` : '<div class="mkneed" style="margin-top:.3rem">読み取れる項目がない。「## 領域」「### 形」「- 見出し | すること」の形か確かめる。</div>') : ""}`; }
+  if (sh.k === "x-fnode") return xfSheet(sh);
   if (sh.k === "x-area") return `<h3>領域を足す</h3><div class="f"><label>名前</label>${inp("xa-n", "", "例:長文読解・英作文・評論")}</div><button class="btn" data-xareasave>足す</button>`;
   if (sh.k === "x-medit") { const path = sh.path || [], it = exNode(doc, sh.id, path), root = exNode(doc, sh.id, []), lvl = path.length;
     const lab = lvl ? ["この場合(〜なら)", "こうする"] : ({ 常に: ["見出し", "どう意識するか"], もし: ["〜が出たら", "こうする"], 型: ["型の名前", "こう解く"], 手順: ["手順の名前", "ひとことで"] })[root.kind];
@@ -3337,13 +3520,14 @@ const parseNums = str => { const out = []; String(str || "").split(/[\s,、]+/).
 document.addEventListener("click", async e => { const b = e.target.closest("button"); if (!b || b.disabled) return; const d = b.dataset; const doc = EXV.sub ? exDoc(EXV.sub) : null;
   if (d.xsub) { EXV = Object.assign(EXV, { sub: d.xsub, tab: "材料", area: null, kind: "常に", mat: null, adding: false }); go({}); return; }
   if (b.hasAttribute("data-xhome")) { EXV.sub = null; go({}); return; }
-  if (d.xtab) { EXV.tab = d.xtab; EXV.adding = false; render(); return; } if (d.xarea) { EXV.area = d.xarea; render(); return; } if (d.xkind) { EXV.kind = d.xkind; EXV.adding = false; render(); return; }
+  if (d.xtab) { EXV.tab = d.xtab; EXV.adding = false; render(); return; } if (d.xarea) { EXV.area = d.xarea; EXV.fpath = []; EXV.fsel = null; EXV.flink = null; EXV.fsx = 0; render(); return; } if (d.xkind) { EXV.kind = d.xkind; EXV.adding = false; render(); return; }
+  if (doc && await xfClick(b, d, doc)) return;
   if (b.hasAttribute("data-xai")) { V.sheet = { k: "x-ai", area: EXV.area || "" }; render(); return; }
   if (b.hasAttribute("data-xaicopy")) { const sh = V.sheet; sh.area = $("xai-a").value.trim(); sh.req = $("xai-r").value.trim(); sh.now = $("xai-now").checked; const t = mapPrompt(doc, sh.area, sh.req, sh.now);
     const ok = () => { se("add"); toast("指示文をコピーした。Claude に貼る"); render(); }; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, () => prompt("コピーしてください", t)); else prompt("コピーしてください", t); return; }
-  if (b.hasAttribute("data-xaiimport")) { const sh = V.sheet, its = parseMapText(sh.text, sh.area || EXV.area); if (!its.length) return; const r = planMerge(doc, { list: its, apply: true }); its.forEach(x => { if (!exAreas(doc).includes(x.area)) doc.areas = [...new Set((doc.areas || []).concat(x.area))]; });
-    await exSave(doc); EXV.area = its[0].area; EXV.kind = its[0].kind; EXV.tab = "解法の地図"; V.sheet = null; se("done"); toast("取り込んだ:新しい項目 " + r.add + "・場合分けや段 " + r.kidsAdded); render(); return; }
-  if (b.hasAttribute("data-xmapcopy")) { const t = mapToText(doc.map.filter(x => x.area === EXV.area)); if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => { toast("この領域の地図をコピーした"); render(); }, () => prompt("コピーしてください", t)); else prompt("コピーしてください", t); return; }
+  if (b.hasAttribute("data-xaiimport")) { const sh = V.sheet, its = parseMapText(sh.text, sh.area || EXV.area), xfl = parseFlowText(sh.text, sh.area || EXV.area); if (!its.length && !xfl.boxes) return; if (xfl.boxes) applyFlowText(doc, xfl); const r = its.length ? planMerge(doc, { list: its, apply: true }) : { add: 0, merge: 0, kidsAdded: 0 }; its.forEach(x => { if (!exAreas(doc).includes(x.area)) doc.areas = [...new Set((doc.areas || []).concat(x.area))]; });
+    await exSave(doc); EXV.area = its.length ? its[0].area : Object.keys(xfl.flows)[0] || EXV.area; if (its.length) EXV.kind = its[0].kind; EXV.fpath = []; EXV.fsel = null; EXV.tab = "解法の地図"; V.sheet = null; se("done"); toast("取り込んだ:" + (xfl.boxes ? "フローチャートの箱 " + xfl.boxes + "・" : "") + "新しい項目 " + r.add + "・場合分けや段 " + r.kidsAdded); render(); return; }
+  if (b.hasAttribute("data-xmapcopy")) { const t = exAreaText(doc, EXV.area); if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => { toast("この領域の地図をコピーした"); render(); }, () => prompt("コピーしてください", t)); else prompt("コピーしてください", t); return; }
   if (b.hasAttribute("data-xareanew")) { V.sheet = { k: "x-area" }; render(); return; }
   if (b.hasAttribute("data-xareasave")) { const n = $("xa-n").value.trim(); if (!n) return; doc.areas = [...new Set((doc.areas || []).concat(n))]; await exSave(doc); EXV.area = n; V.sheet = null; render(); return; }
   if (d.xmopen) { EXV.mopen[d.xmopen] = !EXV.mopen[d.xmopen]; render(); return; }
@@ -3414,7 +3598,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r4.98";
+window.APP_VER_SYNC = "r5.00";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
