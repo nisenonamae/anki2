@@ -279,6 +279,74 @@
   };
 
 
+  /* 積和：単位円の 2 点 A（角 α+β）・B（角 α−β）と、その中点 M。{t:"prodsum", al:46, be:24, show:"sin"|"cos"|"both"}
+     OM は角 α の向きで長さ cosβ → M = (cosα cosβ, sinα cosβ)
+     MA ⊥ OM、MA = MB = sinβ。MA は縦から α 傾く → 縦 cosα sinβ・横 sinα sinβ
+     sin：高さ（y 座標）で見る　cos：横（x 座標）で見る */
+  D.prodsum = function (p) {
+    var al = (p.al == null ? 46 : +p.al) * PI / 180, be = (p.be == null ? 24 : +p.be) * PI / 180, show = p.show || 'sin';
+    var useY = show !== 'cos', useX = show !== 'sin';
+    var R = 180, left = useY ? 104 : 34, top = 30, ox = left, oy = top + R * 1.06;
+    var X = function (x) { return ox + x * R; }, Y = function (y) { return oy - y * R; };
+    var PA = [Math.cos(al + be), Math.sin(al + be)], PB = [Math.cos(al - be), Math.sin(al - be)], M = [(PA[0] + PB[0]) / 2, (PA[1] + PB[1]) / 2];
+    var nl = show === 'both' ? 11 : 7, below = useX ? 50 : 22, W = X(1.12) + 96, H = oy + below + 10 + nl * 19;
+    var s = svgOf(W, H, '積和の図');
+    L(s, ox - 12, oy, X(1.14), oy, 'axis', 'fgA'); L(s, ox, oy + 12, ox, Y(1.1), 'axis', 'fgA');
+    el('path', { d: 'M' + n1(X(1)) + ' ' + n1(oy) + ' A' + R + ' ' + R + ' 0 0 0 ' + n1(ox) + ' ' + n1(Y(1)), 'class': 'shape' }, s);
+    var ax = X(PA[0]), ay = Y(PA[1]), bx = X(PB[0]), by = Y(PB[1]), mx = X(M[0]), my = Y(M[1]);
+    L(s, ox, oy, ax, ay, 'main'); L(s, ox, oy, bx, by, 'main'); L(s, ax, ay, bx, by, 'guide');
+    L(s, ox, oy, mx, my, 'key');
+    /* OM ⊥ AB の印 */
+    var u = [Math.cos(al), -Math.sin(al)], v = [-Math.sin(al), -Math.cos(al)], r = 9;
+    el('path', { d: 'M' + n1(mx - u[0] * r) + ' ' + n1(my - u[1] * r) + ' l' + n1(v[0] * r) + ' ' + n1(v[1] * r) + ' l' + n1(u[0] * r) + ' ' + n1(u[1] * r), 'class': 'ang' }, s);
+    T(s, (ox + mx) / 2 + 13 * Math.sin(al), (oy + my) / 2 + 13 * Math.cos(al) + 2, 'cos β', 'key-t', 'start');
+    /* 角：x 軸→OM が α、OM→OA と OB→OM が β */
+    el('path', { d: arc(ox, oy, 30, 0, al * 180 / PI), 'class': 'ang' }, s);
+    T(s, ox + 42 * Math.cos(al / 2), oy - 42 * Math.sin(al / 2), 'α', 'ang-t');
+    el('path', { d: arc(ox, oy, 56, al * 180 / PI, (al + be) * 180 / PI), 'class': 'ang' }, s);
+    T(s, ox + 68 * Math.cos(al + be / 2), oy - 68 * Math.sin(al + be / 2), 'β', 'ang-t');
+    el('path', { d: arc(ox, oy, 56, (al - be) * 180 / PI, al * 180 / PI), 'class': 'ang' }, s);
+    T(s, ox + 68 * Math.cos(al - be / 2), oy - 68 * Math.sin(al - be / 2), 'β', 'ang-t');
+    /* M から A・B へのずれ：縦の段差（sin）と横の段差（cos） */
+    if (useY) {
+      [[PA, ay], [M, my], [PB, by]].forEach(function (q, i) { L(s, X(q[0][0]), q[1], ox, q[1], 'guide'); });
+      T(s, ox - 7, ay, 'sin(α+β)', 'tick', 'end'); T(s, ox - 7, my, 'sinα cosβ', 'key-t sm', 'end'); T(s, ox - 7, by, 'sin(α−β)', 'tick', 'end');
+      var sx = X(1.03);
+      L(s, sx, ay, sx, my, 'key'); L(s, sx, my, sx, by, 'key');
+      L(s, X(PB[0]) + 4, ay, sx + 4, ay, 'guide'); L(s, mx, my, sx + 4, my, 'guide'); L(s, bx, by, sx + 4, by, 'guide');
+      T(s, sx + 7, (ay + my) / 2, 'cosα sinβ', 'key-t sm', 'start'); T(s, sx + 7, (my + by) / 2, 'cosα sinβ', 'key-t sm', 'start');
+    }
+    if (useX) {
+      [[PA, ax], [M, mx], [PB, bx]].forEach(function (q) { L(s, q[1], Y(q[0][1]), q[1], oy, 'guide'); });
+      T(s, ax, oy + 15, 'cos(α+β)', 'tick'); T(s, mx, oy + 33, 'cosα cosβ', 'key-t sm'); T(s, bx, oy + 15, 'cos(α−β)', 'tick');
+      var sy = Y(1.06);
+      L(s, ax, sy, mx, sy, 'key'); L(s, mx, sy, bx, sy, 'key');
+      L(s, ax, ay, ax, sy - 4, 'guide'); L(s, mx, my, mx, sy - 4, 'guide'); L(s, bx, by, bx, sy - 4, 'guide');
+      T(s, (ax + mx) / 2, sy - 11, 'sinα sinβ', 'key-t sm'); T(s, (mx + bx) / 2, sy - 11, 'sinα sinβ', 'key-t sm');
+    }
+    [[PA, 'A', ax, ay], [PB, 'B', bx, by]].forEach(function (q) { el('circle', { cx: n1(q[2]), cy: n1(q[3]), r: 4, 'class': 'dot' }, s); T(s, q[2] + 9, q[3] - 9, q[1], 'sub', 'start'); });
+    el('circle', { cx: n1(mx), cy: n1(my), r: 4.5, 'class': 'dot key-dot' }, s); T(s, mx - 12, my - 10, 'M', 'sub', 'end');
+    T(s, ox - 10, oy + 12, 'O', 'sub');
+    var cy = oy + below + 10, lx = 8, t = function (str, k) { T(s, lx, cy, str, 'note' + (k ? ' key-n' : ''), 'start'); cy += 19; };
+    t('① A は角 α+β、B は角 α−β の点（半径 1）。M は AB の中点');
+    t('② OM は角 α の向きで長さ cosβ → M = (cosα cosβ, sinα cosβ)');
+    t('③ MA = MB = sinβ。OM と直角なので、縦から α 傾く');
+    if (useY) {
+      t('④ M の高さは A と B の高さのちょうど真ん中');
+      t('　 sinα cosβ = ½{sin(α+β) + sin(α−β)}', 1);
+      t('⑤ A は M より cosα sinβ 高く、B は同じだけ低い');
+      t('　 cosα sinβ = ½{sin(α+β) − sin(α−β)}', 1);
+    }
+    if (useX) {
+      t((useY ? '⑥' : '④') + ' M の横は A と B の横のちょうど真ん中');
+      t('　 cosα cosβ = ½{cos(α+β) + cos(α−β)}', 1);
+      t((useY ? '⑦' : '⑤') + ' A は M より sinα sinβ 左、B は同じだけ右');
+      t('　 sinα sinβ = −½{cos(α+β) − cos(α−β)}', 1);
+    }
+    return s;
+  };
+
+
   /* 合成：a sinθ + b cosθ = r sin(θ+α)。{t:"synth", a:√3≒1.732, b:1, la:"√3", lb:"1", show:"point"|"wave"}
      point：点 P(a, b)。OP = r、x 軸からの角が α（sin の係数が x、cos の係数が y）
      wave ：a sinθ と b cosθ を足すと、高さ r・左に α ずれた sin になる */
@@ -560,7 +628,7 @@
   };
 
   /* 型の名前は日本語でもよい */
-  var ALIAS = { '加法定理': 'addthm', '合成': 'synth', '和積': 'sumprod', '単位円': 'unit', '扇形': 'sector', '直線': 'line', '三角形': 'tri', 'ベクトル': 'vec', 'グラフ': 'wave', '数直線': 'num', triangle: 'tri', vector: 'vec', numline: 'num', circle: 'unit' };
+  var ALIAS = { '加法定理': 'addthm', '合成': 'synth', '和積': 'sumprod', '積和': 'prodsum', '単位円': 'unit', '扇形': 'sector', '直線': 'line', '三角形': 'tri', 'ベクトル': 'vec', 'グラフ': 'wave', '数直線': 'num', triangle: 'tri', vector: 'vec', numline: 'num', circle: 'unit' };
   /* 図の欄は1つでも複数でもよい：{…} / [{…},{…}] / {…}{…}（改行や , で区切ってもよい） */
   function one(o) { if (!o || typeof o !== 'object' || Array.isArray(o)) return null; o.t = ALIAS[o.t] || o.t; return D[o.t] ? o : null; }
   function tryJson(t) { try { return JSON.parse(t); } catch (e) { try { return JSON.parse(t.replace(/'/g, '"')); } catch (e2) { return undefined; } } }
