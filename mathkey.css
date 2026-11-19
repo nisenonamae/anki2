@@ -1,0 +1,7 @@
+/* Anki2：Mathkey カードの見た目の直し（カードが読みこむ。ここを直せばノートタイプは貼り直さなくてよい） */
+/* 式の枠：中身（式）の幅に合わせて広がる。画面より広いときは枠の中で横にスクロール（見切れない） */
+.mkn .mk-hero .mk-formula { width: max-content; max-width: 100%; box-sizing: border-box; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.mkn .mk-hero .mk-formula mjx-container { max-width: none !important; overflow: visible !important; }
+.mkn .mk-hero .mk-formula mjx-container[display="true"] { margin: 6px 0 !important; }
+.mkn .mk-formsm .mk-formula { max-width: 100%; box-sizing: border-box; overflow-x: auto; }
+.mkn .mk-formsm .mk-formula mjx-container { max-width: none !important; overflow: visible !important; }
