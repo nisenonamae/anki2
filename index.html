@@ -721,12 +721,14 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .xfdown .rt,.xfhint .rt{display:none}
 @container xf (min-width: 760px){
   .xfcols.cols{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:.5rem;scroll-snap-type:x proximity}
-  .xfcols.cols > .xflv{flex:0 0 auto;width:max-content;min-width:280px;max-width:min(640px,52cqi);margin:0;padding:0 1.1rem 0 0;scroll-snap-align:end}
+  .xfcols.cols > .xflv{flex:0 0 auto;width:max-content;min-width:320px;max-width:min(640px,52cqi);margin:0;padding:0 1.1rem 0 0;scroll-snap-align:end}
   .xfcols.cols > .xflv.in{border-left:0;padding-left:1.1rem;margin-top:0;position:relative}
   .xfcols.cols > .xflv.in::before{content:"";position:absolute;left:0;top:0;bottom:0;border-left:2px dashed color-mix(in srgb,var(--shu) 40%,var(--rule))}
   .xfcols.cols > .xflv.in::after{content:"▸";position:absolute;left:-.42rem;top:.05rem;font-size:.85rem;color:var(--shu);background:var(--paper);line-height:1.2}
-  .xfcols.cols .xflvh{min-height:1.6rem}.xfcols.cols .xflvh .dn{display:none}.xfcols.cols > .xflv:first-child{padding-top:1.95rem}
-  .xfcols.cols .xfwrap{max-height:74vh}
+  .xfcols.cols .xflvh{min-height:1.6rem}.xfcols.cols .xflvh .dn{display:none}.xfcols.cols > .xflv:first-child:not(:only-child){padding-top:1.95rem}
+  .xfcols.cols > .xflv:first-child{flex:1 1 auto;width:auto;max-width:none;min-width:min(420px,45cqi)}
+  .xfcols.cols .xfpanel.under{display:none}.xfcols.cols .xfpanel.side{display:block;margin:0 0 .7rem}.xfcols.cols > .xflv.sideonly{display:block}
+  .xfcols.cols > .xflv:not(:only-child) .xfwrap{max-height:74vh}
   .xfcols.cols .xfpanel{max-width:100%;box-sizing:border-box}
   .xfcols.cols .xfdown .dn,.xfcols.cols .xfhint .dn{display:none}.xfcols.cols .xfdown .rt,.xfcols.cols .xfhint .rt{display:inline}
 }
@@ -746,8 +748,10 @@ details.syn summary{cursor:pointer;color:var(--wave)}
   .xflv.ed .xfrow > .xfhint{grid-column:1/-1}
   .xflv.ed .xfrow .xfed,.xflv.ed .xfrow .xfedmini{margin-top:0;position:sticky;top:5.2rem;max-height:calc(100vh - 7rem);overflow:auto}
   .xflv.ed .xfrow .xfed::before{top:1.4rem;left:-8px;transform:rotate(-45deg)}
-  .xflv.ed .xfwrap{max-height:78vh}
 }
+/* r5.05:最初は全体を広く使う(図の中で縦にスクロールさせず、ページごと動かす)。中のないときの右の列・下のくわしくの出し分け */
+.xfwrap{max-height:none}
+.xfpanel.side,.xflv.sideonly{display:none}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -1225,7 +1229,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r5.04";
+A2.VER = "r5.05";
 window.A2 = A2;
 
 </script>
@@ -1233,7 +1237,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r5.04"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r5.05"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -2950,7 +2954,7 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
   return ""; }
 
 /* ───── 描く(同じ画面の中では、スクロールの位置と復習のカードの枠を保つ) ───── */
-function render(){ shownDay = A2.today(); const y = window.scrollY, exFull = V.mode === "ex" && !V.rv && (typeof EXV !== "undefined") && EXV.run;
+function render(){ shownDay = A2.today(); const sk = typeof scrollSave === "function" ? scrollSave() : null, y = window.scrollY, exFull = V.mode === "ex" && !V.rv && (typeof EXV !== "undefined") && EXV.run;
   document.body.classList.toggle("fullmode", !!(V.rv || exFull)); document.body.classList.toggle("rvmode", !!V.rv);
   if (V.rv) rvEnsure();
   if (V.rv && V.rv.cur && $("rv-frame")) {   // 復習中:カードの枠には触らず、上の帯と下のボタンだけ描き直す
@@ -2961,7 +2965,7 @@ function render(){ shownDay = A2.today(); const y = window.scrollY, exFull = V.m
   else if (exFull) $("app").innerHTML = body;
   else $("app").innerHTML = `<header class="head"><h1>Anki2</h1><small>${APP_VERSION}・${title}${window.syncBadge ? syncBadge() : ""}<button class="hdbtn" data-moreopen>その他</button></small></header>${body}`;
   $("bot").innerHTML = V.rv || exFull ? "" : todayBar() + [["anki", "暗記"], ["ex", "演習"], ["br", "ブラウザ"], ["make", "作る"], ["st", "統計"]].map(([k, t]) => `<button data-bot="${k}" aria-selected="${V.mode === k}">${t}</button>`).join("");
-  afterRender(y); }
+  afterRender(y); if (sk) scrollBack(sk); }
 function afterRender(y){ if (!V.rv && WB.on) { WB.on = false; WB.pass = false; } if (typeof wbTB === "function") wbTB(); const old = $("sheetwrap");
   if (V.sheet) { const keep = old && old.dataset.k === V.sheet.k + "|" + (V.sheet.id || "") + "|" + (V.sheet.back ? 1 : 0) + "|" + (V.sheet.ti || 0) + (V.sheet.side || "") + "|" + (V.sheet.pv == null ? "" : V.sheet.pv) && V.sheet.k === "card";
     const html0 = sheetHtml(); if (!V.sheet) { if (old) old.remove(); } else
@@ -3355,7 +3359,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r5.04";
+window.APP_VER_EX = "r5.05";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -3448,8 +3452,11 @@ function exFlowView(doc, ro){ const ed = !ro && !!EXV.fedit, root = xfRoot(doc, 
   if (!root || !root.n.length) return (ed ? undo : xfAlways(doc)) + `<div class="xfempty"><p class="note">領域「${esc(EXV.area || "")}」のフローチャートは、まだない。この領域の問題に出会ってから解き終わるまでを、1つの大きなフローチャートにする。はじめは共通で、途中から分かれてよい。箱を押すと、その中の細かいフローチャートが下に続く。</p>${ro ? "" : ed ? '<button class="btn" data-xfadd="" data-lv="0">+ 最初の箱を作る</button>' : '<button class="btn" data-xfmode="1">✎ 作り始める</button>'}</div>` + (ed ? xfTools(doc) : "");
   let c = root, nsel = 0; while (c && nsel < 30) { const s = c.n.find(x => x.id === EXV.fopen[nsel]); if (!s) break; nsel++; c = xfInner(doc, s, false); }
   EXV.fopen.length = Math.min(EXV.fopen.length, nsel); const edLv = EXV.fedLv != null && EXV.fedLv < nsel ? EXV.fedLv : nsel - 1;
-  let out = "", ch = root, par = null, lv = 0;
-  for (; ch && lv < 30; lv++) { out += xfLevel(doc, ch, lv, par, ro, ed, edLv); const sel = ch.n.find(x => x.id === EXV.fopen[lv]); if (!sel) break; const inner = xfInner(doc, sel, false); if (!inner) { lv++; break; } par = sel; ch = inner; }
+  let out = "", ch = root, par = null, pch = null, lv = 0;
+  for (; ch && lv < 30; lv++) { out += xfLevel(doc, ch, lv, par, ro, ed, edLv, pch); const sel = ch.n.find(x => x.id === EXV.fopen[lv]); if (!sel) break; const inner = xfInner(doc, sel, false);
+    /* 中のない箱:広い画面では、くわしくだけを右の列に出す */
+    if (!inner) { if (!ed) out += `<section class="xflv in sideonly" data-lv="${lv + 1}"><div class="xflvh"><span>「${esc(sel.h)}」</span><button class="linkx" data-xfclose="${lv}">閉じる</button></div>${xfPanel(doc, ch, sel, "side")}</section>`; lv++; break; }
+    pch = ch; par = sel; ch = inner; }
   EXV.fopen.length = Math.min(EXV.fopen.length, lv);
   setTimeout(() => { document.querySelectorAll(".xfwrap[data-lv]").forEach(w => { const x = EXV.fsx[w.dataset.lv]; if (x) w.scrollLeft = x; });
     if (EXV.ffocus) { const i = document.querySelector(`.xfed[data-id="${EXV.ffocus}"] [data-xfe="h"]`); EXV.ffocus = null; if (i) { i.focus(); i.select(); } } }, 0);
@@ -3457,17 +3464,17 @@ function exFlowView(doc, ro){ const ed = !ro && !!EXV.fedit, root = xfRoot(doc, 
   setTimeout(() => { const c = document.querySelector(".xfcols.cols"); if (!c) return; if (EXV.fcolEnd) { EXV.fcolEnd = false; if (EXV.fcx) c.scrollLeft = EXV.fcx; const last = c.lastElementChild; if (last && last.offsetLeft + last.offsetWidth > c.scrollLeft + c.clientWidth + 2) c.scrollTo({ left: last.offsetLeft + last.offsetWidth - c.clientWidth, behavior: "smooth" }); } else if (EXV.fcx) c.scrollLeft = EXV.fcx; }, 0);
   return (ed ? undo : xfAlways(doc)) + `<div class="xfcq"><div class="xfcols${ed ? "" : " cols"}" onscroll="EXV.fcx=this.scrollLeft">${out}</div></div>` + (ed ? xfTools(doc) : ""); }
 /* 1つの段:フローチャートと、選んだ箱(見る:くわしく/作る:直す欄) */
-function xfLevel(doc, ch, lv, par, ro, ed, edLv){ const lib = par && par.ref && xfLib(doc, par.ref);
+function xfLevel(doc, ch, lv, par, ro, ed, edLv, pch){ const lib = par && par.ref && xfLib(doc, par.ref), side = lv && !ed && pch ? xfPanel(doc, pch, par, "side") : "";
   const hd = lv ? `<div class="xflvh"><span><span class="dn">▾ </span>「${esc(par.h)}」の中</span><button class="linkx" data-xfclose="${lv - 1}">閉じる</button></div>${lib ? `<div class="xflibnote">◆ 共通の手順「${esc(lib.name)}」${ed ? "。ここを直すと、使っているすべての箱に効く" : ""}</div>` : ""}` : "";
-  if (!ch.n.length) return `<section class="xflv${lv ? " in" : ""}" data-lv="${lv}">${hd}<div class="xfempty"><p class="note">この中は、まだからっぽ。</p>${ed ? `<button class="btn sm" data-xfadd="" data-lv="${lv}">+ 最初の箱を作る</button>` : ""}</div></section>`;
+  if (!ch.n.length) return `<section class="xflv${lv ? " in" : ""}" data-lv="${lv}">${hd}${side}<div class="xfempty"><p class="note">この中は、まだからっぽ。</p>${ed ? `<button class="btn sm" data-xfadd="" data-lv="${lv}">+ 最初の箱を作る</button>` : ""}</div></section>`;
   const L = xfLay(ch), selId = EXV.fopen[lv], sel = ch.n.find(x => x.id === selId), link = ed && EXV.flink && EXV.flink.lv === lv && ch.n.find(x => x.id === EXV.flink.id);
   const boxes = ch.n.map((x, i) => { const p = L.xy[x.id], n = xfCount(x.sub), lb = x.ref && xfLib(doc, x.ref); return `<button class="xfn k-${x.k}${x.p ? " pt" : ""}${x.id === selId ? " on" : ""}${link && link.id !== x.id ? " pick" : ""}" data-xfn="${x.id}" data-lv="${lv}" style="left:${p.x}px;top:${p.y}px;width:${L.bw}px;height:${XF.H}px">${i === 0 ? '<i class="st">はじめ</i>' : ""}${x.p ? '<i class="ptm">★</i>' : ""}<b>${esc(x.h)}</b>${lb ? `<em class="lib">◆ ${esc(lb.name)}</em>` : n ? `<em>▾ 中に ${n}</em>` : ""}</button>`; }).join("");
   const hint = lv || sel ? "" : `<p class="note xfhint">${ed ? "直したい箱を押す。押した箱の下に、直す欄が出る。" : ro ? "箱を押すと、くわしくと、その中の流れが下に出る。★ の光る箱がポイント。" : "箱を押すと、くわしくと、その中の流れが<span class=\"dn\">下</span><span class=\"rt\">右</span>に続く。"}</p>`;
-  return `<section class="xflv${lv ? " in" : ""}${ed ? " ed" : ""}" data-lv="${lv}">${hd}` + (link ? `<div class="xfbanner">「${esc(link.h)}」から${EXV.flinkS ? "「詰まったら」の" : ""}矢印をのばす先の箱を押す<button class="linkx" data-xflinkoff>やめる</button></div>` : "") +
-    `<div class="xfrow"><div class="xfwrap" data-lv="${lv}" onscroll="EXV.fsx[${lv}]=this.scrollLeft"><div class="xflow" style="width:${L.W}px;height:${L.H}px">${xfSvg(ch, L)}${boxes}</div></div>` + (sel ? (ed ? (lv === edLv ? xfEditor(doc, ch, sel, lv) : `<div class="xfedmini k-${sel.k}"><span><small>${XFK[sel.k]}</small><b>${esc(sel.h)}</b></span><button class="btn ghost sm" data-xfedlv="${lv}">この箱を直す</button></div>`) : xfPanel(doc, ch, sel)) : hint) + `</div></section>`; }
+  return `<section class="xflv${lv ? " in" : ""}${ed ? " ed" : ""}" data-lv="${lv}">${hd}${side}` + (link ? `<div class="xfbanner">「${esc(link.h)}」から${EXV.flinkS ? "「詰まったら」の" : ""}矢印をのばす先の箱を押す<button class="linkx" data-xflinkoff>やめる</button></div>` : "") +
+    `<div class="xfrow"><div class="xfwrap" data-lv="${lv}" data-ck="${lv ? par.id : "root"}" onscroll="EXV.fsx[${lv}]=this.scrollLeft"><div class="xflow" style="width:${L.W}px;height:${L.H}px">${xfSvg(ch, L)}${boxes}</div></div>` + (sel ? (ed ? (lv === edLv ? xfEditor(doc, ch, sel, lv) : `<div class="xfedmini k-${sel.k}"><span><small>${XFK[sel.k]}</small><b>${esc(sel.h)}</b></span><button class="btn ghost sm" data-xfedlv="${lv}">この箱を直す</button></div>`) : xfPanel(doc, ch, sel, "under")) : hint) + `</div></section>`; }
 /* 見る:くわしく */
-function xfPanel(doc, ch, x){ const outs = ch.e.filter(e => e.f === x.id), lib = x.ref && xfLib(doc, x.ref), hasIn = lib || (x.sub && x.sub.n.length);
-  return `<div class="xfpanel k-${x.k}${x.p ? " pt" : ""}"><div class="xfph"><small>${XFK[x.k]}</small><b>${esc(x.h)}</b></div>${x.p ? `<div class="xfpt">★ ここがポイント${x.pt ? `<span>${esc(x.pt)}</span>` : ""}</div>` : ""}${x.t ? `<p>${esc(x.t)}</p>` : ""}
+function xfPanel(doc, ch, x, where){ const outs = ch.e.filter(e => e.f === x.id), lib = x.ref && xfLib(doc, x.ref), hasIn = lib || (x.sub && x.sub.n.length);
+  return `<div class="xfpanel ${where || "under"} k-${x.k}${x.p ? " pt" : ""}"><div class="xfph"><small>${XFK[x.k]}</small><b>${esc(x.h)}</b></div>${x.p ? `<div class="xfpt">★ ここがポイント${x.pt ? `<span>${esc(x.pt)}</span>` : ""}</div>` : ""}${x.t ? `<p>${esc(x.t)}</p>` : ""}
     ${outs.length ? `<div class="xfouts">${outs.map(e => { const t = ch.n.find(y => y.id === e.to); return `<span${e.s ? ' class="st"' : ""}>${e.l || e.s ? `<i>${esc(e.l || "詰まったら")}</i>` : ""}→ ${esc(t ? t.h : "?")}</span>`; }).join("")}</div>` : ""}
     ${hasIn ? `<div class="xfdown"><span class="dn">▾</span><span class="rt">▸</span> ${lib ? "共通の手順「" + esc(lib.name) + "」" : "中のフローチャート"}が<span class="dn">下</span><span class="rt">右</span>に続く</div>` : ""}</div>`; }
 /* 作る:押した箱の下に出る、その場で直す欄。文字は打つそばから図に出る */
@@ -3671,6 +3678,11 @@ function exRun(){ const s = exSubj(), doc = exDoc(s.id), r = EXV.run, m = exMat(
   const panes = ["問題"].concat(hasFlow ? ["流れ"] : [], ["地図"]);
   return `<div class="exfull">${head}${past.length ? `<div class="xprev"><span class="gb g-${past[0].g}">${past[0].g}</span>前回 ${exDayL(A2.dayOf(past[0].t))} · ${exMin(past[0].sec)}${past[0].note ? ` · ${esc(past[0].note)}` : ""}</div>` : ""}<div class="expanes"><div class="exseg">${panes.map(k => `<button data-xpane="${k}" aria-pressed="${pane === k}">${k === "問題" ? "問題" : k === "流れ" ? "フローチャート" : "意識すること"}</button>`).join("")}</div>
     <div class="expane p-問題${pane === "問題" ? " on" : ""}">${prob}</div>${hasFlow ? `<div class="expane p-流れ${pane === "流れ" ? " on" : ""}">${exFlowView(doc, true)}</div>` : ""}<div class="expane p-地図${pane === "地図" ? " on" : ""}">${mapH}</div></div><div class="exfoot"><button class="btn xbig" data-xend>解き終わった</button></div></div>`; }
+/* 描き直しても、中で縦横にスクロールしていた場所(演習中の欄・フローチャート・タブの並び)を戻す */
+const scKey = el => el.className.split(" ")[0] + "|" + (el.dataset.lv || "") + "|" + (el.dataset.ck || "") + "|" + ((el.className.match(/p-\S+/) || [""])[0]);
+const SCSEL = "#app .expane, #app .exscroll, #app .xfwrap, #app .xfcols, #app .marea, #app .mkind, #app .exprob";
+function scrollSave(){ const m = {}; document.querySelectorAll(SCSEL).forEach(el => { if (el.scrollTop || el.scrollLeft) m[scKey(el)] = [el.scrollLeft, el.scrollTop]; }); return m; }
+function scrollBack(m){ if (!m) return; document.querySelectorAll(SCSEL).forEach(el => { const v = m[scKey(el)]; if (v) { el.scrollLeft = v[0]; el.scrollTop = v[1]; } }); }
 /* ───── 解法の地図を、AIに作ってもらって取り込む(決まった書き方) ─────
    ## 領域 / ### 常に・もし・型・手順 / - 見出し | すること / 字下げ2つで入れ子(手順は段) / > 詳細 / ```mermaid … ``` で図 */
 const KIND_ALIAS = { 常に: "常に", 常に意識: "常に", 意識: "常に", もし: "もし", "もし〜なら": "もし", もしなら: "もし", 型: "型", 問題の型: "型", 手順: "手順" };
@@ -3845,7 +3857,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r5.04";
+window.APP_VER_SYNC = "r5.05";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
