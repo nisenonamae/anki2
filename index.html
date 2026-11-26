@@ -375,8 +375,12 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 /* r5.09 下のボタン(ノートタイプごと):おすすめ1つ・カードの判定を待つ・押しまちがい防止 */
 .ansone{display:flex;flex-direction:column;align-items:stretch;gap:.15rem;margin:.7rem 0 .4rem}.ansone .ans{padding:.7rem .4rem .8rem;font-size:1.15rem}.ansone .ans small{font-size:.75rem}.ansone .linkx{align-self:center;font-size:.8rem}
 #rv-ctl .ansone{margin:0 0 .35rem}
+/* r5.10 カードが借りる下のボタン(a2.bar)。中身が入れかわっても高さは同じ */
+.cbar{display:flex;gap:.4rem;width:100%;box-sizing:border-box;height:3.45rem;margin:.7rem 0 .4rem}#rv-ctl .cbar{margin:0 0 .35rem}
+.cbar button{flex:1 1 0;min-width:0;height:100%;border-radius:6px;border:1px solid var(--rule);background:var(--white);color:var(--ink);font-weight:700;font-size:1rem;padding:0 .3rem;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbar .k-main{border-color:var(--ink);background:var(--ink);color:var(--paper);border-radius:3px}.cbar .k-ok{color:var(--ok)}.cbar .k-ng{color:var(--shu)}
 .cwait{text-align:center;font-size:.82rem;color:var(--sub);padding:.75rem 0;margin:.7rem 0 .4rem}#rv-ctl .cwait{margin:0 0 .35rem}
-.gw .ans{animation:a2gw .4s linear}@keyframes a2gw{from{opacity:.45}to{opacity:1}}@media (prefers-reduced-motion: reduce){.gw .ans{animation:none}}
+.gw .ans,.cbar.gw button{animation:a2gw .4s linear}@keyframes a2gw{from{opacity:.45}to{opacity:1}}@media (prefers-reduced-motion: reduce){.gw .ans{animation:none}}
 
 /* 今日の学習 */
 .bot{flex-wrap:wrap}
@@ -1253,7 +1257,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r5.09";
+A2.VER = "r5.10";
 window.A2 = A2;
 
 </script>
@@ -1261,7 +1265,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r5.09"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r5.10"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -1364,7 +1368,10 @@ window.a2LatexMiss = function (img) { var s = img.getAttribute('src') || ''; if 
 window.a2LoadTikz = function () { if (window.__a2tz) return; window.__a2tz = 1; var base = 'https://cdn.jsdelivr.net/npm/@drgrice1/tikzjax@1.0.0-beta20/dist/';
   var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'fonts.css'; document.head.appendChild(l); var sc = document.createElement('script'); sc.src = base + 'tikzjax.js'; document.head.appendChild(sc); };
 window.a2 = { record: function (o) { parent.postMessage({ a2api: "record", arg: o, cid: (window.A2CARD || {}).id }, "*"); }, setTime: function (sec) { parent.postMessage({ a2api: "setTime", arg: +sec, cid: (window.A2CARD || {}).id }, "*"); },
-  suggest: function (g) { parent.postMessage({ a2api: "suggest", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, answer: function (g) { parent.postMessage({ a2api: "answer", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, flip: function () { parent.postMessage({ a2api: "flip", cid: (window.A2CARD || {}).id }, "*"); } };
+  suggest: function (g) { parent.postMessage({ a2api: "suggest", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, answer: function (g) { parent.postMessage({ a2api: "answer", arg: g, cid: (window.A2CARD || {}).id }, "*"); }, flip: function () { parent.postMessage({ a2api: "flip", cid: (window.A2CARD || {}).id }, "*"); },
+  bar: function (list) { var a = null; try { a = list == null ? null : JSON.parse(JSON.stringify(list)); } catch (x) {} parent.postMessage({ a2api: "bar", arg: a, cid: (window.A2CARD || {}).id }, "*"); },
+  onBar: function (fn) { window.__a2barFn = typeof fn === "function" ? fn : null; } };
+window.addEventListener("message", function (e) { var d = e.data; if (e.source !== parent || !d || d.a2bar == null || !window.__a2barFn) return; try { window.__a2barFn(String(d.a2bar)); } catch (x) { console.error(x); } });
 /* Anki のテンプレートのための代わり:pycmd などは何もしない。onUpdateHook / onShownHook は、Anki と同じく表示の前後に呼ぶ */
 window.pycmd = window.bridgeCommand = function () {}; window.onUpdateHook = []; window.onShownHook = [];
 (function () { var made = [], RA = window.Audio, lastTap = 0;
@@ -1392,6 +1399,7 @@ window.addEventListener("message", e => { const d = e.data; if (!d || !d.a2api |
   else if (d.a2api === "setTime") { if (d.arg > 0 && d.arg < 36000) r.pSec = d.arg; }
   else if (d.a2api === "suggest") { r.sug = [1, 2, 3, 4].includes(+d.arg) ? +d.arg : null; if (r.back) { const el = $("rv-ctl"); if (el) el.innerHTML = rvCtl(); } }
   else if (d.a2api === "answer") { if ([1, 2, 3, 4].includes(+d.arg)) { r.back = true; answer(+d.arg); } }
+  else if (d.a2api === "bar") { r.bar = barNorm(d.arg); r.barSent = 0; if (!r.back) { const el = $("rv-ctl"); if (el) el.innerHTML = rvCtl(); } }
   else if (d.a2api === "flip") { if (!r.back) { r.back = true; se("flip"); render(); } } });
 window.addEventListener("message", e => { if (e.data && e.data.a2h) document.querySelectorAll(".rvframe").forEach(f => { if (f.contentWindow === e.source) f.style.height = Math.max(e.data.a2h, 160) + "px"; }); });
 /* 画像の名前を、端末の中の画像の URL に。音声は再生ボタンに */
@@ -1436,7 +1444,7 @@ function rvPick(r, force){ const now = Date.now(), L = rvLearning(r);
   while (r.mi < r.main.length) { const c = A2.S.cards.get(r.main[r.mi]); if (c && !c.susp && !buriedNow(c) && !r.answered.has(c.id) && !((isLearn(c) || c.st === "段階") && c.dueMs != null)) return { id: c.id, main: true }; r.mi++; }
   if (L.length && (force || L[0].dueMs <= now + LEARN_AHEAD())) return { id: L[0].id, main: false };
   if (L.length) return { wait: L[0].dueMs }; return { done: true }; }
-function rvEnsure(){ const r = V.rv; if (!r || r.cur) return; r.px = null; r.pSec = null; r.sug = null; r.gmore = false; r.cwDone = false; r.gsKey = null; r.gsAt = 0; if (r.cwT) { clearTimeout(r.cwT); r.cwT = null; } const p = rvPick(r, r.force); r.force = false; r.wait = null; if (p.id) { r.cur = p.id; r.curMain = p.main; r.cardT0 = Date.now(); } else if (p.wait) r.wait = p.wait; }
+function rvEnsure(){ const r = V.rv; if (!r || r.cur) return; r.px = null; r.pSec = null; r.sug = null; r.gmore = false; r.cwDone = false; r.gsKey = null; r.gsAt = 0; r.bar = null; r.barSent = 0; if (r.cwT) { clearTimeout(r.cwT); r.cwT = null; } const p = rvPick(r, r.force); r.force = false; r.wait = null; if (p.id) { r.cur = p.id; r.curMain = p.main; r.cardT0 = Date.now(); } else if (p.wait) r.wait = p.wait; }
 const rvCur = () => V.rv && V.rv.cur ? A2.S.cards.get(V.rv.cur) : null;
 function rvCounts(r){ const now = Date.now(), today = A2.today(); let n = 0, rv = 0, sg = 0; for (let i = r.mi; i < r.main.length; i++) { const c = A2.S.cards.get(r.main[i]); if (!c || c.susp || buriedNow(c) || r.answered.has(c.id) || ((isLearn(c) || c.st === "段階") && c.dueMs != null)) continue; if (c.st === "新規" && !A2.stageOf(c)) n++; else if (A2.stageOf(c)) sg++; else rv++; }   // 段階なしにした段階の途中のカードは、ふつうの復習として数える(下線と同じ見方)
   const L = rvLearning(r), lNow = L.filter(c => c.dueMs <= now + LEARN_AHEAD()), l = lNow.filter(c => !A2.stageOf(c)).length, lToday = L.filter(c => A2.dayOf(c.dueMs) === today).length; sg += lNow.filter(c => !!A2.stageOf(c)).length; return { n, l, r: rv, s: sg, rest: n + rv + sg + lToday }; }
@@ -2015,6 +2023,13 @@ function btnParse(text){ const m = /^\s*[-・*]\s*下のボタン\s*[:：]\s*(.+
     else if (/押しまちがい|押し間違い|防止/.test(k)) { if (/あり|オン|on|する|有/i.test(v) && !/なし|しない|オフ|off/i.test(v)) o.guard = true; } });
   return btnNorm(o); }
 const GUARD_MS = 400;
+/* r5.10 a2.bar:表のあいだ、カードが下のボタンの欄を借りる。押されたら id をカードへ(a2.onBar) */
+const BAR_KINDS = ["main", "ok", "ng", "sub"];
+function barNorm(a){ if (!Array.isArray(a)) return null; const L = a.slice(0, 6).filter(x => x && x.id != null && String(x.id) !== "").map(x => ({ id: String(x.id).slice(0, 80), label: String(x.label != null ? x.label : x.id).slice(0, 40), kind: BAR_KINDS.includes(x.kind) ? x.kind : "sub" })); return L.length ? L : null; }
+function barOn(){ const r = V.rv; return !!(r && !r.back && r.bar && r.bar.length); }
+function barPick(kind){ const r = V.rv; if (!barOn()) return null; const f = k => (r.bar.find(x => x.kind === k) || {}).id; return kind === "go" ? (f("main") || f("ok")) : f(kind); }
+function barPress(id){ const r = V.rv; if (!barOn() || id == null || !r.bar.some(x => x.id === id)) return; if (rvGuardBlock()) return; if (r.barSent && Date.now() - r.barSent < 1000) return;   // カードが次のボタンを出すまでは、続けて届けない(1つの押しが2回にならない)
+  r.barSent = Date.now(); try { rvFrameEl.contentWindow.postMessage({ a2bar: id }, "*"); } catch (e) {} }
 function rvGuardBlock(){ const r = V.rv; if (!r || !r.gsAt) return false; return btnOf(rvCur()).guard && Date.now() - r.gsAt < GUARD_MS; }
 function rvCtl(){ const r = V.rv, c = rvCur(), ivs = A2.nextWaits(c), S0 = A2.stageOf(c);
   const gma = gmOn() ? gmActsHtml() : "";
@@ -2022,16 +2037,19 @@ function rvCtl(){ const r = V.rv, c = rvCur(), ivs = A2.nextWaits(c), S0 = A2.st
     ${rvToolsHtml(r, c)}
     <p class="note" style="text-align:center;margin-top:.5rem">キーボード:3 = いちばん上(クリア)・2 = まん中・1 = いちばん下・R で音をもう一度・Shift+V で録音・V で自分の声・Z で元に戻す</p>`;
   const B = btnOf(c), GL = ["もう一度", "難しい", "正解", "簡単"];
-  if (!r.back) r.gsKey = null;
+  const BO = barOn();
+  if (!r.back && !BO) r.gsKey = null;
   let view = "four";
   if (r.back && B.grade === "one" && r.sug && !r.gmore) view = "one";
   else if (r.back && B.grade === "card" && !r.cwDone) { view = "wait"; if (!r.cwT) { const cid = r.cur; r.cwT = setTimeout(() => { r.cwT = null; if (V.rv !== r || r.cur !== cid || !r.back) return; r.cwDone = true; const el = $("rv-ctl"); if (el) el.innerHTML = rvCtl(); }, 1200); } }
   let gw = "";
   if (r.back && view !== "wait" && r.gsKey !== view) { r.gsKey = view; r.gsAt = Date.now(); if (B.guard) gw = " gw"; }
+  if (BO) { const key = "bar:" + r.bar.map(x => x.kind + ":" + x.id + ":" + x.label).join("|"); if (r.gsKey !== key) { r.gsKey = key; r.gsAt = Date.now(); if (B.guard) gw = " gw"; } }
+  const barHtml = () => `<div class="cbar${gw}">${r.bar.map(x => `<button class="k-${x.kind}" data-cbar="${esc(x.id)}">${esc(x.label)}</button>`).join("")}</div>`;
   const four = `<div class="ansbar${gw}">${GL.map((x, k) => `<button class="ans a${k + 1}${r.sug === k + 1 ? " sug" : ""}" data-grade="${k + 1}"><small>${r.sug === k + 1 ? "おすすめ・" : ""}${A2.fmtWait(ivs[k].wait)}</small>${x}</button>`).join("")}</div>`;
   const one = () => `<div class="ansone${gw}"><button class="ans a${r.sug}" data-grade="${r.sug}"><small>おすすめ・${A2.fmtWait(ivs[r.sug - 1].wait)}</small>${GL[r.sug - 1]}</button><button class="linkx" data-gmore>ほかの判定</button></div>`;
   const backHtml = () => (view === "one" ? one() : view === "wait" ? `<div class="cwait">カードの判定を待っている…</div>` : four) + `<div class="fliprow"><button class="linkx" data-toface>表に戻る</button></div>`;
-  return `${gma}${r.back ? backHtml() : B.show === "hide" ? "" : `<button class="btn showans" data-showans>答えを見る</button>`}
+  return `${gma}${r.back ? backHtml() : BO ? barHtml() : B.show === "hide" ? "" : `<button class="btn showans" data-showans>答えを見る</button>`}
     ${rvToolsHtml(r, c)}
     ${VOICE.on ? `<div class="vstat"><span class="dot"></span>${VOICE.lat ? "<b>前回 " + (VOICE.lat / 1000).toFixed(2) + "秒</b>(話し始めてから動くまで)・" : ""}${VOICE.local === "available" ? "端末で聞き取り・" : "ネット越しに聞き取り・"}${VOICE.local === "downloadable" ? '<button class="linkx" data-vinstall>端末で聞き取る(速い)を入れる</button>・' : ""}聞いています:${["show", "g1", "g2", "g3", "g4"].map(k => "「" + esc(String(((A2.S.meta.voiceWords || {})[k]) || VOICE_WORDS[k]).split(/[,、]/)[0].trim()) + "」").join("")}${VOICE.last ? `<b class="vheard">聞き取った「${esc(VOICE.last)}」</b>` : ""}</div>` : ""}
     <p class="note" style="text-align:center;margin-top:.5rem">キーボード:${B.show === "hide" ? "" : "スペースで答え・"}B で表に戻る・1〜4で判定・R で音をもう一度・Shift+V で録音・V で自分の声・Z で元に戻す・Backspace で巻き戻し(表から)・E で直す。リモコン(矢印):→ 答え・正解、← もう一度、↑ 簡単、↓ 難しい</p>`; }
@@ -2054,7 +2072,7 @@ function ntToText(t){ const lbl = (L, cur) => (L.find(x => x[0] === String(cur |
   return ["# ノートタイプ:" + t.name, "", "## 欄(この順)", t.fields.map((f, i) => (i + 1) + ". " + f).join("\n"), "", "## Anki2 の設定", "- 重複を見る欄:" + A2.dupKeys(t).join("・"), "- 自動で書き換える欄:" + (auto.length ? "\n" + auto.join("\n") : "なし"), "- 欄を記録から作る:" + (calc.length ? "\n" + calc.join("\n") : "なし"), "- 下のボタン:" + btnText(t.btn), "",
     ...t.tmpls.flatMap((m, i) => { const F = fenceFor(m.q, m.a); return ["## カードの種類 " + (i + 1) + ":" + m.name, "### 表", F + "html", m.q, F, "### 裏", F + "html", m.a, F, ""]; }),
     "## CSS", fenceFor(t.css) + "css", t.css || "", fenceFor(t.css), "",
-    "## (参考)Anki2 で使えるもの", "- テンプレートに {{A2:正誤}}(○×の並び) {{A2:評価}}(× △ ○ ◎の並び) {{A2:時間}}(かかった秒) {{A2:回数}} {{A2:前回}} {{A2:記録}} を書ける", "- JavaScript から window.A2CARD を読める:{ id, back, state, reps, lapses, ivl, stability, difficulty, history:[{ t, grade(1〜4), sec, x }] }", "- 表から裏へは同じページのまま中身を差し替える(Ankiと同じ)。表で作った window の値は裏に残る", "- 「下のボタン」の行の書き方:答えを見る=出す|出さない(出さないときはカードの中のボタンか a2.flip() でだけ裏へ)・判定=4つ|おすすめ1つ(a2.suggest(1〜4) で付けたもの)|カードにまかせる(a2.answer(1〜4) で決まる)・押しまちがい防止=あり|なし(判定ボタンが出てから0.4秒は押せない)", "- 直したものは、この文と同じ形(「## カードの種類 N:名前」「### 表」「### 裏」「## CSS」とコードブロック)で返すと、Anki2 にそのまま取り込める"].join("\n"); }
+    "## (参考)Anki2 で使えるもの", "- テンプレートに {{A2:正誤}}(○×の並び) {{A2:評価}}(× △ ○ ◎の並び) {{A2:時間}}(かかった秒) {{A2:回数}} {{A2:前回}} {{A2:記録}} を書ける", "- JavaScript から window.A2CARD を読める:{ id, back, state, reps, lapses, ivl, stability, difficulty, history:[{ t, grade(1〜4), sec, x }] }", "- 表から裏へは同じページのまま中身を差し替える(Ankiと同じ)。表で作った window の値は裏に残る", "- 下のボタンの欄を借りる(表のあいだ):a2.bar([{ id, label, kind }]) で、下のボタンの欄をカードのボタンに置きかえる。kind は main(黒い「答えを見る」と同じ)・ok(「正解」の色)・ng(「もう一度」の色)・sub(白)。2つ以上は横に並ぶ。入れかえても欄の高さは同じ。a2.bar(null) でやめる。裏に行くと消え、裏は「下のボタン」の判定の設定どおり", "- 押されたボタンは a2.onBar(function (id) { … }) に届く。スペース・Enter・→・声の「答え」は main(なければ ok)、1・←・声の「もう一度」は ng、3・声の「正解」は ok。押しまちがい防止があれば、入れかわってから0.4秒は押せない。カードが次の a2.bar を呼ぶまで(最長1秒)は続けて届かない", "- 「下のボタン」の行の書き方:答えを見る=出す|出さない(出さないときはカードの中のボタンか a2.flip() でだけ裏へ)・判定=4つ|おすすめ1つ(a2.suggest(1〜4) で付けたもの)|カードにまかせる(a2.answer(1〜4) で決まる)・押しまちがい防止=あり|なし(判定ボタンが出てから0.4秒は押せない)", "- 直したものは、この文と同じ形(「## カードの種類 N:名前」「### 表」「### 裏」「## CSS」とコードブロック)で返すと、Anki2 にそのまま取り込める"].join("\n"); }
 // ノートタイプの文(「全部まとめてコピー」と同じ形)を読む。コードブロックは ``` でも ```` でも ~~~ でもよく、前に空白があってもよい
 function parseNtText(text){ const out = { tmpls: [], css: null, fields: null }; const lines = String(text || "").replace(/\r/g, "").split("\n"); let cur = null, side = null, fence = null, buf = [], inFields = false;
   const flush = () => { if (side === "css") out.css = buf.join("\n"); else if (cur && side) cur[side] = buf.join("\n"); buf = []; };
@@ -2416,7 +2434,7 @@ async function rewind(){ const r = V.rv; if (!r) return;
   if (!r.hist.length) return; await undo(true); }
 async function undo(toFront){ const r = V.rv, h = r && r.hist.pop(); if (!h) return; const c = A2.S.cards.get(h.c.id), note = A2.S.notes.get(c.nid); if (rvFrameEl) rvFrameEl.dataset.k = "";
   Object.keys(c).forEach(k => { if (!(k in h.c)) delete c[k]; }); Object.assign(c, h.c); note.f = h.f; h.sibs.forEach(s => A2.S.cards.set(s.id, s));
-  r.px = h.px || null; r.pSec = h.pSec || null; r.sug = h.sug || null; r.gmore = false; r.cwDone = false; r.gsKey = null; r.gsAt = 0; if (r.cwT) { clearTimeout(r.cwT); r.cwT = null; } r.answered.delete(c.id); r.mi = h.mi; r.cur = h.cur; r.curMain = h.curMain; r.wait = null; r.done = h.done; r.again = h.again; r.back = !toFront; r.cardT0 = Date.now();
+  r.px = h.px || null; r.pSec = h.pSec || null; r.sug = h.sug || null; r.gmore = false; r.cwDone = false; r.gsKey = null; r.gsAt = 0; r.bar = null; r.barSent = 0; if (r.cwT) { clearTimeout(r.cwT); r.cwT = null; } r.answered.delete(c.id); r.mi = h.mi; r.cur = h.cur; r.curMain = h.curMain; r.wait = null; r.done = h.done; r.again = h.again; r.back = !toFront; r.cardT0 = Date.now();
   await A2.save("cards", [c].concat(h.sibs)); await A2.save("notes", [note]); await A2.remove("revlog", [].concat(h.rl)); RWS.safe = null; RWS.anim = false; cancelAnimationFrame(RWS.raf); rwFlash("", ""); gmUndo(h, r); se("undo"); toast(toFront ? "ひとつ前のカードの表まで巻き戻した" : "ひとつ前に戻した"); render(); }
 /* 巻き戻しは長押し(0.45秒)で動く:ふつうに触れただけでは動かない。指を離す・ずらすと取り消し */
 const RWD = { t: null, x: 0, y: 0 };
@@ -2468,6 +2486,7 @@ function voiceDo(cmd){ const r = V.rv; if (!r || !rvCur()) { render(); return; }
   const now = Date.now(); if (now - (VOICE.lastAt || 0) < 700) return; VOICE.lastAt = now;   // 同じ発言が遅れて届くのは1秒もかからない。続けて答えても邪魔しない長さ
   if (cmd === "end") { endStudy(); return; } if (cmd === "undo") { undo(); return; }
   if (cmd === "face") { if (r.back) { r.back = false; se("flip"); render(); } return; }
+  if (barOn() && (cmd === "show" || /^g[1-4]$/.test(cmd))) { const id = cmd === "show" ? barPick("go") : cmd === "g1" ? barPick("ng") : cmd === "g3" ? barPick("ok") : null; if (id) barPress(id); return; }
   if (cmd === "show") { if (!r.back && btnOf(rvCur()).show !== "hide") { r.back = true; se("flip"); render(); } return; }
   const k = +cmd.slice(1); if (!r.back) r.back = true; answer(k); }
 function voiceCmd(t){ const m = voiceMatch(t); if (m) voiceDo(m); else render(); }
@@ -3155,6 +3174,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   /* 復習 */
   if (b.hasAttribute("data-showans")) { V.rv.back = true; se("flip"); render(); return; }
   if (b.hasAttribute("data-toface")) { V.rv.back = false; se("flip"); render(); return; }
+  if (b.hasAttribute("data-cbar")) { barPress(b.dataset.cbar); return; }
   if (b.hasAttribute("data-gmore")) { V.rv.gmore = true; const el = $("rv-ctl"); if (el) el.innerHTML = rvCtl(); return; }
   if (d.grade) { if (rvGuardBlock()) return; answer(+d.grade); return; }
   if (d.sgrade) { stageAnswer(d.sgrade); return; }
@@ -3334,6 +3354,8 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-ntsave")) { const t = A2.S.notetypes.get(V.sheet.id), tm = t.tmpls[V.sheet.ti || 0], v = $("nt-code").value, side = V.sheet.side || "表"; if (side === "表") tm.q = v; else if (side === "裏") tm.a = v; else t.css = v; await A2.save("notetypes", [t]); toast("テンプレートを直した"); render(); return; }
 });
 document.addEventListener("keydown", e => { if (!V.rv || V.sheet || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) return; const r = V.rv; if (!rvCur()) return;
+  if (barOn()) { const k = e.key, id = (k === " " || k === "Enter" || k === "ArrowRight" || k === "PageDown") ? barPick("go") || "" : (k === "1" || k === "ArrowLeft" || k === "PageUp") ? barPick("ng") || "" : k === "3" ? barPick("ok") || "" : null;
+    if (id != null) { e.preventDefault(); if (id) barPress(id); return; } }
   if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (!r.back) { if (btnOf(rvCur()).show !== "hide") { r.back = true; se("flip"); render(); } } else answer(3); }
   else if (/^[1-4]$/.test(e.key) && r.back) answer(+e.key);
   else if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); if (!r.back) { if (btnOf(rvCur()).show !== "hide") { r.back = true; se("flip"); render(); } } else answer(3); }
@@ -3416,7 +3438,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r5.09";
+window.APP_VER_EX = "r5.10";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -3972,7 +3994,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r5.09";
+window.APP_VER_SYNC = "r5.10";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
