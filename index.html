@@ -1395,7 +1395,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r5.17";
+A2.VER = "r5.18";
 window.A2 = A2;
 
 </script>
@@ -1403,7 +1403,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r5.17"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r5.18"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -3612,7 +3612,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r5.17";
+window.APP_VER_EX = "r5.18";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 /* r5.17 お試し:EXV.trial = { sid, doc(写し), subj?, ent? } のあいだは、その分野の記録を写しに向ける。写しは保存しない */
@@ -4638,7 +4638,8 @@ function exSheet(sh){ if (!sh || !/^x-/.test(sh.k)) return null; if (sh.k === "x
       <div class="row" style="margin-top:.5rem"><button class="btn" data-xloosesave="${sh.id || ""}">${sh.id ? "直す" : "足す"}</button>${sh.id ? "" : '<button class="btn ghost" data-xloosesave="" data-go="1">足してすぐ演習する</button>'}${sh.id ? '<button class="linkx" data-xloosedel style="color:var(--shu);margin-left:auto">消す</button>' : ""}</div>`; }
   if (sh.k === "x-q") { const m = exMat(doc, sh.mat), q = m.items.find(x => x.id === sh.q), hs = doc.hist.filter(h => h.mat === sh.mat && h.q === sh.q);
     return `<h3>${esc(m.id === "loose" ? q.n : m.name + " " + q.n)}</h3><div class="note">今の印:<span class="gb g-${q.s || ""}">${q.s || "まだ"}</span>・演習 ${hs.length}回</div>${exQPlanHtml(doc, m, q)}${exQFlow(doc, sh.mat, q)}<h2>これまでの演習</h2>${hs.length ? `<div class="xlist">${hs.map(h => exHistRow(h, false)).join("")}</div>` : '<p class="note">まだない。</p>'}
-      <div class="row" style="margin-top:.6rem"><button class="btn shu" data-xstart="${sh.mat}|${sh.q}">この問題で演習する</button><button class="btn ghost" data-xpeek="${sh.mat}|${sh.q}">中身を見る</button>${m.id === "loose" ? `<button class="linkx" data-xlooseedit="${q.id}">直す</button>` : ""}</div>`; }
+      <div class="row" style="margin-top:.6rem"><button class="btn shu" data-xstart="${sh.mat}|${sh.q}">この問題で演習する</button><button class="btn ghost" data-xpeek="${sh.mat}|${sh.q}">中身を見る</button>${m.id === "loose" ? `<button class="linkx" data-xlooseedit="${q.id}">直す</button>` : `<button class="linkx" data-xqren>名前を変える</button>`}</div>
+      ${sh.ren && m.id !== "loose" ? `<div class="f" style="margin-top:.6rem"><label>問題の名前<span class="lh">印・予定・これまでの演習は、そのまま引き継ぐ</span></label>${inp("xqn-n", q.n, "例:12")}</div><div class="row"><button class="btn" data-xqrensave>変える</button><button class="btn ghost" data-xqren>やめる</button></div>` : ""}`; }
   if (sh.k === "x-h") { const h = doc.hist.find(x => x.id === sh.id), items = doc.map.filter(it => (h.marks || {})[it.id]);
     return `<h3>${esc(h.qn)}</h3><div class="note">${A2.dayStr(A2.dayOf(h.t))}・${exTm(h.sec)}・<span class="gb g-${h.g}">${h.g}</span></div>${h.note ? `<div class="pkv"><span class="k">気づいたこと</span><span class="v">${esc(h.note)}</span></div>` : ""}
       ${items.length ? `<h2>意識できたか</h2><div class="card">${items.map(it => `<div class="chk"><div class="t"><b>${esc(it.h)}</b></div><span class="gb g-${h.marks[it.id] === "o" ? "○" : h.marks[it.id] === "x" ? "×" : ""}">${h.marks[it.id] === "o" ? "できた" : h.marks[it.id] === "x" ? "忘れた" : "出ず"}</span></div>`).join("")}</div>` : ""}<div class="row"><button class="linkx" data-xhistdel="${h.id}" style="color:var(--shu)">この記録を消す</button></div>`; }
@@ -4720,6 +4721,10 @@ document.addEventListener("click", async e => { const b = e.target.closest("butt
   if (b.hasAttribute("data-xmatdel")) { if (!confirm("この問題集を消す?(結果の記録は残る)")) return; doc.mats = doc.mats.filter(x => x.id !== V.sheet.id); await exSave(doc); V.sheet = null; EXV.mat = null; render(); return; }
   if (d.xmat) { EXV.mat = d.xmat; go({}); return; } if (b.hasAttribute("data-xbacksub")) { EXV.mat = null; go({}); return; }
   if (b.hasAttribute("data-xloosenew")) { V.sheet = { k: "x-loose" }; render(); return; }
+  if (b.hasAttribute("data-xqren") && V.sheet && V.sheet.k === "x-q") { V.sheet.ren = !V.sheet.ren; render(); if (V.sheet.ren) setTimeout(() => { const el = $("xqn-n"); if (el) { el.focus(); el.select(); } }, 50); return; }
+  if (b.hasAttribute("data-xqrensave") && V.sheet && V.sheet.k === "x-q") { const m = exMat(doc, V.sheet.mat), q = m && m.items.find(x => x.id === V.sheet.q), nm = ($("xqn-n") || {}).value ? $("xqn-n").value.trim() : ""; if (!q) return; if (!nm) { $("xqn-n").focus(); return; }
+    if (nm === q.n) { V.sheet.ren = false; render(); return; } if (m.items.some(x => x.id !== q.id && x.n === nm)) { toast("この問題集に、同じ名前の問題がもうある"); $("xqn-n").focus(); return; }
+    q.n = nm; doc.hist.forEach(h => { if (h.mat === m.id && h.q === q.id) h.qn = m.name.slice(0, 14) + " " + nm; }); V.sheet.ren = false; await exSave(doc); se("tick"); toast("名前を変えた"); render(); return; }
   if (d.xlooseedit) { V.sheet = { k: "x-loose", id: d.xlooseedit }; render(); return; }
   if (d.xloosesave != null && b.hasAttribute("data-xloosesave")) { const n = $("xl-n").value.trim(); if (!n) { $("xl-n").focus(); return; } let q = doc.loose.find(x => x.id === d.xloosesave); if (!q) { q = { id: "L" + A2.uid(), s: "" }; doc.loose.push(q); }
     Object.assign(q, { n, src: $("xl-s").value.trim(), area: $("xl-a").value, body: $("xl-b").value.trim(), qs: $("xl-q").value.trim(), ans: $("xl-ans").value.trim(), expl: $("xl-e").value.trim(), audio: ($("xl-au") || {}).value ? $("xl-au").value.trim() : "" }); if (q.ptext) { q.ptext = exParas(q.body); delete q.body; } { const ax = exAxisRead("xl"); if (ax.ent) q.ent = ax.ent; else delete q.ent; q.rvt = ax.rvt.length ? ax.rvt : ["redo"]; if (ax.np) q.np = ax.np; else delete q.np; } await exSave(doc); se("add");
@@ -4745,6 +4750,7 @@ document.addEventListener("click", async e => { const b = e.target.closest("butt
     doc.hist.unshift({ id: "h" + A2.uid(), mat: r.mat, q: r.q, qn: (m.id === "loose" ? "" : m.name.slice(0, 14) + " ") + q.n, t: Date.now(), sec: r.sec, g: r.grade, marks: Object.fromEntries(Object.entries(r.mark).filter(([, v]) => v)), note: r.note, via: r.via || "", pm: r.pm && Object.keys(r.pm).length ? r.pm : null, sg: r.sg || null, lis: r.lis || null, ded: r.ded || null, w: r.write || null, an: exAnHas(r.an) ? r.an : null, rsec: r.readSec || null, wpm: exWpm(q, r) || null, how: r.how === "self" ? "self" : null, light: r.light || null });
     await exSave(doc); toast("記録した"); exEnd(); return; }
 });
+document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target && e.target.id === "xqn-n" && !e.isComposing) { e.preventDefault(); const b = document.querySelector("[data-xqrensave]"); if (b) b.click(); } });
 document.addEventListener("change", e => { if (e.target.id === "xfig-file" && e.target.files[0]) exAddFig(e.target.files[0]); });
 document.addEventListener("input", e => { const t = e.target; if (!V.sheet || V.sheet.k !== "x-ai") return; if (t.id === "xai-a") V.sheet.area = t.value; if (t.id === "xai-r") V.sheet.req = t.value;
   if (t.id === "xai-t") { V.sheet.text = t.value; clearTimeout(window.__xai); window.__xai = setTimeout(() => { const p0 = t.selectionStart, y = (document.querySelector(".sheet") || {}).scrollTop; const w = $("sheetwrap"); if (w) w.remove(); render(); const el = $("xai-t"); if (el) { el.focus(); el.setSelectionRange(p0, p0); } const sh2 = document.querySelector(".sheet"); if (sh2 && y) sh2.scrollTop = y; }, 400); } });
@@ -4761,7 +4767,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r5.17";
+window.APP_VER_SYNC = "r5.18";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
