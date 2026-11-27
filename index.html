@@ -912,6 +912,11 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .bkind{margin:0 0 .6rem}
 .xbrow{display:flex;align-items:center;gap:.6rem;width:100%;text-align:left;background:var(--white);border:0;border-bottom:1px solid var(--rule);padding:.55rem .7rem;font:inherit;color:var(--ink)}.xbrow:first-child{border-top-left-radius:10px;border-top-right-radius:10px}
 .xbr-m{flex:1;min-width:0}.xbr-m b{display:block;font-size:.9rem}.xbr-m .meta{font-size:.7rem;color:var(--sub)}.xbr-t{display:flex;gap:.2rem;margin-top:.15rem}
+
+/* r5.16 ブラウザの演習:選んで消す */
+.xbrow{display:flex;align-items:center;gap:.5rem;background:var(--white);border-bottom:1px solid var(--rule);padding:0 0 0 .6rem}.xbrow.on{background:var(--wave-soft)}
+.xbrow input[type=checkbox]{flex:none;width:1.15rem;height:1.15rem;margin:0}
+.xbr-b{flex:1;min-width:0;display:flex;align-items:center;gap:.6rem;text-align:left;background:none;border:0;padding:.55rem .7rem .55rem .1rem;font:inherit;color:var(--ink)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -1390,7 +1395,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r5.15";
+A2.VER = "r5.16";
 window.A2 = A2;
 
 </script>
@@ -1398,7 +1403,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r5.15"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r5.16"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -3607,7 +3612,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r5.15";
+window.APP_VER_EX = "r5.16";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 const exDoc = sid => A2.S.exsub.get(sid) || { id: sid, mats: [], loose: [], map: [], hist: [] };
@@ -4557,19 +4562,30 @@ function exBrowser(){ const f = V.bx || (V.bx = {}), rows = [], subs = [...A2.S.
   const sel = (id, opts, v, all) => `<select id="${id}"><option value="">${all}</option>${opts.map(([k, l]) => `<option value="${esc(k)}"${v === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`, shown = rows.slice(0, V.bxmax || 200), any = ["sub", "mat", "ent", "rvt", "s", "q"].some(k => f[k]);
   return `<div class="bsearch"><input id="bxq" placeholder="言葉で探す(問題集・番号・出典・本文・設問・解答)" value="${esc(f.q || "")}"></div>
     <div class="bfbar"><div class="bfsel">${sel("bx-sub", subs.map(s => [s.id, s.name]), f.sub || "", "すべての分野")}${sel("bx-mat", mats, f.mat || "", "すべての問題集")}${sel("bx-ent", [["-", "ノートタイプなし"]].concat(entList().map(t => [t.id, t.name])), f.ent || "", "すべてのノートタイプ")}${sel("bx-rvt", RVT.map(([k, n]) => [k, n]), f.rvt || "", "すべての復習の型")}${sel("bx-s", [["○", "○ できた"], ["△", "△ あやしい"], ["×", "× できなかった"], ["-", "まだ"]], f.s || "", "すべての印")}</div>${any ? '<div class="bfchips"><button class="linkx" data-bxclear>絞り込みを消す</button></div>' : ""}</div>
-    <div class="bsort"><span>${rows.length}問 · 行を押すと中身を見られる</span></div>
-    <div class="btable">${shown.map(({ s, doc, m, q, e, ty }) => { const N = exQNext(doc, m, q); return `<button class="xbrow" data-xpeekopen="${s.id}|${m.id}|${q.id}"><span class="gb big g-${q.s || ""}">${q.s || "・"}</span><div class="xbr-m"><b>${esc((m.id === "loose" ? "ばら · " : m.name + " · ") + q.n)}</b><div class="meta">${esc(s.name)} · ${esc(e ? e.name : "ノートタイプなし")} · ${esc(exPartsTxt(m, q))}${N.next ? " · 次 " + exDayF(N.next.due) : N.grad ? " · 卒業" : ""}${exHasText(q) ? "" : " · 番号だけ"}</div><div class="xbr-t">${ty.map(rvtChip).join("")}</div></div><span class="chev">›</span></button>`; }).join("") || '<p class="note" style="padding:.8rem">見つからない。</p>'}</div>
+    ${(() => { V.bxlist = rows.map(({ s, m, q }) => s.id + "|" + m.id + "|" + q.id); const sel = Object.keys(V.bxsel || {}).filter(k => V.bxsel[k]); return `<div class="bsort"><span>${rows.length}問 · 行を押すと中身を見られる${sel.length ? " · " + sel.length + "問を選んでいる" : ""}</span>${rows.length ? (sel.length && sel.length >= rows.length ? '<button class="linkx" data-bxnone style="margin-left:auto">選ぶのをやめる</button>' : '<button class="linkx" data-bxall style="margin-left:auto">全部選ぶ</button>') : ""}</div>${sel.length ? `<div class="bact"><button class="btn sm" data-bxdel style="background:var(--shu);border-color:var(--shu)">選んだ ${sel.length}問を消す</button><button class="linkx" data-bxnone>選ぶのをやめる</button></div>` : ""}`; })()}
+    <div class="btable">${shown.map(({ s, doc, m, q, e, ty }) => { const N = exQNext(doc, m, q); const key = s.id + "|" + m.id + "|" + q.id; return `<div class="xbrow${(V.bxsel || {})[key] ? " on" : ""}"><input type="checkbox" data-bxsel="${key}"${(V.bxsel || {})[key] ? " checked" : ""} aria-label="選ぶ"><button class="xbr-b" data-xpeekopen="${key}"><span class="gb big g-${q.s || ""}">${q.s || "・"}</span><div class="xbr-m"><b>${esc((m.id === "loose" ? "ばら · " : m.name + " · ") + q.n)}</b><div class="meta">${esc(s.name)} · ${esc(e ? e.name : "ノートタイプなし")} · ${esc(exPartsTxt(m, q))}${N.next ? " · 次 " + exDayF(N.next.due) : N.grad ? " · 卒業" : ""}${exHasText(q) ? "" : " · 番号だけ"}</div><div class="xbr-t">${ty.map(rvtChip).join("")}</div></div><span class="chev">›</span></button></div>`; }).join("") || '<p class="note" style="padding:.8rem">見つからない。</p>'}</div>
     ${rows.length > shown.length ? `<button class="madd" data-bxmore>あと ${rows.length - shown.length} 問を出す</button>` : ""}`; }
 document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("button"); if (!b || b.disabled) return; const d = b.dataset;
   if (d.bkind) { V.bkind = d.bkind; render(); window.scrollTo(0, 0); return; }
   if (b.hasAttribute("data-bxclear")) { V.bx = {}; V.bxmax = 0; render(); return; }
+  if (b.hasAttribute("data-bxall")) { V.bxsel = {}; (V.bxlist || []).forEach(k => V.bxsel[k] = true); render(); return; }
+  if (b.hasAttribute("data-bxnone")) { V.bxsel = {}; render(); return; }
+  if (b.hasAttribute("data-bxdel")) { exBxDelete(); return; }
   if (b.hasAttribute("data-bxmore")) { V.bxmax = (V.bxmax || 200) + 200; render(); return; }
   if (d.xpeekopen) { const [sid, mid, qid] = d.xpeekopen.split("|"); exPeekOpen(sid, mid, qid, { mode: V.mode, sub: EXV.sub, mat: EXV.mat, tab: EXV.tab, y: window.scrollY }); return; }
   if (d.xpeek) { const [mid, qid] = d.xpeek.split("|"); exPeekOpen(EXV.sub, mid, qid, { mode: V.mode, sub: EXV.sub, mat: EXV.mat, tab: EXV.tab, sheet: V.sheet, y: window.scrollY }); return; }
   if (b.hasAttribute("data-xpeekback")) { exPeekBack(); return; }
   if (d.xpeekgo && EXV.peek) { EXV.peek.qid = d.xpeekgo; EXV.peekAn = null; render(); const el = document.querySelector(".xpeek"); if (el) el.scrollTop = 0; return; }
   if (d.xpeekan != null && b.hasAttribute("data-xpeekan")) { EXV.peekAn = +d.xpeekan; render(); return; } });
-document.addEventListener("change", e => { const t = e.target; if (!t || !/^bx-/.test(t.id || "")) return; const f = V.bx || (V.bx = {}), k = t.id.slice(3); f[k] = t.value; if (k === "sub") f.mat = ""; V.bxmax = 0; render(); });
+/* 選んだ問題を消す。結果(これまでの演習の記録)は残す。問題集は空になっても残す */
+async function exBxDelete(){ const sel = Object.keys(V.bxsel || {}).filter(k => V.bxsel[k]); if (!sel.length) return;
+  if (!confirm(sel.length + "問を消す?(本文・設問・印・予定・書き込みも消える。結果のタブの記録は残る)")) return;
+  const by = {}; sel.forEach(k => { const [sid, mid, qid] = k.split("|"); ((by[sid] = by[sid] || {})[mid] = by[sid][mid] || new Set()).add(qid); });
+  let n = 0; for (const [sid, mm] of Object.entries(by)) { const doc = A2.S.exsub.get(sid); if (!doc) continue;
+    Object.entries(mm).forEach(([mid, ids]) => { if (mid === "loose") { const b0 = doc.loose.length; doc.loose = doc.loose.filter(q => !ids.has(q.id)); n += b0 - doc.loose.length; } else { const m = doc.mats.find(x => x.id === mid); if (!m) return; const b0 = m.items.length; m.items = m.items.filter(q => !ids.has(q.id)); n += b0 - m.items.length; } });
+    await exSave(doc); }
+  V.bxsel = {}; se("del"); toast("消した:" + n + "問"); render(); }
+document.addEventListener("change", e => { const t = e.target; if (t && t.dataset && t.dataset.bxsel) { V.bxsel = V.bxsel || {}; if (t.checked) V.bxsel[t.dataset.bxsel] = true; else delete V.bxsel[t.dataset.bxsel]; render(); return; } if (!t || !/^bx-/.test(t.id || "")) return; const f = V.bx || (V.bx = {}), k = t.id.slice(3); f[k] = t.value; if (k === "sub") f.mat = ""; V.bxmax = 0; render(); });
 document.addEventListener("input", e => { const t = e.target; if (!t || t.id !== "bxq") return; (V.bx || (V.bx = {})).q = t.value; clearTimeout(window.__bxq); window.__bxq = setTimeout(() => { const p = t.selectionStart; render(); const el = $("bxq"); if (el) { el.focus(); try { el.setSelectionRange(p, p); } catch (x) {} } }, 250); });
 
 /* ───── 下から出る画面(演習) ───── */
@@ -4709,7 +4725,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r5.15";
+window.APP_VER_SYNC = "r5.16";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
