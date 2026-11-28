@@ -1494,7 +1494,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r6.12";
+A2.VER = "r6.13";
 window.A2 = A2;
 
 </script>
@@ -1502,7 +1502,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r6.12"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r6.13"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -3719,7 +3719,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r6.12";
+window.APP_VER_EX = "r6.13";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 /* r5.17 お試し:EXV.trial = { sid, doc(写し), subj?, ent? } のあいだは、その分野の記録を写しに向ける。写しは保存しない */
@@ -5580,45 +5580,55 @@ async function lsMakeCard(doc, m, q, i){ const x = (q.script || [])[i]; if (!x |
 
 /* ───── r6.11 カードでも読み上げ:ノートタイプの「読み上げ」 nt.tts = { f:[読む欄], when:"back"(裏を開いたら自動)|"button"(ボタンだけ), front:音源のないカードは表を開いたら読む }。ノートタイプの一部なので同期する。声と速さは端末ごと
    表では、front の印があって音源のないカードでしか読まない(自分で英文を作る前に音を聞かせないため)。段階が「シャドーイング型」のあいだは機械音声を出さない(手本はネイティブ) ───── */
-const TTS_DEF = { newspeaking: { f: ["英文例"], when: "back" }, bamen: { f: ["答え"], when: "back" }, "リスニング": { f: ["Script"], when: "button", front: true } };
+const TTS_DEF = { newspeaking: { f: ["英文例"], when: "button" }, bamen: { f: ["答え"], when: "button" }, ginou: { f: ["読み上げ", "裏"], when: "button", first: true }, "リスニング": { f: ["Script"], when: "button", front: true } };   /* r6.13 初期値はボタンだけ。ginou は「読み上げ」が空でなければそれ、空なら「裏」 */
+/* r6.13 読むのは英語だけ:<small> と class="lab" は中身ごと除き、div・<br> などで区切って、ひらがな・カタカナ・漢字を含む区切りは読まない。印({a>b}・[ ]・_ ~)は外す */
+const TTS_JA = /[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]/;
+const ttsMarks = t => String(t || "").replace(/\{([^{}>]*?)>[^{}]*?\}/g, "$1").replace(/[\[\]]/g, "").replace(/[_~]/g, " ").replace(/\s+/g, " ").trim();
+function ttsSegs(html){ const raw = String(html || "").replace(/\[sound:[^\]]*\]/g, " "), out = [], ok = t => { if (t && /[A-Za-z]/.test(t) && !TTS_JA.test(t)) out.push(t); }; let d = null; try { d = new DOMParser().parseFromString("<body>" + raw + "</body>", "text/html"); } catch (e) {}
+  if (!d || !d.body) { raw.split(/<br\s*\/?>|<\/?div[^>]*>/i).forEach(x => ok(ttsPlain(x))); return out; }
+  d.body.querySelectorAll("small, .lab, script, style").forEach(x => x.remove()); let buf = ""; const flush = () => { ok(ttsMarks(buf)); buf = ""; }, BL = /^(DIV|P|LI|UL|OL|TR|TD|TH|H[1-6]|BLOCKQUOTE|SECTION|TABLE|DL|DT|DD)$/;
+  const walk = n => n.childNodes.forEach(k => { if (k.nodeType === 3) buf += k.data; else if (k.nodeType === 1) { if (k.tagName === "BR") flush(); else if (BL.test(k.tagName)) { flush(); walk(k); flush(); } else walk(k); } }); walk(d.body); flush(); return out; }
 const ntTts = t => { if (!t) return null; const c = t.tts || TTS_DEF[t.name]; if (!c) return null; const f = (c.f || []).filter(x => (t.fields || []).includes(x)); return f.length ? Object.assign({ when: "button" }, c, { f }) : null; };
 const ttsWhenL = { back: "裏を開いたら自動で読む", button: "ボタンだけ" };
-const ttsText = t => { const c = ntTts(t); return c ? "欄=" + c.f.join(",") + " / いつ=" + (c.when === "back" ? "裏を開いたら自動" : "ボタンだけ") + (c.front ? " / 音源のないカード=表で読む" : "") : "なし"; };
+const ttsText = t => { const c = ntTts(t); return c ? "欄=" + c.f.join(",") + " / いつ=" + (c.when === "back" ? "裏を開いたら自動" : "ボタンだけ") + (c.first ? " / 中身のある最初の欄だけ" : "") + (c.front ? " / 音源のないカード=表で読む" : "") : "なし"; };
 function ttsParse(text){ const m = /^\s*[-・*]\s*読み上げ\s*[:：]\s*(.+?)\s*$/m.exec(String(text || "")); if (!m) return null; if (/^なし|^しない|^オフ/.test(m[1])) return { f: [], when: "button" };
-  const o = { f: [], when: "button" }; m[1].split(/\s*[\/／]\s*/).forEach(x => { const kv = /^\s*(.+?)\s*[=＝:：]\s*(.+?)\s*$/.exec(x); if (!kv) return;
-    if (/欄/.test(kv[1])) o.f = kv[2].split(/[,，、・]/).map(s => s.trim()).filter(Boolean); else if (/いつ/.test(kv[1])) o.when = /裏|自動/.test(kv[2]) ? "back" : "button"; else if (/音源/.test(kv[1])) { if (/表/.test(kv[2]) && !/読まない/.test(kv[2])) o.front = true; } }); return o; }
+  const o = { f: [], when: "button" }; m[1].split(/\s*[\/／]\s*/).forEach(x => { if (/中身のある最初/.test(x) && !/[=＝]/.test(x)) { o.first = true; return; } const kv = /^\s*(.+?)\s*[=＝:：]\s*(.+?)\s*$/.exec(x); if (!kv) return;
+    if (/最初/.test(kv[1] + kv[2])) o.first = true; else if (/欄/.test(kv[1])) o.f = kv[2].split(/[,，、・]/).map(s => s.trim()).filter(Boolean); else if (/いつ/.test(kv[1])) o.when = /裏|自動/.test(kv[2]) ? "back" : "button"; else if (/音源/.test(kv[1])) { if (/表/.test(kv[2]) && !/読まない/.test(kv[2])) o.front = true; } }); return o; }
 /* その面のテンプレートに出てくる欄(裏の {{FrontSide}} は表の欄も) */
 function tmplRefs(nt, ord, back){ const tm = nt.tmpls[Math.min(ord || 0, nt.tmpls.length - 1)] || {}, out = new Set(), walk = (n, d) => (n.kids || []).forEach(k => { if (k.v != null) { const name = k.v.split(":").pop().trim(); if (name === "FrontSide") { if (!d) walk(A2.parseTmpl(tm.q || ""), 1); } else out.add(name); } else if (k.kids) walk(k, d); });
   walk(A2.parseTmpl(back ? tm.a || "" : tm.q || ""), 0); return out; }
 const ttsNative = note => Object.values((note && note.f) || {}).some(v => /\[sound:[^\]]+\]/.test(String(v || ""))) || !!String(((note && note.f) || {}).File || "").replace(/<[^>]*>/g, "").trim();
 const ttsShadow = c => { const S0 = A2.stageOf(c); return !!(S0 && S0.t && /シャドー/.test(S0.t.name || "")); };
 function ttsCardPlan(c, back){ const note = c && A2.S.notes.get(c.nid), nt = note && A2.S.notetypes.get(note.nt), cfg = ntTts(nt); if (!cfg || ttsShadow(c)) return null;
-  const native = ttsNative(note), refs = tmplRefs(nt, c.ord, back), fields = cfg.f.filter(f => refs.has(f) && ttsPlain(note.f[f])); if (!fields.length) return null; if (!back && !(cfg.front && !native)) return null;
-  const v = note.voice || {}; return { native, fields, lines: fields.map(f => ({ t: ttsPlain(note.f[f]), who: v.who || "", g: v.g || "" })), auto: back ? cfg.when === "back" : true }; }
+  const native = ttsNative(note), refs = tmplRefs(nt, c.ord, back), used = new Set(nt.tmpls.flatMap(tm => [...tmplRefs(nt, nt.tmpls.indexOf(tm), false), ...tmplRefs(nt, nt.tmpls.indexOf(tm), true)]));
+  let items = cfg.f.filter(f => refs.has(f) || (back && !used.has(f))).map(f => ({ f, segs: ttsSegs(note.f[f]) })).filter(x => x.segs.length); if (cfg.first) items = items.slice(0, 1); if (!items.length) return null; if (!back && !(cfg.front && !native)) return null;
+  const v = note.voice || {}, ln = t => ({ t, who: v.who || "", g: v.g || "" }); return { native, fields: items.map(x => x.f), items: items.map(x => x.segs.map(ln)), lines: items.flatMap(x => x.segs.map(ln)), auto: back ? cfg.when === "back" : true }; }
 /* 復習の画面:カードの下に小さな再生ボタン(テンプレートの中には差し込まない。カードの JavaScript が欄の文字を読んでいることがあるため) */
 function rvTts(){ const r = V.rv, c = r && rvCur(); if (!c) return ""; const P = ttsCardPlan(c, r.back); if (!P) return ""; const after = r.ttsAfter === c.id + "|" + r.back;
   return `<div class="rvtts">${P.native && r.back ? `<button class="tbn${after ? " go" : ""}" data-ttsnat>▶ ${after ? "もう一度ネイティブ" : "ネイティブ"}</button>` : ""}${P.fields.map((f, i) => `<button class="tbn" data-ttsf="${i}">▶ ${!r.back ? "もう一度聞く" : P.native ? "機械音声で聞く" : "読む"}${P.fields.length > 1 ? " · " + esc(f) : ""}</button>`).join("")}</div>`; }
 const rvTtsDraw = () => { const el = $("rv-tts"); if (el) el.innerHTML = rvTts(); };
 function ttsCardSay(c, back, idx){ const P = ttsCardPlan(c, back); if (!P) return; const key = c.id + "|" + back;
-  ttsSay(idx == null ? P.lines : [P.lines[idx]], { end: () => { if (P.native && V.rv && rvCur() === c && V.rv.back === back) { V.rv.ttsAfter = key; rvTtsDraw(); } } }); }
+  ttsSay(idx == null ? P.lines : P.items[idx] || [], { end: () => { if (P.native && V.rv && rvCur() === c && V.rv.back === back) { V.rv.ttsAfter = key; rvTtsDraw(); } } }); }
 function ttsAuto(c, back){ ttsStop(); if (!V.rv) return; V.rv.ttsAfter = null; const P = ttsCardPlan(c, back); if (P && P.auto) setTimeout(() => { if (V.rv && rvCur() === c && V.rv.back === back) ttsCardSay(c, back); }, 300); }
 function ttsNativePlay(){ ttsStop(); const fr = rvFrameEl || $("rv-frame"); let d = null; try { d = fr && fr.contentDocument; } catch (e) {} if (!d) return; const b = d.querySelector("#lsnPlay, .a2-snd, .replay-button:not(.a2-tts)"); if (b) { b.click(); return; } const a = d.querySelector("audio"); if (a) { try { a.currentTime = 0; a.play(); } catch (e) {} } }
 document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-ttsf],[data-ttsnat]"); if (!b || !V.rv) return; const c = rvCur(); if (!c) return;
   if (b.hasAttribute("data-ttsnat")) { ttsNativePlay(); return; } ttsCardSay(c, V.rv.back, +b.dataset.ttsf); });
 /* テンプレートの {{tts …:欄}} のボタンも、同じ声と速さで読む */
-window.a2ttsSay = (text, sp) => ttsSay([{ t: ttsPlain(text) }], { rate: +sp || 1 });
+window.a2ttsSay = (text, sp) => ttsSay(ttsSegs(text).map(t => ({ t })), { rate: +sp || 1 });
 /* ノートタイプの画面の「読み上げ」 */
 function ntTtsHtml(t){ const c = ntTts(t) || { f: [], when: (t.tts && t.tts.when) || "button", front: !!(t.tts && t.tts.front) }, def = !t.tts && !!TTS_DEF[t.name];
   return `<h2>読み上げ<small>端末の読み上げで英語の欄を読む。声と速さは その他 › 読み上げの声(端末ごと)</small></h2><div class="card">
     <div class="note" style="margin:0 0 .2rem">読む欄(英語の欄)</div><div class="dupk">${t.fields.map(f => `<label><input type="checkbox" data-nttsf="${t.id}|${esc(f)}"${c.f.includes(f) ? " checked" : ""}> ${esc(f)}</label>`).join("")}</div>
     <div class="autorow"><span>いつ読むか</span><select data-nttsw="${t.id}">${Object.entries(ttsWhenL).map(([k, l]) => `<option value="${k}"${c.when === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+    <label class="xfed-pt"><input type="checkbox" data-nttsfst="${t.id}"${c.first ? " checked" : ""}> 中身のある最初の欄だけ読む${c.f.length > 1 ? `(見る順:${c.f.map(esc).join(" → ")})` : ""}</label>
     <label class="xfed-pt"><input type="checkbox" data-nttsfr="${t.id}"${c.front ? " checked" : ""}> 音源のないカードは、表を開いたら読む(文字を出さない聞き取り用)</label>
+    <p class="note" style="margin:.2rem 0 0">読むのは英語だけ:&lt;small&gt; と見出し(class="lab")は除き、区切り(div・改行)ごとに、ひらがな・カタカナ・漢字を含む所は読まない。</p>
     <p class="note" style="margin:.3rem 0 0">${def ? "今は初期値。変えると、このノートタイプの設定になる。" : ""}表では、上の印があって音源のないカードでしか読まない。再生ボタンはカードのすぐ下に出る(その面に出てくる欄だけ)。ネイティブの音源があるカードは「ネイティブ」と並ぶ。段階が「シャドーイング型」のあいだは、機械音声を出さない。</p></div>`; }
-document.addEventListener("change", async e => { const el = e.target; if (!el || !el.dataset) return; const d = el.dataset, id = (d.nttsf || d.nttsw || d.nttsfr || "").split("|")[0]; if (!id) return; const t = A2.S.notetypes.get(id); if (!t) return;
+document.addEventListener("change", async e => { const el = e.target; if (!el || !el.dataset) return; const d = el.dataset, id = (d.nttsf || d.nttsw || d.nttsfr || d.nttsfst || "").split("|")[0]; if (!id) return; const t = A2.S.notetypes.get(id); if (!t) return;
   const c = Object.assign({ f: [], when: "button" }, ntTts(t) || t.tts || {}); c.f = (c.f || []).slice();
   if (d.nttsf) { const f = d.nttsf.slice(id.length + 1); if (el.checked) { if (!c.f.includes(f)) c.f.push(f); } else c.f = c.f.filter(x => x !== f); }
-  if (d.nttsw) c.when = el.value; if (d.nttsfr != null) { if (el.checked) c.front = true; else delete c.front; }
-  t.tts = { f: t.fields.filter(f => c.f.includes(f)), when: c.when }; if (c.front) t.tts.front = true; await A2.save("notetypes", [t]); toast(t.tts.f.length ? "読み上げを変えた" : "読み上げをしないにした"); render(); });
+  if (d.nttsw) c.when = el.value; if (d.nttsfst != null) { if (el.checked) c.first = true; else delete c.first; } if (d.nttsfr != null) { if (el.checked) c.front = true; else delete c.front; }
+  t.tts = { f: c.f.filter(f => t.fields.includes(f)), when: c.when }; if (c.first) t.tts.first = true; if (c.front) t.tts.front = true; await A2.save("notetypes", [t]); toast(t.tts.f.length ? "読み上げを変えた" : "読み上げをしないにした"); render(); });
 
 window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawMermaid;
 
@@ -5632,7 +5642,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r6.12";
+window.APP_VER_SYNC = "r6.13";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
