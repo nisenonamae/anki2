@@ -964,6 +964,27 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .tbw .tbtr{width:100%;color:var(--ink)}.tbw .tbtr .g{stroke:var(--rule);stroke-dasharray:3 3}.tbw .tbtr circle{fill:currentColor}.tbw .tbtr text{font-size:9px;fill:var(--sub)}
 .tbw .scpop{position:fixed;left:0;right:0;bottom:62px;background:var(--white);border-top:1px solid var(--rule);padding:.6rem 16px;box-shadow:0 -4px 14px rgba(0,0,0,.06);z-index:40}.tbw .scpop .in{max-width:560px;margin:0 auto}.tbw .scpop .q5{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-top:.4rem}.tbw .scpop .q5 button{height:2.3rem;border:1px solid var(--rule);border-radius:6px;background:var(--white);font:inherit;font-size:.8rem;color:var(--ink);cursor:pointer;padding:0}.tbw .scpop input{font:inherit;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:6px;background:var(--white);color:var(--ink);min-width:0}
 .tbw .xfempty{text-align:center;padding:1.5rem 0}
+.expane.hw{padding:0!important;overflow:hidden;position:relative}
+.hwdesk{position:relative;overflow:hidden;background:color-mix(in srgb,var(--rule) 55%,var(--paper));touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.expane.hw .hwdesk{position:absolute;inset:0}
+.hwdesk.ro{cursor:grab;border:1px solid var(--rule);border-radius:8px;height:50vh;touch-action:pan-y;margin:0 0 .5rem}
+.hwdesk.pan,.hwdesk.panning{cursor:grab}.hwdesk.panning{cursor:grabbing}
+.hwworld{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+.hwpaper{position:absolute;background:var(--white);color:var(--ink);border:1px solid var(--rule);border-radius:3px;box-shadow:0 2px 10px rgba(60,45,20,.12)}
+.hwpaper .lab{position:absolute;top:-22px;left:2px;font-size:12px;color:var(--sub);font-weight:700}
+.hwtxt{width:640px;box-sizing:border-box;padding:28px 44px 40px 40px;font-family:Georgia,"Times New Roman",serif;font-size:17px;line-height:2.25;color:var(--ink)}
+.hwtxt p{margin:0 0 14px;position:relative}.hwtxt p i{position:absolute;left:-26px;font-style:normal;font-size:11px;color:var(--sub);top:2px}
+.hwtxt.hwqs{width:560px;font-family:inherit;font-size:15px;line-height:1.95}.hwtxt.hwqs p{margin:0 0 12px}.hwtxt.hwqs b{margin-right:.4em}
+.hwpaper svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.hwpaper svg path{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.hwtools{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;padding:.4rem .7rem;background:var(--sheet);border-top:1px solid var(--rule)}
+.hwtools button,.hwzoom button{display:inline-flex;align-items:center;justify-content:center;gap:.3rem;min-width:2.5rem;height:2.35rem;padding:0 .55rem;border:1px solid var(--rule);border-radius:8px;background:var(--white);color:var(--ink);font:inherit;font-size:.8rem;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.hwtools button[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}.hwtools button:disabled{opacity:.4;cursor:default}
+.hwtools button.big{min-width:4.2rem;font-size:.95rem}.hwtools .sep{width:1px;height:1.6rem;background:var(--rule);margin:0 .15rem}
+.hwtools .zp,.hwzoom .zp{font-variant-numeric:tabular-nums;min-width:3.2rem}.hwtools .cnt{margin-left:auto;font-size:.7rem;color:var(--sub)}
+.hwzoom{position:absolute;right:6px;bottom:6px;display:flex;gap:4px}.hwzoom button{height:2rem;min-width:2rem;font-size:.75rem;background:color-mix(in srgb,var(--white) 92%,transparent)}
+@media (max-width:760px){.hwtools button{min-width:2.3rem;height:2.3rem;padding:0 .45rem}.hwtools .lbl{display:none}}
+@media (min-width:860px){.expanes .expane.p-問題.hw{flex:2.4}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -1442,7 +1463,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r6.01";
+A2.VER = "r6.02";
 window.A2 = A2;
 
 </script>
@@ -1450,7 +1471,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r6.01"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r6.02"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -3257,7 +3278,7 @@ function render(){ shownDay = A2.today(); const sk = typeof scrollSave === "func
   else if (exFull) $("app").innerHTML = body;
   else $("app").innerHTML = `<header class="head"><h1>Anki2</h1><small>${APP_VERSION}・${title}${window.syncBadge ? syncBadge() : ""}<button class="hdbtn" data-moreopen>その他</button></small></header>${body}`;
   $("bot").innerHTML = V.rv || exFull ? "" : todayBar() + [["anki", "復習"], ["ex", "演習"], ["br", "ブラウザ"], ["make", "作る"], ["st", "統計"]].map(([k, t]) => `<button data-bot="${k}" aria-selected="${V.mode === k}">${t}</button>`).join("");
-  afterRender(y); if (sk) scrollBack(sk); }
+  afterRender(y); if (sk) scrollBack(sk); if (typeof hwMountAll === "function") hwMountAll(); }
 const sheetKey = () => V.sheet.k + "|" + (V.sheet.id || "") + "|" + (V.sheet.back ? 1 : 0) + "|" + (V.sheet.ti || 0) + (V.sheet.side || "") + "|" + (V.sheet.pv == null ? "" : V.sheet.pv);
 function afterRender(y){ if (!V.rv && WB.on) { WB.on = false; WB.pass = false; } if (typeof wbTB === "function") wbTB(); const old = $("sheetwrap");
   if (V.sheet) { const keep = old && old.dataset.k === sheetKey() && V.sheet.k === "card";
@@ -3662,7 +3683,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r6.01";
+window.APP_VER_EX = "r6.02";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 /* r5.17 お試し:EXV.trial = { sid, doc(写し), subj?, ent? } のあいだは、その分野の記録を写しに向ける。写しは保存しない */
@@ -4111,15 +4132,15 @@ function exRun(){ const s = exSubj(), doc = exDoc(s.id), r = EXV.run, m = exMat(
   if (r.done) { const wc = exWc(r.write);
     return `<div class="exfull">${head}<div class="exscroll"><div class="xdone"><small>解き終わった</small><b>${mm}</b><span>${r.readSec ? "読む " + exMMSS(r.readSec) + " · 設問 " + exMMSS(Math.max(0, r.sec - r.readSec)) : esc(qn)}${past.length ? ` · 前回 ${past[0].g}(${exMin(past[0].sec)})` : ""}</span>${exSpeedHtml(doc, m, q, r)}${r.tgt ? `<em class="xgd ${r.sec <= r.tgt.all * 60 ? "fast" : "slow"}">目標 全体 ${r.tgt.all}分 → ${exTgtDiff(r.sec - r.tgt.all * 60)}</em>${r.readSec ? `<em class="xgd ${r.readSec <= r.tgt.read * 60 ? "fast" : "slow"}">読み終わり 目標 ${r.tgt.read}分 → ${exTgtDiff(r.readSec - r.tgt.read * 60)}</em>` : ""}<em class="xgd">目標の${esc(r.tgt.src)}${q.words ? " · " + q.words + "語" : ""}${r.tgt.kj ? " · 記述 " + r.tgt.kj + "問" : ""}</em>` : ""}${r.gsec ? `<em class="xgd ${r.sec <= r.gsec ? "fast" : "slow"}">${r.via === "area" || r.via === "new" ? esc(r.glab) + " より " : "前回より "}${exMMSS(Math.abs(r.gsec - r.sec))} ${r.sec <= r.gsec ? "速い" : "遅い"}</em>` : ""}</div>
       ${r.write ? `<h4 class="xsec">自分の答え<small>${wc}語</small></h4><div class="exprob" style="white-space:pre-wrap">${esc(r.write)}</div><div class="row" style="margin:.4rem 0 0"><button class="btn ghost sm" data-xwcopy>答えをコピー(添削の道具へ)</button></div>` : ""}
-      ${exAnnoDone(doc, m, q, r)}${ansHtml ? `<h4 class="xsec">解答・解説</h4><div class="exprob">${ansHtml}</div>` : ""}
+      ${hwDoneHtml(doc, m, q, r)}${exAnnoDone(doc, m, q, r)}${ansHtml ? `<h4 class="xsec">解答・解説</h4><div class="exprob">${ansHtml}</div>` : ""}
       ${hasFlow && fshow !== "none" ? `<h4 class="xsec">フローチャート</h4><p class="note" style="margin:-.2rem 0 .5rem">${fshow === "after" ? "ここがポイントでした、を確かめる。" : ""}箱を押して「☆ この問題のポイントにする」で ★ を付けられる。</p><div class="xqdone">${flowHead}${exFlowView(doc, true)}</div>` : ""}
       ${exGradeHtml(doc, m, q, r)}
       <h4 class="xsec">気づいたこと<small>${r.trial ? "お試しなので残らない" : "結果に残る。一覧にも書き足せる"}</small></h4><div class="xnote"><textarea id="xfb" rows="3" placeholder="例:知らない単語で止まった">${esc(r.note || "")}</textarea><div class="row"><select id="xfbk">${EXK.map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select><button class="btn ghost sm" data-xfbadd>一覧に書き足す</button></div></div>
       ${(() => { const ok = exCanFinish(doc, m, q, r); return `<button class="btn xbig" data-xfinish${ok ? "" : " disabled"}>${r.trial ? (ok ? "終える(お試しなので記録しない)" : "出来を選ぶと終えられる") : ok ? "記録して終える" : "出来を選ぶと記録できる"}</button>`; })()}</div></div>`; }
   if (r.how === "self") return `<div class="exfull">${head}${exRunTop(doc, m, q, r)}<div class="exscroll xself"><div class="bigtime" id="xbigt">${mm}</div><p class="note">${esc([q.qlist ? "設問 " + q.qlist.length : "", q.src || ""].filter(Boolean).join(" · "))}</p><p class="note">本や紙で解く。終わったら「解き終わった」。</p><button class="linkx" data-xprint="${s.id}|${m.id}|${q.id}">本文と設問を印刷する</button></div><div class="exfoot"><button class="btn xbig" data-xend>解き終わった</button></div></div>`;
-  const panes = ["問題"].concat(split ? ["設問"] : [], flowDuring ? ["流れ"] : [], ["地図"]), lab = { 問題: split ? "本文" : "問題", 設問: "設問", 流れ: "フローチャート", 地図: "意識すること" };
-  return `<div class="exfull">${head}${exRunTop(doc, m, q, r)}${past.length ? `<div class="xprev"><span class="gb g-${past[0].g}">${past[0].g}</span>前回 ${exDayL(A2.dayOf(past[0].t))} · ${exMin(past[0].sec)}${past[0].note ? ` · ${esc(past[0].note)}` : ""}</div>` : ""}<div class="expanes${split ? " sp" : ""}"><div class="exseg">${panes.map(k => `<button data-xpane="${k}" aria-pressed="${pane === k}">${lab[k]}</button>`).join("")}</div>
-    <div class="expane p-問題${pane === "問題" ? " on" : ""}">${anno ? `<div class="exprob xan">${exReaderHtml(q, r, true)}</div>` : prob}${split ? "" : exWriteHtml(m, q, r)}</div>${split ? `<div class="expane p-設問${pane === "設問" ? " on" : ""}">${qsHtml || '<p class="note">設問は入っていない。</p>'}${critHtml}${exWriteHtml(m, q, r)}</div>` : ""}${flowDuring ? `<div class="expane p-流れ${pane === "流れ" ? " on" : ""}">${flowHead}${exFlowView(doc, true)}</div>` : ""}<div class="expane p-地図${pane === "地図" ? " on" : ""}">${mapH}</div></div>${anno && pane === "問題" ? exToolHtml(r) : anno ? `<div class="atool-wide">${exToolHtml(r)}</div>` : ""}<div class="exfoot"><button class="btn xbig" data-xend>解き終わった</button></div></div>`; }
+  const wr = exWriteHtml(m, q, r), sq = split && (!anno || !!(wr || critHtml)), panes = ["問題"].concat(sq ? ["設問"] : [], flowDuring ? ["流れ"] : [], ["地図"]), lab = { 問題: anno ? "本文と設問" : split ? "本文" : "問題", 設問: anno ? "答え" : "設問", 流れ: "フローチャート", 地図: "意識すること" }, pn = panes.includes(pane) ? pane : panes[0];
+  return `<div class="exfull">${head}${exRunTop(doc, m, q, r)}${past.length ? `<div class="xprev"><span class="gb g-${past[0].g}">${past[0].g}</span>前回 ${exDayL(A2.dayOf(past[0].t))} · ${exMin(past[0].sec)}${past[0].note ? ` · ${esc(past[0].note)}` : ""}</div>` : ""}<div class="expanes${split ? " sp" : ""}"><div class="exseg">${panes.map(k => `<button data-xpane="${k}" aria-pressed="${pn === k}">${lab[k]}</button>`).join("")}</div>
+    <div class="expane p-問題${anno ? " hw" : ""}${pn === "問題" ? " on" : ""}">${anno ? hwDeskHtml(q, r.hw || (r.hw = { p: [], q: [] }), false, "run:" + r.mat + ":" + r.q + ":" + (r.t0 || "")) : prob}${split ? "" : exWriteHtml(m, q, r)}</div>${sq ? `<div class="expane p-設問${pn === "設問" ? " on" : ""}">${anno ? "" : qsHtml || '<p class="note">設問は入っていない。</p>'}${critHtml}${wr}</div>` : ""}${flowDuring ? `<div class="expane p-流れ${pn === "流れ" ? " on" : ""}">${flowHead}${exFlowView(doc, true)}</div>` : ""}<div class="expane p-地図${pn === "地図" ? " on" : ""}">${mapH}</div></div>${anno && pn === "問題" ? hwToolsHtml(r) : anno ? `<div class="atool-wide">${hwToolsHtml(r)}</div>` : ""}<div class="exfoot"><button class="btn xbig" data-xend>解き終わった</button></div></div>`; }
 /* 描き直しても、中で縦横にスクロールしていた場所(演習中の欄・フローチャート・タブの並び)を戻す */
 const scKey = el => el.className.split(" ")[0] + "|" + (el.dataset.lv || "") + "|" + (el.dataset.ck || "") + "|" + ((el.className.match(/p-\S+/) || [""])[0]);
 const SCSEL = "#app .expane, #app .exscroll, #app .xfwrap, #app .xfcols, #app .marea, #app .mkind, #app .exprob";
@@ -4446,7 +4467,7 @@ function exToolHint(r){ const t = EXV.atool || "ul";
   if (r.anTag) { const used = [...new Set(Object.values((r.an || {}).tg || {}))].slice(-4); return `どの印? <input id="xatag" placeholder="例:2R3" maxlength="10" size="6" autocomplete="off">${used.map(x => `<button data-atag="${esc(x)}">${esc(x)}</button>`).join("")}<button data-atag="" class="ok">付ける</button>`; }
   return t === "sl" ? "語を押すと、そのうしろに ／ が入る。もう一度押すと消える" : t === "tag" ? "下線の付いた語を押す" : t === "er" ? "印の付いた語を押すと消える" : r.anStart ? "おわりの語を押す(1語だけなら同じ語)" : "はじめの語を押す"; }
 function exToolHtml(r){ const t = EXV.atool || "ul"; return `<div class="atool" id="xatool"><div class="at-hint">${exToolHint(r)}</div><div class="at-row">${ATOOLS.map(([k, l]) => `<button data-atool="${k}" aria-pressed="${t === k}">${l}</button>`).join("")}<button data-afs aria-label="字の大きさ" class="afs">${EXV.afs ? "A<small>小</small>" : "A<small>大</small>"}</button></div><span class="at-key">キー:U 下線 · B 囲む · H マーカー · / スラッシュ · T 印 · E 消す</span></div>`; }
-function exAnnoCtx(){ const r = EXV.run; if (!r || r.done || !EXV.sub) return null; const doc = exDoc(EXV.sub), m = exMat(doc, r.mat), q = m && m.items.find(x => x.id === r.q); return q && q.ptext ? { doc, m, q, r } : null; }
+function exAnnoCtx(){ const r = EXV.run; if (!r || r.done || !EXV.sub) return null; const doc = exDoc(EXV.sub), m = exMat(doc, r.mat), q = m && m.items.find(x => x.id === r.q); return q && q.ptext && !hwOn(m, q) ? { doc, m, q, r } : null; }
 function exAnnoRedraw(focus){ const c = exAnnoCtx(); if (!c) return; const el = $("xanno"), tb = $("xatool"); if (el) el.outerHTML = exReaderHtml(c.q, c.r, true); if (tb) tb.outerHTML = exToolHtml(c.r);
   if (focus) setTimeout(() => { const x = $(focus); if (x) { x.focus(); try { x.setSelectionRange(x.value.length, x.value.length); } catch (e) {} } }, 30); }
 function exAnApply(r, p, a, b){ const t = EXV.atool || "ul", an = r.an, lo = Math.min(a, b), hi = Math.max(a, b);
@@ -4804,8 +4825,8 @@ function exSheet(sh){ if (!sh || !/^x-/.test(sh.k)) return null; if (sh.k === "x
     return `<h3>${esc(m.id === "loose" ? q.n : m.name + " " + q.n)}</h3><div class="note">今の印:<span class="gb g-${q.s || ""}">${q.s || "まだ"}</span>・演習 ${hs.length}回</div>${exQPlanHtml(doc, m, q)}${exQFlow(doc, sh.mat, q)}<h2>これまでの演習</h2>${hs.length ? `<div class="xlist">${hs.map(h => exHistRow(h, false)).join("")}</div>` : '<p class="note">まだない。</p>'}
       <div class="row" style="margin-top:.6rem"><button class="btn shu" data-xstart="${sh.mat}|${sh.q}">この問題で演習する</button><button class="btn ghost" data-xpeek="${sh.mat}|${sh.q}">中身を見る</button>${m.id === "loose" ? `<button class="linkx" data-xlooseedit="${q.id}">直す</button>` : `<button class="linkx" data-xqren>名前を変える</button>`}</div>
       ${sh.ren && m.id !== "loose" ? `<div class="f" style="margin-top:.6rem"><label>問題の名前<span class="lh">印・予定・これまでの演習は、そのまま引き継ぐ</span></label>${inp("xqn-n", q.n, "例:12")}</div><div class="row"><button class="btn" data-xqrensave>変える</button><button class="btn ghost" data-xqren>やめる</button></div>` : ""}`; }
-  if (sh.k === "x-h") { const h = doc.hist.find(x => x.id === sh.id), items = doc.map.filter(it => (h.marks || {})[it.id]);
-    return `<h3>${esc(h.qn)}</h3><div class="note">${A2.dayStr(A2.dayOf(h.t))}・${exTm(h.sec)}・<span class="gb g-${h.g}">${h.g}</span></div>${h.note ? `<div class="pkv"><span class="k">気づいたこと</span><span class="v">${esc(h.note)}</span></div>` : ""}
+  if (sh.k === "x-h") { const h = doc.hist.find(x => x.id === sh.id), items = doc.map.filter(it => (h.marks || {})[it.id]), hq = h.hw && xqGet(doc, h.mat, h.q);
+    return `<h3>${esc(h.qn)}</h3><div class="note">${A2.dayStr(A2.dayOf(h.t))}・${exTm(h.sec)}・<span class="gb g-${h.g}">${h.g}</span></div>${hq ? `<h2>手書きの書き込み</h2>${hwDeskHtml(hq, h.hw, true, "h-" + h.id)}` : ""}${h.note ? `<div class="pkv"><span class="k">気づいたこと</span><span class="v">${esc(h.note)}</span></div>` : ""}
       ${items.length ? `<h2>意識できたか</h2><div class="card">${items.map(it => `<div class="chk"><div class="t"><b>${esc(it.h)}</b></div><span class="gb g-${h.marks[it.id] === "o" ? "○" : h.marks[it.id] === "x" ? "×" : ""}">${h.marks[it.id] === "o" ? "できた" : h.marks[it.id] === "x" ? "忘れた" : "出ず"}</span></div>`).join("")}</div>` : ""}<div class="row"><button class="linkx" data-xhistdel="${h.id}" style="color:var(--shu)">この記録を消す</button></div>`; }
   if (sh.k === "x-ai") { const its = sh.text ? parseMapText(sh.text, sh.area || EXV.area) : [], plan = its.length ? planMerge(doc, { list: its, apply: false }) : null, xfl = sh.text ? parseFlowText(sh.text, sh.area || EXV.area) : { flows: {}, libs: {}, boxes: 0 };
     return `<h3>AIに${sh.flow ? "フローチャート" : "解法の地図"}を作ってもらう</h3><p class="note" style="margin-top:0">1. 何をもとに作るかを書いて、指示文をコピーする → 2. Claude に貼る → 3. 返ってきたものを下に貼って取り込む。</p>
@@ -4912,7 +4933,7 @@ document.addEventListener("click", async e => { const b = e.target.closest("butt
     if (r.via === "pc" || r.via === "new") { await pcFinish(doc, m, q, r); se("done"); toast("記録した · 次は " + q.fs.ivl + "日後"); const pq = r.pq; exEnd(); if (pq && EXV.pq) { EXV.pq.i++; setTimeout(pcNext, 30); } else EXV.pq = null; return; }
     { const pl = exPlan(doc, m, q, r); q.s = pl.grade || r.grade || q.s; q.sch = pl.sch; if (!Object.keys(q.sch).length) delete q.sch; if (pl.area) { doc.arv = Object.assign({}, doc.arv || {}, { [pl.area]: A2.today() }); if (pl.areaF) doc.arf = Object.assign({}, doc.arf || {}, { [pl.area]: pl.areaF }); } r.grade = q.s; }
     doc.map.forEach(it => { const v = r.mark[it.id]; if (v === "o" || v === "x") it.res = (it.res || "") + v; });
-    doc.hist.unshift({ id: "h" + A2.uid(), mat: r.mat, q: r.q, qn: (m.id === "loose" ? "" : m.name.slice(0, 14) + " ") + q.n, t: Date.now(), sec: r.sec, g: r.grade, marks: Object.fromEntries(Object.entries(r.mark).filter(([, v]) => v)), note: r.note, via: r.via || "", pm: r.pm && Object.keys(r.pm).length ? r.pm : null, sg: r.sg || null, lis: r.lis || null, ded: r.ded || null, w: r.write || null, an: exAnHas(r.an) ? r.an : null, rsec: r.readSec || null, wpm: exWpm(q, r) || null, how: r.how === "self" ? "self" : null, light: r.light || null, tgt: r.tgt ? r.tgt.all : null, tgr: r.tgt ? r.tgt.read : null });
+    doc.hist.unshift({ id: "h" + A2.uid(), mat: r.mat, q: r.q, qn: (m.id === "loose" ? "" : m.name.slice(0, 14) + " ") + q.n, t: Date.now(), sec: r.sec, g: r.grade, marks: Object.fromEntries(Object.entries(r.mark).filter(([, v]) => v)), note: r.note, via: r.via || "", pm: r.pm && Object.keys(r.pm).length ? r.pm : null, sg: r.sg || null, lis: r.lis || null, ded: r.ded || null, w: r.write || null, an: exAnHas(r.an) ? r.an : null, hw: hwHas(r.hw) ? r.hw : null, rsec: r.readSec || null, wpm: exWpm(q, r) || null, how: r.how === "self" ? "self" : null, light: r.light || null, tgt: r.tgt ? r.tgt.all : null, tgr: r.tgt ? r.tgt.read : null });
     await exSave(doc); toast("記録した"); exEnd(); return; }
 });
 document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target && e.target.id === "xqn-n" && !e.isComposing) { e.preventDefault(); const b = document.querySelector("[data-xqrensave]"); if (b) b.click(); } });
@@ -5010,7 +5031,7 @@ async function pcFinish(doc, m, q, r){ const G = pcG(r), rate = pcRate(r), today
   q.fs = { s: nf.s, d: nf.d, last: today, due: today + nf.ivl, ivl: nf.ivl, reps: ((f && f.reps) || 0) + 1, lapses: ((f && f.lapses) || 0) + (G === 1 ? 1 : 0) }; q.s = PGS[G]; delete q.sch;
   if (r.pk) q.qk = Object.assign({}, q.qk || {}, r.pk);
   doc.map.forEach(it => { const v = r.mark[it.id]; if (v === "o" || v === "x") it.res = (it.res || "") + v; });
-  doc.hist.unshift({ id: "h" + A2.uid(), mat: r.mat, q: r.q, qn: (m.id === "loose" ? "" : m.name.split("::").pop().slice(0, 14) + " ") + q.n, t: Date.now(), sec: r.sec, g: PGS[G], G, rate, marks: Object.fromEntries(Object.entries(r.mark).filter(([, v]) => v)), note: r.note, via: r.via, pm: r.pm && Object.keys(r.pm).length ? r.pm : null, lis: r.lis || null, ded: r.ded || null, w: r.write || null, an: exAnHas(r.an) ? r.an : null, rsec: r.readSec || null, wpm: exWpm(q, r) || null, how: r.how === "self" ? "self" : null, tgt: r.tgt ? r.tgt.all : null, tgr: r.tgt ? r.tgt.read : null, ivl: nf.ivl });
+  doc.hist.unshift({ id: "h" + A2.uid(), mat: r.mat, q: r.q, qn: (m.id === "loose" ? "" : m.name.split("::").pop().slice(0, 14) + " ") + q.n, t: Date.now(), sec: r.sec, g: PGS[G], G, rate, marks: Object.fromEntries(Object.entries(r.mark).filter(([, v]) => v)), note: r.note, via: r.via, pm: r.pm && Object.keys(r.pm).length ? r.pm : null, lis: r.lis || null, ded: r.ded || null, w: r.write || null, an: exAnHas(r.an) ? r.an : null, hw: hwHas(r.hw) ? r.hw : null, rsec: r.readSec || null, wpm: exWpm(q, r) || null, how: r.how === "self" ? "self" : null, tgt: r.tgt ? r.tgt.all : null, tgr: r.tgt ? r.tgt.read : null, ivl: nf.ivl });
   await exSave(doc); }
 /* 決まり(問題のカード全体) */
 function pcOptSheet(){ const o = exRvOpt(), num = (k, v, st, mn, mx) => `<input type="number" min="${mn}" max="${mx}" step="${st || 1}" data-xro="${k}" value="${v}" style="width:5.5rem">`;
@@ -5172,6 +5193,120 @@ document.addEventListener("click", async e => { const b = e.target.closest && e.
 setInterval(() => { if (V.mode !== "ex" || EXV.run) return; document.querySelectorAll("[data-tbtt]").forEach(el => { const doc = TBV.sub && A2.S.exsub.get(TBV.sub), rg = doc && doc.tb && doc.tb.rg.find(r => r.id === el.dataset.tbtt); if (rg) el.textContent = tbFm(tbEl(rg)); }); }, 500);
 document.addEventListener("input", e => { if (e.target && e.target.id === "tbsp-r") { const o = $("tbsp-o"); if (o) o.textContent = e.target.value; } });
 
+/* ───── r6.02 手書きの書き込み:本文と設問の紙を1枚の机に並べ、ペンで線を引く(色は黒だけ)。机ごと拡大・移動する。語ごとの書き込みの道具の代わり ─────
+   線は紙ごとの座標(紙の幅は決まっているので、画面の大きさが変わってもずれない)。r.hw = { p:[線], q:[線] }、線 = [x0,y0,x1,y1,…](0.5px 単位の整数・間引いたもの)。解いた回ごとに hist.hw に残す
+   操作:左ボタン/1本指 = 書く・消す。ホイールを押したまま動かす/スペース+左ボタン/2本指 = 机を動かす。ホイール = 上下(⇧ で左右)。⌘・Ctrl+ホイール/ピンチ/2本指で広げる = 拡大。
+         ⌘・Ctrl+Z = 戻す(⇧ でやり直す)。「戻す」は押し続けると続けて戻る。2本指でトンと叩く = 戻す */
+const HWNS = "http://www.w3.org/2000/svg", HWG = 48, HWM = 40, HWV = {}, HWT = { tool: "pen", space: false };
+const hwOn = (m, q) => { const ent = exEntOf(m, q); return !!(q && q.ptext && ent && (ent.parts || []).includes("書き込み")); };
+const hwHas = hw => !!(hw && ((hw.p || []).length || (hw.q || []).length));
+const hwN = hw => hw ? (hw.p || []).length + (hw.q || []).length : 0;
+const hwPts = st => { const o = []; for (let i = 0; i + 1 < st.length; i += 2) o.push([st[i] / 2, st[i + 1] / 2]); return o; };
+const hwD = pts => { if (!pts.length) return ""; if (pts.length < 2) return "M" + pts[0][0] + " " + pts[0][1] + " l0.01 0"; let d = "M" + pts[0][0] + " " + pts[0][1]; for (let i = 1; i < pts.length - 1; i++) { const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2; d += " Q" + pts[i][0] + " " + pts[i][1] + " " + mx + " " + my; } const l = pts[pts.length - 1]; return d + " L" + l[0] + " " + l[1]; };
+/* 間引く(Ramer–Douglas–Peucker)。残すのは 0.5px 単位 */
+function hwSimp(pts, eps){ if (pts.length < 3) return pts; const seg = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy; let t = L ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+  const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1; const st = [[0, pts.length - 1]];
+  while (st.length) { const [a, b] = st.pop(); let mx = 0, k = -1; for (let i = a + 1; i < b; i++) { const d = seg(pts[i], pts[a], pts[b]); if (d > mx) { mx = d; k = i; } } if (mx > eps) { keep[k] = 1; st.push([a, k], [k, b]); } }
+  return pts.filter((_, i) => keep[i]); }
+const hwPack = pts => hwSimp(pts, .6).flatMap(([x, y]) => [Math.round(x * 2), Math.round(y * 2)]);
+const hwPathsHtml = L => (L || []).map((st, i) => `<path d="${hwD(hwPts(st))}" data-i="${i}"/>`).join("");
+/* 紙 */
+function hwPapers(q, hw){ hw = hw || {}; const qs = q.qlist ? q.qlist.map(x => `<p><b>問${esc(x.n)}</b>${escNl(x.t)}</p>`).join("") : q.qs ? `<div>${q.qs}</div>` : "";
+  return `<div class="hwpaper" data-pp="p"><span class="lab">本文</span><div class="hwtxt">${(q.ptext || []).map((p, i) => `<p><i>${i + 1}</i>${esc(p)}</p>`).join("")}</div><svg>${hwPathsHtml(hw.p)}</svg></div>`
+    + (qs ? `<div class="hwpaper" data-pp="q"><span class="lab">設問</span><div class="hwtxt hwqs">${qs}</div><svg>${hwPathsHtml(hw.q)}</svg></div>` : ""); }
+/* 机。key は見え方(倍率・位置)を覚えておく名前。ro = 見るだけ(書けない) */
+const hwDeskHtml = (q, hw, ro, key) => `<div class="hwdesk${ro ? " ro" : ""}" data-hwk="${esc(key)}"><div class="hwworld">${hwPapers(q, hw)}</div>${ro ? `<div class="hwzoom"><button data-hwz="out" aria-label="小さく">−</button><button data-hwz="fit" class="zp">100%</button><button data-hwz="in" aria-label="大きく">＋</button></div>` : ""}</div>`;
+function hwToolsHtml(r){ const n = hwN(r.hw);
+  return `<div class="hwtools"><button data-hwtool="pen" aria-pressed="${HWT.tool === "pen"}" title="書く">✎<span class="lbl">書く</span></button><button data-hwtool="er" aria-pressed="${HWT.tool === "er"}" title="なぞった線を消す">⌫<span class="lbl">消す</span></button><span class="sep"></span>
+    <button data-hwundo class="big" title="戻す(押し続けると続けて戻る・⌘/Ctrl+Z)"${(r.hwU || []).length ? "" : " disabled"}>↶<span class="lbl">戻す</span></button><button data-hwredo title="やり直す(⇧+⌘/Ctrl+Z)"${(r.hwR || []).length ? "" : " disabled"}>↷</button><span class="sep"></span>
+    <button data-hwz="out" title="小さく">−</button><button data-hwz="fit" class="zp" title="全体が見える大きさに">100%</button><button data-hwz="in" title="大きく">＋</button><span class="cnt">線 ${n}</span></div>`; }
+/* 見え方 */
+function hwLayout(D){ const ps = [...D.el.querySelectorAll(".hwpaper")], wide = D.el.clientWidth > D.el.clientHeight * .9 && !D.ro; let w = 0, h = 0;
+  ps.forEach((p, i) => { if (!i) { p.style.left = HWM + "px"; p.style.top = HWM + "px"; } else if (wide) { p.style.left = HWM + ps[0].offsetWidth + HWG + "px"; p.style.top = HWM + "px"; } else { p.style.left = HWM + "px"; p.style.top = HWM + ps[0].offsetHeight + HWG + "px"; }
+    w = Math.max(w, p.offsetLeft + p.offsetWidth); h = Math.max(h, p.offsetTop + p.offsetHeight); });
+  D.w = w + HWM; D.h = h + HWM; }
+function hwApply(D){ const V = D.v, cw = D.el.clientWidth, ch = D.el.clientHeight, sw = D.w * V.s, sh = D.h * V.s;
+  V.x = sw <= cw ? Math.min(Math.max(V.x, -sw * .5), cw - sw * .5) : Math.min(cw * .5, Math.max(V.x, cw * .5 - sw));
+  V.y = sh <= ch ? Math.min(Math.max(V.y, -sh * .5), ch - sh * .5) : Math.min(ch * .5, Math.max(V.y, ch * .5 - sh));
+  D.world.style.transform = `translate(${V.x}px,${V.y}px) scale(${V.s})`; const z = Math.round(V.s / D.fit * 100) + "%";
+  (D.ro ? D.el : document).querySelectorAll(D.ro ? ".zp" : ".hwtools .zp").forEach(b => b.textContent = z); }
+function hwFit(D){ const cw = D.el.clientWidth; D.fit = Math.min(cw / D.w, 1.6); D.v = HWV[D.key] = { s: D.fit, x: (cw - D.w * D.fit) / 2, y: 0 }; hwApply(D); }
+function hwZoom(D, s, cx, cy){ const V = D.v; s = Math.max(D.fit * .5, Math.min(D.fit * 6, s)); const wx = (cx - V.x) / V.s, wy = (cy - V.y) / V.s; V.s = s; V.x = cx - wx * s; V.y = cy - wy * s; hwApply(D); }
+const hwCenter = D => [D.el.clientWidth / 2, D.el.clientHeight / 2];
+/* 線の出し入れ(戻す・やり直すも、ここを通す) */
+const hwRun = () => { const r = EXV.run; return r && !r.done ? r : null; };
+function hwRedraw(D){ const r = hwRun(); if (!r || !D) return; D.el.querySelectorAll(".hwpaper").forEach(p => { p.querySelector("svg").innerHTML = hwPathsHtml(r.hw[p.dataset.pp]); });
+  const t = document.querySelector(".hwtools"); if (t) { t.querySelector("[data-hwundo]").disabled = !(r.hwU || []).length; t.querySelector("[data-hwredo]").disabled = !(r.hwR || []).length; t.querySelector(".cnt").textContent = "線 " + hwN(r.hw); } }
+function hwDo(op, back){ const r = hwRun(); if (!r) return; const hw = r.hw;
+  if (op.k === "add") { if (back) { const i = hw[op.pp].indexOf(op.st); if (i >= 0) hw[op.pp].splice(i, 1); } else hw[op.pp].push(op.st); }
+  else if (back) op.list.slice().sort((a, b) => a.i - b.i).forEach(x => hw[x.pp].splice(Math.min(x.i, hw[x.pp].length), 0, x.st));
+  else op.list.forEach(x => { const i = hw[x.pp].indexOf(x.st); if (i >= 0) hw[x.pp].splice(i, 1); }); }
+function hwUndo(){ const r = hwRun(); if (!r || !(r.hwU || []).length) return; const op = r.hwU.pop(); hwDo(op, true); (r.hwR = r.hwR || []).push(op); hwRedraw(HWD.run); }
+function hwRedo(){ const r = hwRun(); if (!r || !(r.hwR || []).length) return; const op = r.hwR.pop(); hwDo(op, false); r.hwU.push(op); hwRedraw(HWD.run); }
+const HWD = {};
+/* 描いたあとに、画面にある机へ手を付ける(描き直すたびに新しい要素になる) */
+function hwMountAll(){ for (const k in HWD) if (!HWD[k].el.isConnected) delete HWD[k];
+  document.querySelectorAll(".hwdesk").forEach(el => { if (el.__hw) return; el.__hw = 1; const key = el.dataset.hwk, ro = el.classList.contains("ro"), D = { el, key, ro, world: el.querySelector(".hwworld"), w: 0, h: 0, fit: 1, v: null };
+    if (!ro) HWD.run = D; else HWD[key] = D;
+    const init = keep => { hwLayout(D); const cw = el.clientWidth, f = Math.min(cw / D.w, 1.6); if (ro) el.style.height = Math.min(D.h * f + 8, window.innerHeight * .7) + "px"; D.fit = Math.min(el.clientWidth / D.w, 1.6); if (keep && HWV[key]) { D.v = HWV[key]; hwApply(D); } else hwFit(D); };
+    init(true); if (document.fonts && document.fonts.status !== "loaded") document.fonts.ready.then(() => el.isConnected && init(true));
+    hwBind(D); }); }
+window.addEventListener("resize", () => { for (const k in HWD) { const D = HWD[k]; if (D.el.isConnected) { hwLayout(D); D.fit = Math.min(D.el.clientWidth / D.w, 1.6); hwApply(D); } } });
+function hwBind(D){ const el = D.el, P = new Map(); let cur = null, pan = null, g = null;
+  const two = () => { const [a, b] = [...P.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+  const paperAt = (x, y) => { for (const p of el.querySelectorAll(".hwpaper")) { const R = p.getBoundingClientRect(), pad = 30 * D.v.s; if (x >= R.left - pad && x <= R.right + pad && y >= R.top - pad && y <= R.bottom + pad) return p; } return null; };
+  const ptIn = (p, e) => { const R = p.getBoundingClientRect(); return [(e.clientX - R.left) / D.v.s, (e.clientY - R.top) / D.v.s]; };
+  const cancel = () => { if (!cur) return; if (cur.path) cur.path.remove(); if (cur.list) { cur.list.forEach(x => hwRun().hw[x.pp].splice(Math.min(x.i, hwRun().hw[x.pp].length), 0, x.st)); hwRedraw(D); } cur = null; };
+  const dist = (pt, st) => { const Q = hwPts(st); if (Q.length === 1) return Math.hypot(pt[0] - Q[0][0], pt[1] - Q[0][1]); let m = 1e9; for (let i = 0; i + 1 < Q.length; i++) { const a = Q[i], b = Q[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy; let t = L ? ((pt[0] - a[0]) * dx + (pt[1] - a[1]) * dy) / L : 0; t = Math.max(0, Math.min(1, t)); m = Math.min(m, Math.hypot(pt[0] - a[0] - t * dx, pt[1] - a[1] - t * dy)); } return m; };
+  const erase = e => { const r = hwRun(); if (!r) return; let hit = false; el.querySelectorAll(".hwpaper").forEach(p => { const pp = p.dataset.pp, pt = ptIn(p, e), L = r.hw[pp]; for (let i = L.length - 1; i >= 0; i--) if (dist(pt, L[i]) < 8) { cur.list.push({ pp, i, st: L[i] }); L.splice(i, 1); hit = true; } }); if (hit) hwRedraw(D); };
+  el.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; const mouse = e.pointerType === "mouse";
+    if (mouse && (e.button === 1 || (e.button === 0 && (HWT.space || D.ro)))) { e.preventDefault(); el.setPointerCapture(e.pointerId); pan = { x: e.clientX, y: e.clientY, vx: D.v.x, vy: D.v.y }; el.classList.add("panning"); return; }
+    if (mouse && e.button !== 0) return; if (D.ro && !mouse) { P.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (P.size === 2) { const t = two(); g = { t0: Date.now(), d: t.d, x: t.x, y: t.y, moved: 99 }; } return; }
+    e.preventDefault(); el.setPointerCapture(e.pointerId); P.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (P.size === 2) { cancel(); const t = two(); g = { t0: Date.now(), d: t.d, x: t.x, y: t.y, moved: 0 }; return; } if (P.size > 2) return;
+    const r = hwRun(), p = r && paperAt(e.clientX, e.clientY); if (!p) return; r.hw = r.hw || { p: [], q: [] }; r.hw[p.dataset.pp] = r.hw[p.dataset.pp] || [];
+    if (HWT.tool === "er") { cur = { list: [] }; erase(e); return; }
+    const path = document.createElementNS(HWNS, "path"); p.querySelector("svg").appendChild(path); cur = { path, p, pts: [ptIn(p, e)] }; path.setAttribute("d", hwD(cur.pts)); });
+  el.addEventListener("pointermove", e => {
+    if (pan) { D.v.x = pan.vx + e.clientX - pan.x; D.v.y = pan.vy + e.clientY - pan.y; hwApply(D); return; }
+    if (!P.has(e.pointerId)) return; P.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (g && P.size === 2) { const t = two(), R = el.getBoundingClientRect(); g.moved = Math.max(g.moved, Math.abs(t.d - g.d), Math.hypot(t.x - g.x, t.y - g.y)); if (g.moved < 8 && Date.now() - g.t0 < 280) return;
+      D.v.x += t.x - g.x; D.v.y += t.y - g.y; hwZoom(D, D.v.s * t.d / g.d, t.x - R.left, t.y - R.top); g.d = t.d; g.x = t.x; g.y = t.y; g.moved = 99; return; }
+    if (!cur) return; if (cur.list) return erase(e); const q = ptIn(cur.p, e), l = cur.pts[cur.pts.length - 1]; if ((q[0] - l[0]) ** 2 + (q[1] - l[1]) ** 2 < 2.5) return; cur.pts.push(q); cur.path.setAttribute("d", hwD(cur.pts)); });
+  const end = e => { if (pan) { pan = null; el.classList.remove("panning"); return; } if (!P.has(e.pointerId)) return; P.delete(e.pointerId);
+    if (g) { if (!P.size) { if (!D.ro && Date.now() - g.t0 < 280 && g.moved < 8) hwUndo(); g = null; } return; }
+    if (!cur) return; const r = hwRun(); if (!r) { cur = null; return; }
+    if (cur.list) { if (cur.list.length) { (r.hwU = r.hwU || []).push({ k: "del", list: cur.list }); r.hwR = []; hwRedraw(D); } }
+    else { const st = hwPack(cur.pts), pp = cur.p.dataset.pp; r.hw[pp].push(st); (r.hwU = r.hwU || []).push({ k: "add", pp, st }); r.hwR = []; hwRedraw(D); }
+    cur = null; };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+  el.addEventListener("mousedown", e => { if (e.button === 1) e.preventDefault(); }); el.addEventListener("auxclick", e => e.preventDefault());
+  el.addEventListener("wheel", e => { const R = el.getBoundingClientRect();
+    if (e.ctrlKey || e.metaKey) { e.preventDefault(); const dy = e.deltaMode === 1 ? e.deltaY * 32 : e.deltaY, f = Math.abs(dy) >= 50 ? (dy < 0 ? 1.2 : 1 / 1.2) : Math.exp(-dy * .01); return hwZoom(D, D.v.s * f, e.clientX - R.left, e.clientY - R.top); }   // マウスのホイールは1目盛り 1.2 倍、トラックパッドのピンチは細かく
+    if (D.ro) return; e.preventDefault(); const k = e.deltaMode === 1 ? 32 : 1; if (e.shiftKey && !e.deltaX) D.v.x -= e.deltaY * k; else { D.v.x -= e.deltaX * k; D.v.y -= e.deltaY * k; } hwApply(D); }, { passive: false }); }
+/* キー:机が出ているときだけ。文字を打っている欄では使わない */
+const hwTyping = e => { const t = e.target; return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable); };
+document.addEventListener("keydown", e => { const D = HWD.run; if (!D || !D.el.isConnected || hwTyping(e)) return; const k = (e.key || "").toLowerCase();
+  if (e.key === " " && !(e.metaKey || e.ctrlKey)) { e.preventDefault(); if (!HWT.space) { HWT.space = true; D.el.classList.add("pan"); } return; }
+  if (!(e.metaKey || e.ctrlKey)) return;
+  if (k === "z") { e.preventDefault(); e.shiftKey ? hwRedo() : hwUndo(); } else if (k === "y") { e.preventDefault(); hwRedo(); }
+  else if (k === "=" || k === "+" || k === ";") { e.preventDefault(); hwZoom(D, D.v.s * 1.2, ...hwCenter(D)); } else if (k === "-") { e.preventDefault(); hwZoom(D, D.v.s / 1.2, ...hwCenter(D)); } else if (k === "0") { e.preventDefault(); hwFit(D); } }, true);
+document.addEventListener("keyup", e => { if (e.key === " ") { HWT.space = false; document.querySelectorAll(".hwdesk.pan").forEach(x => x.classList.remove("pan")); } });
+/* 下のボタン(描き直さずに済ませる) */
+document.addEventListener("pointerdown", e => { const b = e.target.closest && e.target.closest("[data-hwundo]"); if (!b || b.disabled) return; e.preventDefault(); hwUndo(); let iv = null; const t = setTimeout(() => { iv = setInterval(() => { if (!(hwRun() || {}).hwU || !hwRun().hwU.length) return stop(); hwUndo(); }, 120); }, 400);
+  const stop = () => { clearTimeout(t); clearInterval(iv); ["pointerup", "pointercancel"].forEach(ev => document.removeEventListener(ev, stop)); b.removeEventListener("pointerleave", stop); };
+  ["pointerup", "pointercancel"].forEach(ev => document.addEventListener(ev, stop)); b.addEventListener("pointerleave", stop); });
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-hwtool],[data-hwredo],[data-hwz]"); if (!b) return; const d = b.dataset;
+  if (d.hwtool) { HWT.tool = d.hwtool; document.querySelectorAll("[data-hwtool]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.hwtool === HWT.tool))); return; }
+  if (b.hasAttribute("data-hwredo")) { hwRedo(); return; }
+  const dk = b.closest(".hwdesk"), D = dk ? Object.values(HWD).find(x => x.el === dk) : HWD.run; if (!D || !D.el.isConnected) return;
+  if (d.hwz === "in") hwZoom(D, D.v.s * 1.25, ...hwCenter(D)); else if (d.hwz === "out") hwZoom(D, D.v.s / 1.25, ...hwCenter(D)); else hwFit(D); });
+/* 解き終わったあと・記録:今回と前回の書き込みを見る */
+function hwDoneHtml(doc, m, q, r){ if (!q.ptext) return ""; const prev = doc.hist.find(h => h.mat === m.id && h.q === q.id && hwHas(h.hw)), cur = hwHas(r.hw) ? r.hw : null; if (!cur && !prev) return "";
+  const v = EXV.hwView === "prev" && prev ? "prev" : cur ? "cur" : "prev";
+  return `<h4 class="xsec">手書きの書き込み<small>${cur ? (r.trial ? "お試しなので残らない" : "今回のを残す") : "今回は書き込みなし"}</small></h4>${prev && cur ? `<div class="kseg" style="margin:0 0 .4rem"><button data-xhwv="cur" aria-pressed="${v === "cur"}">今回</button><button data-xhwv="prev" aria-pressed="${v === "prev"}">前回(${A2.dayStr(A2.dayOf(prev.t))})</button></div>` : !cur ? `<p class="note" style="margin:0 0 .3rem">前回(${A2.dayStr(A2.dayOf(prev.t))})の書き込み</p>` : ""}${hwDeskHtml(q, v === "cur" ? cur : prev.hw, true, "done-" + v + "-" + q.id)}`; }
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-xhwv]"); if (!b) return; EXV.hwView = b.dataset.xhwv; render(); });
+
 window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawMermaid;
 
 </script>
@@ -5184,7 +5319,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r6.01";
+window.APP_VER_SYNC = "r6.02";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
