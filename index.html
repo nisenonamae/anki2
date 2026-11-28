@@ -1484,7 +1484,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r6.07";
+A2.VER = "r6.08";
 window.A2 = A2;
 
 </script>
@@ -1492,7 +1492,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r6.07"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r6.08"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -3708,7 +3708,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r6.07";
+window.APP_VER_EX = "r6.08";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 /* r5.17 お試し:EXV.trial = { sid, doc(写し), subj?, ent? } のあいだは、その分野の記録を写しに向ける。写しは保存しない */
@@ -5424,7 +5424,7 @@ function miSnap(D, paper, x, y, w, h){ const s = D.v.s, PR = paper.getBoundingCl
   const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, cv.width, cv.height); g.scale(sc, sc); g.translate(-x, -y); g.textBaseline = "middle";
   const tw = document.createTreeWalker(paper.querySelector(".hwtxt"), NodeFilter.SHOW_TEXT); let tn;
   while ((tn = tw.nextNode())) { const el = tn.parentElement, cs = getComputedStyle(el); g.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily; g.fillStyle = el.tagName === "I" ? "#8a8a8a" : "#222"; const re = /\S+/g; let m;
-    while ((m = re.exec(tn.data))) { const rg = document.createRange(); rg.setStart(tn, m.index); rg.setEnd(tn, m.index + m[0].length); const r = rg.getBoundingClientRect(); if (!r.width) continue; const l = (r.left - PR.left) / s, t = (r.top - PR.top) / s, b = (r.bottom - PR.top) / s, rr = (r.right - PR.left) / s; if (rr < x || l > x + w || (t + b) / 2 < y || (t + b) / 2 > y + h) continue;   // 囲みの中に字の真ん中がある語だけ g.fillText(m[0], l, (t + b) / 2); } }
+    while ((m = re.exec(tn.data))) { const rg = document.createRange(); rg.setStart(tn, m.index); rg.setEnd(tn, m.index + m[0].length); const r = rg.getBoundingClientRect(); if (!r.width) continue; const l = (r.left - PR.left) / s, t = (r.top - PR.top) / s, b = (r.bottom - PR.top) / s, rr = (r.right - PR.left) / s; if (rr < x || l > x + w || (t + b) / 2 < y || (t + b) / 2 > y + h) continue;   /* 囲みの中に字の真ん中がある語だけ */ g.fillText(m[0], l, (t + b) / 2); } }
   g.strokeStyle = "#222"; g.lineWidth = 2.2; g.lineCap = "round"; g.lineJoin = "round"; paper.querySelectorAll("svg path").forEach(p => { try { g.stroke(new Path2D(p.getAttribute("d"))); } catch (e) {} });
   return cv.toDataURL("image/jpeg", .86); }
 /* 囲み終わった:画像と出どころ(問題・段落)を作って、箱を選ぶ画面へ */
@@ -5457,7 +5457,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r6.07";
+window.APP_VER_SYNC = "r6.08";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
