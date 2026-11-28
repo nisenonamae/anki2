@@ -989,7 +989,7 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .mi-t .mi-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
 .mi-t .mi-svg path{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .mi-t .mi-svg path.q{stroke-opacity:.38;stroke-width:1.3}.mi-t .mi-svg path.dot{stroke-dasharray:1.2 3;stroke-width:1.4}.mi-t .mi-svg path.sl{stroke-width:2.7}
-.mi-t .mi-svg circle.dt{fill:currentColor;stroke:none}.mi-t .mi-svg text.nt{font-size:11px;fill:currentColor;font-family:"Hiragino Sans","Noto Sans JP",sans-serif}
+.mi-t.mgl{padding-left:2.5rem}.mi-t.mgr{padding-right:3.2rem}.mi-t .mi-svg text.mg{font-size:12px;font-weight:700;fill:currentColor;text-anchor:middle;dominant-baseline:central;font-family:"Hiragino Sans","Noto Sans JP",sans-serif}.mi-t .mi-svg text.sd{font-size:11px;fill:currentColor;dominant-baseline:central;font-family:"Hiragino Sans","Noto Sans JP",sans-serif}.xmi .mi-leg .mi-t.mgl{padding-left:2.2rem}.xmi .mi-leg .mi-t.mgr{padding-right:2.6rem}.mi-t .mi-svg circle.dt{fill:currentColor;stroke:none}.mi-t .mi-svg text.nt{font-size:11px;fill:currentColor;font-family:"Hiragino Sans","Noto Sans JP",sans-serif}
 .mi-t .mk-b{padding:0 .2em}.mi-t .mk-n{padding:0 .45em}.mi-t .mk-e,.mi-t .mk-k{padding:0 .38em}.mi-t .mk-v{padding:0 .32em}
 .mi-t .mk-sl{display:inline-block;width:.75em;height:1.05em;vertical-align:-.2em}
 .mi-t .mk-g{font-size:.62em;font-style:italic;margin:0 .1em}
@@ -1000,6 +1000,12 @@ details.syn summary{cursor:pointer;color:var(--wave)}
 .xmi .mi-legb{display:block;margin:.2rem 0 0;font-size:.74rem}
 .xmi .mi-leg{display:grid;grid-template-columns:repeat(auto-fill,minmax(17rem,1fr));gap:.3rem .6rem;margin:.3rem 0 0;padding:.35rem .5rem .7rem;background:var(--white);border:1px solid var(--rule);border-radius:6px}
 .xmi .mi-leg>div{display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:.6rem;min-width:0}.xmi .mi-leg .mi-t{border:0;background:none;padding:0 0 0 .3rem;font-size:.85rem;line-height:2.4;white-space:nowrap}.xmi .mi-leg small{font-size:.68rem;color:var(--sub);line-height:1.35}
+.hwdesk.ro.misel{touch-action:none;cursor:crosshair;outline:2px solid var(--shu);outline-offset:-2px}
+.hwselbox{position:absolute;border:2px dashed var(--shu);background:color-mix(in srgb,var(--shu) 9%,transparent);pointer-events:none;z-index:2}
+.miselbar{display:flex;align-items:center;gap:.6rem;justify-content:space-between;margin:.1rem 0 .5rem;padding:.4rem .6rem;border:1px dashed var(--shu);border-radius:8px;font-size:.8rem;background:var(--sheet)}
+.mipk-img{display:block;max-width:100%;border:1px solid var(--rule);border-radius:6px;margin:.2rem 0}
+.mipk-l{display:grid;gap:5px}.mipk-g{font-size:.72rem;color:var(--sub);margin:.5rem 0 0;font-weight:700}
+.mipk{display:flex;flex-wrap:wrap;align-items:baseline;gap:.2rem .6rem;text-align:left;padding:.55rem .7rem;border:1px solid var(--rule);border-radius:8px;background:var(--white);font:inherit;color:var(--ink);cursor:pointer}.mipk small{color:var(--sub);font-size:.72rem}.mipk em{margin-left:auto;font-style:normal;font-size:.7rem;color:var(--sub)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js" defer></script>
@@ -1478,7 +1484,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r6.06";
+A2.VER = "r6.07";
 window.A2 = A2;
 
 </script>
@@ -1486,7 +1492,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r6.06"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r6.07"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -3702,7 +3708,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r6.06";
+window.APP_VER_EX = "r6.07";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 /* r5.17 お試し:EXV.trial = { sid, doc(写し), subj?, ent? } のあいだは、その分野の記録を写しに向ける。写しは保存しない */
@@ -3939,7 +3945,7 @@ function xfPrompt(doc, area, req, withNow){ area = area || EXV.area || ""; const
     "- 何か所かで同じ手順を使うときは「### 共通の手順」の下に「#### 手順の名前」で1度だけ書き、使う箱に「=> 箱のid 共通:手順の名前」と書く", "- 特に大事な箱には「★ 箱のid | なぜ大事か」を付ける(多くしすぎない)", "- 分かれ道と、時間・数・順番を決める箱には「基準 箱のid | 判断の基準(根拠の種類:根拠の中身)」を付ける(1つの箱に1つ)。根拠の種類は、試験(試験の時間・大問の数など試験の決まり)・指示(設問の指示)・記録(自分の演習の記録)・一般(一般に言われている目安や解き方。出どころや、どう出した数かを根拠の中身に書く)のどれか。時間のように形にするには数が要る所は、一般に言われている目安から具体的な数を入れる",
     "- 演習の画面の目標時間は、基準の文に「目標 全体 = 式 分」「目標 読み終わり = 式 分」と書くと、その式で出す(なければ 全体 = {語数} ÷ 150 ÷ 0.6 + {記述の数} × 5、読み終わり = {全体} × 0.8)。式に使えるのは、数・+ − × ÷ ( )・{語数}・{記述の数}・{設問の数}・{全体}(読み終わりの式だけ)・記録の名前(時間は分、速さは語/分、正答率は 0〜1)",
     "- 基準の文の中に {記録の名前} と書くと、アプリが自分の演習の記録から今の値を出す。記録があるもの(読む速さなど)は、これを使ってよい。使える記録の名前:\n" + xcNamesText(doc, area),
-    "- 箱の例は「例 箱のid | 見たもの → したこと(出どころ)」。箱を書いたあとの行に、1つの箱に何行でも。出どころ(問題集・番号・段落)はなくてよい。今のフローチャートにある例は、そのまま書き写す", "- 箱の見本は「見本 箱のid | 記法の文(出どころ)」。その手順をやったあと、紙(本文)がどうなるかを、本文の一部を写して印を付けて見せる。1つの箱に何行でも。記法:⁄=太い/(文の終わり)・{t:語}=下線(話題)・{b:語}=□で囲む(つなぎ言葉)・{d:語}=最初の文字の上に点(並ぶものの頭の語)・{n:語}=◯で囲む(数)・{e:語}=( )(具体例)・{k:語}=[ ](名詞を飾るもの:関係詞の節・同格・名詞のあとの分詞や前置詞句)・{v:語}=| |(文を飾るもの・挿入:文頭の句や節・, -ing の分詞・挿入・文末の付け足し)・{w:語}=波線(主張:逆接・結論・譲歩のあと、対比の言いたい側)・{g:(3)}=小さく上付きの設問番号(根拠)・{a:語>注}=点線の下線と矢印つきの注(指示語)・{q:語}=問題の元の下線(薄い灰色)。{ } は入れ子にできる。「見本 n4 | (画像 1枚)」の行は画面で貼った画像の数なので、そのまま書き写す", "- 「|」「>」「->」は書き方の印なので、中身には使わない",
+    "- 箱の例は「例 箱のid | 見たもの → したこと(出どころ)」。箱を書いたあとの行に、1つの箱に何行でも。出どころ(問題集・番号・段落)はなくてよい。今のフローチャートにある例は、そのまま書き写す", "- 箱の見本は「見本 箱のid | 記法の文(出どころ)」。その手順をやったあと、紙(本文)がどうなるかを、本文の一部を写して印を付けて見せる。1つの箱に何行でも。記法:⁄=太い/(文の終わり)・{t:語}=下線(話題)・{b:語}=□で囲む(つなぎ言葉)・{d:語}=最初の文字の上に点(並ぶものの頭の語)・{n:語}=◯で囲む(数)・{e:語}=( )(具体例)・{k:語}=[ ](名詞を飾るもの:関係詞の節・同格・名詞のあとの分詞や前置詞句)・{v:語}=| |(文を飾るもの・挿入:文頭の句や節・, -ing の分詞・挿入・文末の付け足し)・{w:語}=波線(主張:逆接・結論・譲歩のあと、対比の言いたい側)・{g:(3)}=小さく上付きの設問番号(根拠)・{a:語>注}=点線の下線と矢印つきの注(指示語)・{q:語}=問題の元の下線(薄い灰色)・{m:出}=行の左の余白に、文字を丸で囲んだ記号(段落の役割:場・出・心、主・根・例・譲・問。段落の頭に書く)・{s:6T}=その行の右の余白に小さな文字(下線の横に書く設問の印など)。{ } は入れ子にできる。「見本 n4 | (画像 1枚)」の行は画面で貼った画像の数なので、そのまま書き写す", "- 「|」「>」「->」は書き方の印なので、中身には使わない",
     now ? "\n# 今のフローチャート(これを直したあとの全体を書く。取り込むと置き換わる)\n```\n" + now + "\n```" : ""].join("\n"); }
 function parseFlowText(text, defArea){ const flows = {}, libs = {}, all = []; let area = defArea || "全体", mode = null, cur = null, exs = 0, crs = 0, mis = 0; const at0 = Date.now();
   const mk = () => { const c = { n: [], e: [], _ids: {}, _e: [] }; all.push(c); return c; };
@@ -4831,7 +4837,7 @@ document.addEventListener("input", e => { const t = e.target; if (!t || t.id !==
 
 /* ───── 下から出る画面(演習) ───── */
 const inp = (id, v, ph) => `<input id="${id}" value="${esc(v || "")}" placeholder="${esc(ph || "")}" style="width:100%;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px">`;
-function exSheet(sh){ if (!sh || !/^x-/.test(sh.k)) return null; if (sh.k === "x-ent") return exEntSheet(sh); if (sh.k === "x-start") return exStartSheet(sh); if (sh.k === "x-imp") return exImpSheet(sh); if (sh.k === "x-rvopt") return pcOptSheet(); if (sh.k === "x-pdeck") return pcLooseSheet(); const s = exSubj(), doc = s ? exDoc(s.id) : null, areas = doc ? exAreas(doc) : [];
+function exSheet(sh){ if (!sh || !/^x-/.test(sh.k)) return null; if (sh.k === "x-mipick") return miPickSheet(sh); if (sh.k === "x-ent") return exEntSheet(sh); if (sh.k === "x-start") return exStartSheet(sh); if (sh.k === "x-imp") return exImpSheet(sh); if (sh.k === "x-rvopt") return pcOptSheet(); if (sh.k === "x-pdeck") return pcLooseSheet(); const s = exSubj(), doc = s ? exDoc(s.id) : null, areas = doc ? exAreas(doc) : [];
   const areaSel = (id, v) => `<select id="${id}"><option value="">(なし)</option>${areas.map(a => `<option${a === v ? " selected" : ""}>${esc(a)}</option>`).join("")}</select>`;
   if (sh.k === "x-mat") { const m = sh.id ? doc.mats.find(x => x.id === sh.id) : null;
     return `<h3>${m ? "問題集を直す" : "問題集を足す"}</h3><div class="f"><label>名前<span class="lh">「長文読解::やっておきたい英語長文300」のように「::」で区切ると、デッキが入れ子になる</span></label>${inp("xm-n", m && m.name, "例:長文読解::やっておきたい英語長文300")}</div><div class="f"><label>1日の新しい問題<span class="lh">まだ解いていない問題を、1日に何題まで出すか</span></label><input id="xm-nd" type="number" min="0" max="50" value="${m ? pcNday(doc, m) : 1}" style="width:6rem;padding:.4rem .5rem;border:1px solid var(--rule);border-radius:3px"></div><div class="f"><label>種類(なくてよい)</label>${inp("xm-k", m && m.kind, "例:問題集・過去問・長文")}</div>
@@ -4847,7 +4853,7 @@ function exSheet(sh){ if (!sh || !/^x-/.test(sh.k)) return null; if (sh.k === "x
       <div class="row" style="margin-top:.6rem"><button class="btn shu" data-xstart="${sh.mat}|${sh.q}">この問題で演習する</button><button class="btn ghost" data-xpeek="${sh.mat}|${sh.q}">中身を見る</button>${m.id === "loose" ? `<button class="linkx" data-xlooseedit="${q.id}">直す</button>` : `<button class="linkx" data-xqren>名前を変える</button>`}</div>
       ${sh.ren && m.id !== "loose" ? `<div class="f" style="margin-top:.6rem"><label>問題の名前<span class="lh">印・予定・これまでの演習は、そのまま引き継ぐ</span></label>${inp("xqn-n", q.n, "例:12")}</div><div class="row"><button class="btn" data-xqrensave>変える</button><button class="btn ghost" data-xqren>やめる</button></div>` : ""}`; }
   if (sh.k === "x-h") { const h = doc.hist.find(x => x.id === sh.id), items = doc.map.filter(it => (h.marks || {})[it.id]), hq = h.hw && xqGet(doc, h.mat, h.q);
-    return `<h3>${esc(h.qn)}</h3><div class="note">${A2.dayStr(A2.dayOf(h.t))}・${exTm(h.sec)}・<span class="gb g-${h.g}">${h.g}</span></div>${hq ? `<h2>手書きの書き込み</h2>${hwDeskHtml(hq, h.hw, true, "h-" + h.id)}` : ""}${h.note ? `<div class="pkv"><span class="k">気づいたこと</span><span class="v">${esc(h.note)}</span></div>` : ""}
+    return `<h3>${esc(h.qn)}</h3><div class="note">${A2.dayStr(A2.dayOf(h.t))}・${exTm(h.sec)}・<span class="gb g-${h.g}">${h.g}</span></div>${hq ? `<h2>手書きの書き込み</h2>${hwDeskHtml(hq, h.hw, true, "h-" + h.id)}${miSelBtn("h-" + h.id, h.mat, h.q)}` : ""}${h.note ? `<div class="pkv"><span class="k">気づいたこと</span><span class="v">${esc(h.note)}</span></div>` : ""}
       ${items.length ? `<h2>意識できたか</h2><div class="card">${items.map(it => `<div class="chk"><div class="t"><b>${esc(it.h)}</b></div><span class="gb g-${h.marks[it.id] === "o" ? "○" : h.marks[it.id] === "x" ? "×" : ""}">${h.marks[it.id] === "o" ? "できた" : h.marks[it.id] === "x" ? "忘れた" : "出ず"}</span></div>`).join("")}</div>` : ""}<div class="row"><button class="linkx" data-xhistdel="${h.id}" style="color:var(--shu)">この記録を消す</button></div>`; }
   if (sh.k === "x-ai") { const its = sh.text ? parseMapText(sh.text, sh.area || EXV.area) : [], plan = its.length ? planMerge(doc, { list: its, apply: false }) : null, xfl = sh.text ? parseFlowText(sh.text, sh.area || EXV.area) : { flows: {}, libs: {}, boxes: 0 };
     return `<h3>AIに${sh.flow ? "フローチャート" : "解法の地図"}を作ってもらう</h3><p class="note" style="margin-top:0">1. 何をもとに作るかを書いて、指示文をコピーする → 2. Claude に貼る → 3. 返ってきたものを下に貼って取り込む。</p>
@@ -5236,7 +5242,7 @@ function hwPapers(q, hw){ hw = hw || {}; const qs = q.qlist ? q.qlist.map(x => `
   return `<div class="hwpaper" data-pp="p"><span class="lab">本文</span><div class="hwtxt">${(q.ptext || []).map((p, i) => `<p><i>${i + 1}</i>${esc(p)}</p>`).join("")}</div><svg>${hwPathsHtml(hw.p)}</svg></div>`
     + (qs ? `<div class="hwpaper" data-pp="q"><span class="lab">設問</span><div class="hwtxt hwqs">${qs}</div><svg>${hwPathsHtml(hw.q)}</svg></div>` : ""); }
 /* 机。key は見え方(倍率・位置)を覚えておく名前。ro = 見るだけ(書けない) */
-const hwDeskHtml = (q, hw, ro, key) => `<div class="hwdesk${ro ? " ro" : ""}" data-hwk="${esc(key)}"><div class="hwworld">${hwPapers(q, hw)}</div>${ro ? `<div class="hwzoom"><button data-hwz="out" aria-label="小さく">−</button><button data-hwz="fit" class="zp">100%</button><button data-hwz="in" aria-label="大きく">＋</button></div>` : ""}</div>`;
+const hwDeskHtml = (q, hw, ro, key) => `<div class="hwdesk${ro ? " ro" : ""}${ro && EXV.miSel && EXV.miSel.key === key ? " misel" : ""}" data-hwk="${esc(key)}"><div class="hwworld">${hwPapers(q, hw)}</div>${ro ? `<div class="hwzoom"><button data-hwz="out" aria-label="小さく">−</button><button data-hwz="fit" class="zp">100%</button><button data-hwz="in" aria-label="大きく">＋</button></div>` : ""}</div>`;
 function hwToolsHtml(r){ const n = hwN(r.hw);
   return `<div class="hwtools"><button data-hwtool="pen" aria-pressed="${HWT.tool === "pen"}" title="書く">✎<span class="lbl">書く</span></button><button data-hwtool="er" aria-pressed="${HWT.tool === "er"}" title="なぞった線を消す">⌫<span class="lbl">消す</span></button><span class="sep"></span>
     <button data-hwundo class="big" title="戻す(押し続けると続けて戻る・⌘/Ctrl+Z)"${(r.hwU || []).length ? "" : " disabled"}>↶<span class="lbl">戻す</span></button><button data-hwredo title="やり直す(⇧+⌘/Ctrl+Z)"${(r.hwR || []).length ? "" : " disabled"}>↷</button><span class="sep"></span>
@@ -5273,7 +5279,7 @@ function hwMountAll(){ for (const k in HWD) if (!HWD[k].el.isConnected) delete H
     init(true); if (document.fonts && document.fonts.status !== "loaded") document.fonts.ready.then(() => el.isConnected && init(true));
     hwBind(D); }); }
 window.addEventListener("resize", () => { for (const k in HWD) { const D = HWD[k]; if (D.el.isConnected) { hwLayout(D); D.fit = Math.min(D.el.clientWidth / D.w, 1.6); hwApply(D); } } });
-function hwBind(D){ const el = D.el, P = new Map(); let cur = null, pan = null, g = null;
+function hwBind(D){ const el = D.el, P = new Map(); let cur = null, pan = null, g = null, sel = null;
   const two = () => { const [a, b] = [...P.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
   const paperAt = (x, y) => { for (const p of el.querySelectorAll(".hwpaper")) { const R = p.getBoundingClientRect(), pad = 30 * D.v.s; if (x >= R.left - pad && x <= R.right + pad && y >= R.top - pad && y <= R.bottom + pad) return p; } return null; };
   const ptIn = (p, e) => { const R = p.getBoundingClientRect(); return [(e.clientX - R.left) / D.v.s, (e.clientY - R.top) / D.v.s]; };
@@ -5281,6 +5287,7 @@ function hwBind(D){ const el = D.el, P = new Map(); let cur = null, pan = null, 
   const dist = (pt, st) => { const Q = hwPts(st); if (Q.length === 1) return Math.hypot(pt[0] - Q[0][0], pt[1] - Q[0][1]); let m = 1e9; for (let i = 0; i + 1 < Q.length; i++) { const a = Q[i], b = Q[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy; let t = L ? ((pt[0] - a[0]) * dx + (pt[1] - a[1]) * dy) / L : 0; t = Math.max(0, Math.min(1, t)); m = Math.min(m, Math.hypot(pt[0] - a[0] - t * dx, pt[1] - a[1] - t * dy)); } return m; };
   const erase = e => { const r = hwRun(); if (!r) return; let hit = false; el.querySelectorAll(".hwpaper").forEach(p => { const pp = p.dataset.pp, pt = ptIn(p, e), L = r.hw[pp]; for (let i = L.length - 1; i >= 0; i--) if (dist(pt, L[i]) < 8) { cur.list.push({ pp, i, st: L[i] }); L.splice(i, 1); hit = true; } }); if (hit) hwRedraw(D); };
   el.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; const mouse = e.pointerType === "mouse";
+    if (D.ro && el.classList.contains("misel") && (!mouse || e.button === 0)) { const p = paperAt(e.clientX, e.clientY); if (!p) return; e.preventDefault(); el.setPointerCapture(e.pointerId); const [x0, y0] = ptIn(p, e), bx = document.createElement("div"); bx.className = "hwselbox"; p.appendChild(bx); sel = { p, x0, y0, bx, x: x0, y: y0, w: 0, h: 0 }; return; }
     if (mouse && (e.button === 1 || (e.button === 0 && (HWT.space || D.ro)))) { e.preventDefault(); el.setPointerCapture(e.pointerId); pan = { x: e.clientX, y: e.clientY, vx: D.v.x, vy: D.v.y }; el.classList.add("panning"); return; }
     if (mouse && e.button !== 0) return; if (D.ro && !mouse) { P.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (P.size === 2) { const t = two(); g = { t0: Date.now(), d: t.d, x: t.x, y: t.y, moved: 99 }; } return; }
     e.preventDefault(); el.setPointerCapture(e.pointerId); P.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -5289,12 +5296,13 @@ function hwBind(D){ const el = D.el, P = new Map(); let cur = null, pan = null, 
     if (HWT.tool === "er") { cur = { list: [] }; erase(e); return; }
     const path = document.createElementNS(HWNS, "path"); p.querySelector("svg").appendChild(path); cur = { path, p, pts: [ptIn(p, e)] }; path.setAttribute("d", hwD(cur.pts)); });
   el.addEventListener("pointermove", e => {
+    if (sel) { const W = sel.p.offsetWidth, H = sel.p.offsetHeight; let [x1, y1] = ptIn(sel.p, e); x1 = Math.max(0, Math.min(W, x1)); y1 = Math.max(0, Math.min(H, y1)); const x0 = Math.max(0, Math.min(W, sel.x0)), y0 = Math.max(0, Math.min(H, sel.y0)); sel.x = Math.min(x0, x1); sel.y = Math.min(y0, y1); sel.w = Math.abs(x1 - x0); sel.h = Math.abs(y1 - y0); Object.assign(sel.bx.style, { left: sel.x + "px", top: sel.y + "px", width: sel.w + "px", height: sel.h + "px" }); return; }
     if (pan) { D.v.x = pan.vx + e.clientX - pan.x; D.v.y = pan.vy + e.clientY - pan.y; hwApply(D); return; }
     if (!P.has(e.pointerId)) return; P.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (g && P.size === 2) { const t = two(), R = el.getBoundingClientRect(); g.moved = Math.max(g.moved, Math.abs(t.d - g.d), Math.hypot(t.x - g.x, t.y - g.y)); if (g.moved < 8 && Date.now() - g.t0 < 280) return;
       D.v.x += t.x - g.x; D.v.y += t.y - g.y; hwZoom(D, D.v.s * t.d / g.d, t.x - R.left, t.y - R.top); g.d = t.d; g.x = t.x; g.y = t.y; g.moved = 99; return; }
     if (!cur) return; if (cur.list) return erase(e); const q = ptIn(cur.p, e), l = cur.pts[cur.pts.length - 1]; if ((q[0] - l[0]) ** 2 + (q[1] - l[1]) ** 2 < 2.5) return; cur.pts.push(q); cur.path.setAttribute("d", hwD(cur.pts)); });
-  const end = e => { if (pan) { pan = null; el.classList.remove("panning"); return; } if (!P.has(e.pointerId)) return; P.delete(e.pointerId);
+  const end = e => { if (sel) { const S2 = sel; sel = null; S2.bx.remove(); if (S2.w > 12 && S2.h > 8) miSelDone(D, S2.p, S2.x, S2.y, S2.w, S2.h); return; } if (pan) { pan = null; el.classList.remove("panning"); return; } if (!P.has(e.pointerId)) return; P.delete(e.pointerId);
     if (g) { if (!P.size) { if (!D.ro && Date.now() - g.t0 < 280 && g.moved < 8) hwUndo(); g = null; } return; }
     if (!cur) return; const r = hwRun(); if (!r) { cur = null; return; }
     if (cur.list) { if (cur.list.length) { (r.hwU = r.hwU || []).push({ k: "del", list: cur.list }); r.hwR = []; hwRedraw(D); } }
@@ -5325,26 +5333,27 @@ document.addEventListener("click", e => { const b = e.target.closest && e.target
 /* 解き終わったあと・記録:今回と前回の書き込みを見る */
 function hwDoneHtml(doc, m, q, r){ if (!q.ptext) return ""; const prev = doc.hist.find(h => h.mat === m.id && h.q === q.id && hwHas(h.hw)), cur = hwHas(r.hw) ? r.hw : null; if (!cur && !prev) return "";
   const v = EXV.hwView === "prev" && prev ? "prev" : cur ? "cur" : "prev";
-  return `<h4 class="xsec">手書きの書き込み<small>${cur ? (r.trial ? "お試しなので残らない" : "今回のを残す") : "今回は書き込みなし"}</small></h4>${prev && cur ? `<div class="kseg" style="margin:0 0 .4rem"><button data-xhwv="cur" aria-pressed="${v === "cur"}">今回</button><button data-xhwv="prev" aria-pressed="${v === "prev"}">前回(${A2.dayStr(A2.dayOf(prev.t))})</button></div>` : !cur ? `<p class="note" style="margin:0 0 .3rem">前回(${A2.dayStr(A2.dayOf(prev.t))})の書き込み</p>` : ""}${hwDeskHtml(q, v === "cur" ? cur : prev.hw, true, "done-" + v + "-" + q.id)}`; }
+  return `<h4 class="xsec">手書きの書き込み<small>${cur ? (r.trial ? "お試しなので残らない" : "今回のを残す") : "今回は書き込みなし"}</small></h4>${prev && cur ? `<div class="kseg" style="margin:0 0 .4rem"><button data-xhwv="cur" aria-pressed="${v === "cur"}">今回</button><button data-xhwv="prev" aria-pressed="${v === "prev"}">前回(${A2.dayStr(A2.dayOf(prev.t))})</button></div>` : !cur ? `<p class="note" style="margin:0 0 .3rem">前回(${A2.dayStr(A2.dayOf(prev.t))})の書き込み</p>` : ""}${hwDeskHtml(q, v === "cur" ? cur : prev.hw, true, "done-" + v + "-" + q.id)}${miSelBtn("done-" + v + "-" + q.id, m.id, q.id)}`; }
 document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-xhwv]"); if (!b) return; EXV.hwView = b.dataset.xhwv; render(); });
 
 /* ───── r6.05 箱の見本:その手順をやったあと、紙(本文)がどうなるか。x.mi = [{ id, k:"t"|"img", t:記法の文, img:画像(dataURL), src:出どころ, mid・qid・p:問題とつながっていれば, at }]
    記法:⁄ 文の終わり・{t:語}下線 話題・{b:語}□ つなぎ言葉・{d:語}頭の文字の上に点 並び・{n:語}◯ 数・{e:語}( ) 具体例・{k:語}[ ] 名詞を飾るもの・{v:語}| | 文を飾るもの・挿入・{w:語}波線 主張・{g:(3)}設問番号(上付き)・{a:語>注}点線の下線と矢印つきの注 指示語・{q:語}問題の元の下線(灰色)。入れ子にできる。閉じていない所は文字のまま ───── */
 /* r6.06 印を決め直した:[ ] は名詞を飾るもの、| | は文を飾るもの・挿入、点は並び */
-const MIK = { sl: "文の終わり", t: "話題", b: "つなぎ言葉", d: "並び", n: "数", e: "具体例", k: "名詞を飾るもの", v: "文を飾るもの・挿入", w: "主張(逆接・結論・譲歩のあと、対比の言いたい側)", q: "問題の元の下線", g: "根拠の設問番号", a: "指示語" };
-const MI_LEG = [["the end⁄", "sl"], ["{t:the McNamaras}", "t"], ["{b:However}", "b"], ["{d:ran}, {d:jumped}", "d"], ["{n:eight}", "n"], ["{e:such as Ruth}", "e"], ["the man {k:who lived here}", "k"], ["{v:As I sat there,}", "v"], ["{w:one thing mattered}", "w"], ["answer{g:(3)}", "g"], ["{a:those days>その日々}", "a"]];
+const MIK = { sl: "文の終わり", t: "話題", b: "つなぎ言葉", d: "並び", n: "数", e: "具体例", k: "名詞を飾るもの", v: "文を飾るもの・挿入", w: "主張(逆接・結論・譲歩のあと、対比の言いたい側)", q: "問題の元の下線", g: "根拠の設問番号", a: "指示語", m: "段落の役割(余白の丸の文字)", s: "設問の印(横の文字)" };
+const MI_LEG = [["the end⁄", "sl"], ["{t:the McNamaras}", "t"], ["{b:However}", "b"], ["{d:ran}, {d:jumped}", "d"], ["{n:eight}", "n"], ["{e:such as Ruth}", "e"], ["the man {k:who lived here}", "k"], ["{v:As I sat there,}", "v"], ["{w:one thing mattered}", "w"], ["answer{g:(3)}", "g"], ["{a:those days>その日々}", "a"], ["{m:出}Last year, I", "m"], ["the fence{s:6T}", "s"]];
 /* 閉じる } を探す(入れ子の { } を数える)。なければ -1 */
 const miClose = (s, i) => { let d = 0; for (let j = i; j < s.length; j++) { if (s[j] === "{") d++; else if (s[j] === "}") { d--; if (!d) return j; } } return -1; };
 function miParse(s){ const out = []; let i = 0, buf = ""; const flush = () => { if (buf) { out.push({ x: buf }); buf = ""; } };
   while (i < s.length) { const c = s[i];
-    if (c === "{") { const m = /^\{([bnektwqgavd]):/.exec(s.slice(i)), j = m ? miClose(s, i) : -1;
+    if (c === "{") { const m = /^\{([bnektwqgavdms]):/.exec(s.slice(i)), j = m ? miClose(s, i) : -1;
       if (m && j > 0) { flush(); let inner = s.slice(i + 3, j), note = null; if (m[1] === "a") { let d = 0; for (let k = 0; k < inner.length; k++) { if (inner[k] === "{") d++; else if (inner[k] === "}") d--; else if (inner[k] === ">" && !d) { note = inner.slice(k + 1).trim(); inner = inner.slice(0, k); break; } } }
         out.push({ k: m[1], kids: miParse(inner), note }); i = j + 1; continue; } }
     if (c === "⁄") { flush(); out.push({ sl: 1 }); i++; continue; }
     buf += c; i++; }
   flush(); return out; }
-const miHtml = L => L.map(n => n.x != null ? esc(n.x) : n.sl ? '<i class="mk mk-sl" data-mk="sl"></i>' : n.k === "g" ? `<sup class="mk-g">${miHtml(n.kids)}</sup>` : `<span class="mk mk-${n.k}" data-mk="${n.k}"${n.note ? ` data-note="${esc(n.note)}"` : ""}>${miHtml(n.kids)}</span>`).join("");
-const miT = t => `<div class="mi-t">${miHtml(miParse(String(t || "")))}<svg class="mi-svg" aria-hidden="true"></svg></div>`;
+const miPlain = L => L.map(n => n.x != null ? n.x : n.kids ? miPlain(n.kids) : "").join("");
+const miHtml = L => L.map(n => n.x != null ? esc(n.x) : n.k === "m" || n.k === "s" ? `<span class="mk mk-${n.k}" data-mk="${n.k}" data-txt="${esc(miPlain(n.kids).trim())}"></span>` : n.sl ? '<i class="mk mk-sl" data-mk="sl"></i>' : n.k === "g" ? `<sup class="mk-g">${miHtml(n.kids)}</sup>` : `<span class="mk mk-${n.k}" data-mk="${n.k}"${n.note ? ` data-note="${esc(n.note)}"` : ""}>${miHtml(n.kids)}</span>`).join("");
+const miT = t => `<div class="mi-t${/\{m:/.test(t || "") ? " mgl" : ""}${/\{s:/.test(t || "") ? " mgr" : ""}">${miHtml(miParse(String(t || "")))}<svg class="mi-svg" aria-hidden="true"></svg></div>`;
 /* 文の終わりの( )が出どころ。ただし { } の中の ( ) は出どころにしない */
 const miSrc = t => { t = String(t || "").trim(); const m = /^(.*?)\s*[(（]([^()（）]*)[)）]\s*$/.exec(t); if (!m) return [t, ""]; const pre = m[1]; let d = 0; for (const ch of pre) { if (ch === "{") d++; else if (ch === "}") d--; } return d === 0 ? [pre.trim(), m[2].trim()] : [t, ""]; };
 const miIsImgLine = t => /^[(（]\s*画像\s*\d*\s*枚?\s*[)）]$/.test(String(t || "").trim());
@@ -5386,7 +5395,10 @@ document.addEventListener("input", e => { if (!e.target || !e.target.classList |
 function miDraw(el){ const svg = el.querySelector(":scope > .mi-svg"); if (!svg) return; const R0 = el.getBoundingClientRect(); if (!R0.width) return;
   let seed = 7; for (const ch of el.textContent) seed = (seed * 31 + ch.charCodeAt(0)) % 2147483647; const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647, j = a => (rnd() - .5) * 2 * a;
   const P = [], put = (d, cls) => P.push(`<path d="${d}"${cls ? ` class="${cls}"` : ""}/>`), f = n => Math.round(n * 10) / 10;
-  el.querySelectorAll(".mk").forEach(sp => { const k = sp.dataset.mk, rs = [...sp.getClientRects()].filter(r => r.width > 0).map(r => ({ l: r.left - R0.left, t: r.top - R0.top, r: r.right - R0.left, b: r.bottom - R0.top })); if (!rs.length) return;
+  el.querySelectorAll(".mk").forEach(sp => { if (sp.dataset.mk === "m" || sp.dataset.mk === "s") { const r = sp.getBoundingClientRect(), cs = getComputedStyle(el), cy = (r.top + r.bottom) / 2 - R0.top, tx = sp.dataset.txt || ""; if (!tx) return;
+      if (sp.dataset.mk === "m") { const cx = parseFloat(cs.paddingLeft) / 2, rr = Math.max(10, tx.length * 6.6), pts = [], a0 = -2 + j(.3); for (let i = 0; i <= 26; i++) { const a = a0 + i / 24 * Math.PI * 2, w = 1 + j(.04); pts.push(f(cx + Math.cos(a) * rr * w) + " " + f(cy + Math.sin(a) * 10.5 * w)); } put("M" + pts.join(" L")); P.push(`<text x="${f(cx)}" y="${f(cy)}" class="mg">${esc(tx)}</text>`); }
+      else P.push(`<text x="${f(R0.width - parseFloat(cs.paddingRight) + 7)}" y="${f(cy)}" class="sd">${esc(tx)}</text>`); return; }
+    const k = sp.dataset.mk, rs = [...sp.getClientRects()].filter(r => r.width > 0).map(r => ({ l: r.left - R0.left, t: r.top - R0.top, r: r.right - R0.left, b: r.bottom - R0.top })); if (!rs.length) return;
     const first = rs[0], last = rs[rs.length - 1];
     if (k === "b") rs.forEach(r => { const a = [r.l - 2 + j(1), r.t + 1 + j(1)], b2 = [r.r + 2 + j(1), r.t + 1 + j(1)], c = [r.r + 2 + j(1), r.b - 1 + j(1)], d = [r.l - 2 + j(1), r.b - 1 + j(1)]; put(`M${f(a[0] + 3)} ${f(a[1] + j(.5))} L${f(b2[0])} ${f(b2[1])} L${f(c[0])} ${f(c[1])} L${f(d[0])} ${f(d[1])} L${f(a[0])} ${f(a[1])} L${f(a[0] + 6)} ${f(a[1] - .6 + j(.5))}`); });
     else if (k === "n") rs.forEach(r => { const cx = (r.l + r.r) / 2, cy = (r.t + r.b) / 2, rx = (r.r - r.l) / 2 + 5, ry = (r.b - r.t) / 2 + 1, a0 = -2.2 + j(.3), pts = []; for (let i = 0; i <= 26; i++) { const a = a0 + i / 24 * Math.PI * 2, w = 1 + j(.04); pts.push(f(cx + Math.cos(a) * rx * w) + " " + f(cy + Math.sin(a) * ry * w)); } put("M" + pts.join(" L")); });
@@ -5404,6 +5416,35 @@ let miQ = 0; const miScan = () => { miQ = 0; document.querySelectorAll(".mi-t:no
 new MutationObserver(() => { if (!miQ) miQ = requestAnimationFrame(miScan); }).observe(document.documentElement, { childList: true, subtree: true });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => document.querySelectorAll(".mi-t").forEach(miDraw));
 
+/* ───── r6.07 自分の書き込みから見本を作る:見るだけの机(解き終わり・記録)で「見本にする」→ 紙の上を四角く囲む → 箱を選ぶ → 文字と線を重ねた画像を、その箱の画像の見本に入れる ─────
+   EXV.miSel = { key:机の名前, mid, qid, img, src, p }。続けて何か所でも作れる(「おわる」まで) */
+const miSelBtn = (key, mid, qid) => { const on = EXV.miSel && EXV.miSel.key === key; return on ? `<div class="miselbar"><span>紙の上を斜めに引いて、見本にする範囲を四角く囲む。何か所でも続けて作れる</span><button class="btn ghost sm" data-miselx>おわる</button></div>` : `<div class="row" style="margin:.1rem 0 .4rem"><button class="btn ghost sm" data-misel="${esc(key)}|${esc(mid)}|${esc(qid)}">見本にする</button><span class="note">囲んだ所を、フローチャートの箱の見本にする</span></div>`; };
+/* 囲んだ範囲を画像にする(本文の文字は1語ずつ測って書き、線は紙の上の線をそのまま重ねる。色は白地に黒) */
+function miSnap(D, paper, x, y, w, h){ const s = D.v.s, PR = paper.getBoundingClientRect(), sc = Math.min(2, 900 / w), cv = document.createElement("canvas"); cv.width = Math.round(w * sc); cv.height = Math.round(h * sc);
+  const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, cv.width, cv.height); g.scale(sc, sc); g.translate(-x, -y); g.textBaseline = "middle";
+  const tw = document.createTreeWalker(paper.querySelector(".hwtxt"), NodeFilter.SHOW_TEXT); let tn;
+  while ((tn = tw.nextNode())) { const el = tn.parentElement, cs = getComputedStyle(el); g.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily; g.fillStyle = el.tagName === "I" ? "#8a8a8a" : "#222"; const re = /\S+/g; let m;
+    while ((m = re.exec(tn.data))) { const rg = document.createRange(); rg.setStart(tn, m.index); rg.setEnd(tn, m.index + m[0].length); const r = rg.getBoundingClientRect(); if (!r.width) continue; const l = (r.left - PR.left) / s, t = (r.top - PR.top) / s, b = (r.bottom - PR.top) / s, rr = (r.right - PR.left) / s; if (rr < x || l > x + w || (t + b) / 2 < y || (t + b) / 2 > y + h) continue;   // 囲みの中に字の真ん中がある語だけ g.fillText(m[0], l, (t + b) / 2); } }
+  g.strokeStyle = "#222"; g.lineWidth = 2.2; g.lineCap = "round"; g.lineJoin = "round"; paper.querySelectorAll("svg path").forEach(p => { try { g.stroke(new Path2D(p.getAttribute("d"))); } catch (e) {} });
+  return cv.toDataURL("image/jpeg", .86); }
+/* 囲み終わった:画像と出どころ(問題・段落)を作って、箱を選ぶ画面へ */
+function miSelDone(D, paper, x, y, w, h){ const S = EXV.miSel; if (!S || !EXV.sub) return; const doc = exDoc(EXV.sub), s = D.v.s, PR = paper.getBoundingClientRect();
+  let p = ""; if (paper.dataset.pp === "p") { const ns = []; paper.querySelectorAll(".hwtxt > p").forEach((el, i) => { const r = el.getBoundingClientRect(), t = (r.top - PR.top) / s, b = (r.bottom - PR.top) / s; if (b >= y && t <= y + h) ns.push(i + 1); }); if (ns.length) p = "[" + ns[0] + (ns.length > 1 ? "-" + ns[ns.length - 1] : "") + "]"; } else p = "設問";
+  S.img = miSnap(D, paper, x, y, w, h); S.p = p; S.src = (exExLabel(doc, S.mid, S.qid) + " " + p).trim(); V.sheet = { k: "x-mipick", back: V.sheet && V.sheet.k === "x-h" ? V.sheet : null }; render(); }
+/* 箱を選ぶ:その問題の領域の箱。この問題の ★ と、この問題の例が付いている箱を上に */
+function miPickSheet(sh){ const S = EXV.miSel; if (!S || !S.img) return '<p class="note">囲んだ範囲がない。</p>'; const doc = exDoc(EXV.sub), m = exMat(doc, S.mid), q = m && m.items.find(x => x.id === S.qid), area = q ? xqArea(doc, S.mid, q) : "", T = xfExTargets(doc, area);
+  if (!T.length) return `<h3>どの箱の見本にする?</h3><p class="note">この問題の領域${area ? "「" + esc(area) + "」" : ""}には、まだフローチャートがない。</p><div class="row"><button class="btn ghost sm" data-mipickx>戻る</button></div>`;
+  const pts = (q && q.fx && q.fx.pts) || [], seen = new Set(), L = T.filter(o => !seen.has(o.nd.id) && seen.add(o.nd.id)), hasEx = o => (o.nd.ex || []).some(e => e.mid === S.mid && e.qid === S.qid), rank = o => pts.includes(o.nd.id) ? 0 : hasEx(o) ? 1 : 2;
+  const rows = L.map((o, i) => ({ o, i, k: rank(o) })).sort((a, b) => a.k - b.k || a.i - b.i), grp = { 0: "この問題の ★", 1: "この問題の例がある箱", 2: "ほかの箱" };
+  let last = -1; const items = rows.map(({ o, k }) => { const h = (k !== last ? `<div class="mipk-g">${grp[k]}</div>` : ""); last = k; const path = (o.lib ? ["共通:" + o.lib] : []).concat(o.anc); return h + `<button class="mipk" data-mipick="${o.nd.id}"><b>${k === 0 ? "★ " : ""}${esc(o.nd.h)}</b>${path.length ? `<small>${esc(path.join(" › "))}</small>` : ""}${(o.nd.mi || []).length ? `<em>見本 ${o.nd.mi.length}</em>` : ""}</button>`; }).join("");
+  return `<h3>どの箱の見本にする?</h3><img class="mipk-img" src="${S.img}" alt="囲んだ範囲"><div class="note" style="margin:.2rem 0 .5rem">出どころ:${esc(S.src || "")}</div><div class="mipk-l">${items}</div><div class="row" style="margin-top:.6rem"><button class="btn ghost sm" data-mipickx>やめる(囲み直す)</button></div>`; }
+document.addEventListener("click", async e => { const b = e.target.closest && e.target.closest("[data-misel],[data-miselx],[data-mipick],[data-mipickx]"); if (!b) return; const d = b.dataset;
+  if (d.misel) { const [key, mid, qid] = d.misel.split("|"); EXV.miSel = { key, mid, qid }; render(); return; }
+  if (b.hasAttribute("data-miselx")) { EXV.miSel = null; render(); return; }
+  if (b.hasAttribute("data-mipickx")) { const back = V.sheet && V.sheet.back; V.sheet = back || null; if (EXV.miSel) EXV.miSel.img = null; render(); return; }
+  if (d.mipick) { const S = EXV.miSel; if (!S || !S.img || !EXV.sub) return; const doc = exDoc(EXV.sub), nd = xfNodeById(doc, d.mipick); if (!nd) return;
+    miAdd(nd, { k: "img", img: S.img, src: S.src, mid: S.mid, qid: S.qid, p: S.p }); S.img = null; const back = V.sheet && V.sheet.back; V.sheet = back || null; await exSave(doc); se("add"); toast("「" + nd.h + "」の見本にした"); render(); } });
+
 window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawMermaid;
 
 </script>
@@ -5416,7 +5457,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r6.06";
+window.APP_VER_SYNC = "r6.07";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
