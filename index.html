@@ -1463,7 +1463,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r6.03";
+A2.VER = "r6.04";
 window.A2 = A2;
 
 </script>
@@ -1471,7 +1471,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r6.03"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r6.04"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -3687,7 +3687,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r6.03";
+window.APP_VER_EX = "r6.04";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 /* r5.17 お試し:EXV.trial = { sid, doc(写し), subj?, ent? } のあいだは、その分野の記録を写しに向ける。写しは保存しない */
@@ -4510,7 +4510,7 @@ function exDedParse(t){ const items = []; String(t || "").replace(/\r/g, "").spl
 function exDedGrade(total){ const o = exRvOpt(); return total <= 0 ? "○" : total <= (+o.dedT || 5) ? "△" : "×"; }
 /* ── 演習の問題を文で取り込む・まとめてコピー ── */
 const EXQ_META = { 問題集: "mat", 番号: "no", 名前: "no", ノートタイプ: "ent", 復習の型: "rvt", 出典: "src", 語数: "words", 領域: "area", 音源: "audio" };
-const EXQ_FORMAT = ["# 演習の問題", "## 問題集:やっておきたい英語長文500(ばらの問題なら「ばら」)", "## 番号:12(ばらの問題なら、問題の名前)", "## ノートタイプ:長文読解", "## 復習の型:領域・解き直し", "## 出典:2019 東大 1(B)", "## 語数:520", "## 領域:(問題集とちがうときだけ)", "## 音源:(リスニングの URL)", "## 本文", "段落ごとに空行。段落番号は書かない", "## 設問", "### 問1", "…", "## 模範解答", "### 問1", "…", "## 解説", "…", "## 設問の印", "- 問1:2R3", "## ★ポイント", "- フローチャートの箱の見出し", "## 箱の例", "- 箱の見出し:見たもの → したこと(段落など。なくてよい)", "- 上の箱の見出し > 箱の見出し:…(見出しが同じ箱が2つ以上あるとき)", "## 減点の観点", "(自由英作文:何を見て減点するか)"].join("\n");
+const EXQ_FORMAT = ["# 演習の問題", "## 問題集:やっておきたい英語長文500(ばらの問題なら「ばら」。「英語長文::500」のように :: で区切ると、デッキの下のデッキになる)", "## 番号:12(ばらの問題なら、問題の名前)", "## ノートタイプ:長文読解", "## 出典:2019 東大 1(B)", "## 語数:520", "## 領域:(問題集とちがうときだけ)", "## 音源:(リスニングの URL)", "## 本文", "段落ごとに空行。段落番号は書かない", "## 設問", "### 問1", "…", "## 模範解答", "### 問1", "…", "## 解説", "…", "## 設問の印", "- 問1:2R3", "## ★ポイント", "- フローチャートの箱の見出し", "## 箱の例", "- 箱の見出し:見たもの → したこと(段落など。なくてよい)", "- 上の箱の見出し > 箱の見出し:…(見出しが同じ箱が2つ以上あるとき)", "## 減点の観点", "(自由英作文:何を見て減点するか)"].join("\n");
 function exqParse(text){ const out = []; let cur = null, sec = null, sub = null;
   String(text || "").replace(/\r/g, "").split("\n").forEach(raw => { const t = raw.trim(); let m;
     if (/^#\s*演習の問題\s*$/.test(t)) { cur = { meta: {}, sec: {} }; out.push(cur); sec = null; sub = null; return; }
@@ -4555,7 +4555,7 @@ function exqApply(doc, plan){ let n = 0; const areas = exAreas(doc);
     n++; }); return n; }
 function exqExport(doc, mid){ const mats = mid ? [exMat(doc, mid)] : exAllMats(doc), out = [], plain = h => String(h || "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").trim();
   mats.forEach(m => m.items.forEach(q => { if (!exHasText(q) && !q.alist && !q.ans && !q.expl) return; const e = exEntOf(m, q), L = ["# 演習の問題", "## 問題集:" + (m.id === "loose" ? "ばら" : m.name), "## 番号:" + q.n];
-    if (e) L.push("## ノートタイプ:" + e.name); L.push("## 復習の型:" + exTypesOf(m, q).map(rvtName).join("・")); if (q.src) L.push("## 出典:" + q.src); if (q.words) L.push("## 語数:" + q.words); if (q.area && q.area !== m.area) L.push("## 領域:" + q.area); if (q.audio) L.push("## 音源:" + q.audio);
+    if (e) L.push("## ノートタイプ:" + e.name); if (q.src) L.push("## 出典:" + q.src); if (q.words) L.push("## 語数:" + q.words); if (q.area && q.area !== m.area) L.push("## 領域:" + q.area); if (q.audio) L.push("## 音源:" + q.audio);
     if (q.ptext || q.body) L.push("## 本文", (q.ptext || exParas(plain(q.body))).join("\n\n"));
     if (q.qlist || q.qs) L.push("## 設問", q.qlist ? q.qlist.map(x => "### 問" + x.n + "\n" + x.t).join("\n") : plain(q.qs));
     if (q.alist || q.ans) L.push("## 模範解答", q.alist ? q.alist.map(x => "### 問" + x.n + "\n" + x.t).join("\n") : plain(q.ans));
@@ -5323,7 +5323,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r6.03";
+window.APP_VER_SYNC = "r6.04";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
