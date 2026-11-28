@@ -1463,7 +1463,7 @@ A2.fixFromRecord = async items => { const fix = []; items.forEach(({ c, r }) => 
     fix.push(x); }); if (fix.length) await A2.save("cards", fix); return fix.length; };
 /* 記録が正:カードの状態が復習の記録と食い違っていたら、記録どおりに直す(全部の端末で自動に) */
 A2.healFromRecords = async () => { const au = A2.audit(); if (!au.bad.length) return 0; return await A2.fixFromRecord(au.bad); };
-A2.VER = "r6.02";
+A2.VER = "r6.03";
 window.A2 = A2;
 
 </script>
@@ -1471,7 +1471,7 @@ window.A2 = A2;
 /* ── app.js ── */
 /* Anki2 r1 — 画面。データは core.js の A2.S にある */
 "use strict";
-const APP_VERSION = "r6.02"; window.APP_VER_APP = APP_VERSION;
+const APP_VERSION = "r6.03"; window.APP_VER_APP = APP_VERSION;
 const $ = id => document.getElementById(id), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CATS = [ { id: "study", name: "学習系" }, { id: "regime", name: "体制系" }, { id: "culture", name: "教養系" } ];
 const FL = ["", "#D9534F", "#F0AD4E", "#5CB85C", "#5BC0DE", "#E87DB4", "#8FD3E8", "#9B7BD4"];
@@ -3208,7 +3208,9 @@ function sheetHtml(){ const sh = V.sheet; if (!sh) return "";
   if (sh.k === "oldst") return oldSheet(sh);
   if (sh.k === "cmp") return cmpSheet(sh);
   if (sh.k === "devs") return `<h3>端末の様子</h3><div class="row" style="margin:.2rem 0 .5rem"><button class="btn ghost sm" data-devsre>読み直す</button></div><div id="devs"></div>`;
-  if (sh.k === "nts") return `<h3>ノートタイプ</h3><div class="row" style="margin:.2rem 0 .6rem"><button class="btn sm" data-ntnew>+ 文から新しく作る(AIが作ったノートタイプを入れる)</button></div><div class="mlist">${[...A2.S.notetypes.values()].map(t => `<button data-ntopen="${t.id}"><b>${esc(t.name)}</b><small>欄 ${t.fields.length}・カード ${t.tmpls.length}・ノート ${[...A2.S.notes.values()].filter(n => n.nt === t.id).length}</small></button>`).join("") || '<p class="note">まだない。</p>'}</div>`;
+  if (sh.k === "nts" && sh.kind === "ex") { const L = typeof entList === "function" ? entList() : [];   // 演習(問題)のノートタイプ:押すと、いつもの「演習のノートタイプ」の画面が開く
+    return `<h3>ノートタイプ</h3>${ntsKindSeg(sh)}<p class="note" style="margin:0 0 .5rem">問題(演習)のノートタイプ。何をどう解くか(画面の部品・判定の単位・記録すること)。問題集の ⚙ で、どれを使うか選ぶ。</p><div class="mlist">${L.map(t => `<button data-xentopen="${esc(t.id)}"><b>${esc(t.name)}</b><small>${esc((t.parts || []).join("・") || "部品なし")}</small></button>`).join("") || '<p class="note">まだない。</p>'}</div>`; }
+  if (sh.k === "nts") return `<h3>ノートタイプ</h3>${ntsKindSeg(sh)}<div class="row" style="margin:.2rem 0 .6rem"><button class="btn sm" data-ntnew>+ 文から新しく作る(AIが作ったノートタイプを入れる)</button></div><div class="mlist">${[...A2.S.notetypes.values()].map(t => `<button data-ntopen="${t.id}"><b>${esc(t.name)}</b><small>欄 ${t.fields.length}・カード ${t.tmpls.length}・ノート ${[...A2.S.notes.values()].filter(n => n.nt === t.id).length}</small></button>`).join("") || '<p class="note">まだない。</p>'}</div>`;
   if (sh.k === "nt") { const t = A2.S.notetypes.get(sh.id), ti = sh.ti || 0, side = sh.side || "表", tm = t.tmpls[ti] || t.tmpls[0];
     return `<h3>${esc(t.name)}</h3><button class="linkx" data-more="nts">‹ ノートタイプの一覧</button>
       <div class="row" style="margin:.5rem 0;gap:.5rem"><button class="btn sm shu" data-ntcopy>全部まとめてコピー</button><button class="btn ghost sm" data-ntfile>ファイルで保存</button><button class="btn ghost sm" data-ntpaste>AIが直したものを入れる</button>${A2.S.meta.ntUndo && A2.S.meta.ntUndo.id === t.id ? '<button class="linkx" data-ntundo>前に入れたものを戻す</button>' : ""}</div>
@@ -3279,6 +3281,7 @@ function render(){ shownDay = A2.today(); const sk = typeof scrollSave === "func
   else $("app").innerHTML = `<header class="head"><h1>Anki2</h1><small>${APP_VERSION}・${title}${window.syncBadge ? syncBadge() : ""}<button class="hdbtn" data-moreopen>その他</button></small></header>${body}`;
   $("bot").innerHTML = V.rv || exFull ? "" : todayBar() + [["anki", "復習"], ["ex", "演習"], ["br", "ブラウザ"], ["make", "作る"], ["st", "統計"]].map(([k, t]) => `<button data-bot="${k}" aria-selected="${V.mode === k}">${t}</button>`).join("");
   afterRender(y); if (sk) scrollBack(sk); if (typeof hwMountAll === "function") hwMountAll(); }
+const ntsKindSeg = sh => `<div class="kseg" style="margin:.1rem 0 .6rem"><button data-ntskind="card" aria-pressed="${sh.kind !== "ex"}">カード</button><button data-ntskind="ex" aria-pressed="${sh.kind === "ex"}">問題</button></div>`;
 const sheetKey = () => V.sheet.k + "|" + (V.sheet.id || "") + "|" + (V.sheet.back ? 1 : 0) + "|" + (V.sheet.ti || 0) + (V.sheet.side || "") + "|" + (V.sheet.pv == null ? "" : V.sheet.pv);
 function afterRender(y){ if (!V.rv && WB.on) { WB.on = false; WB.pass = false; } if (typeof wbTB === "function") wbTB(); const old = $("sheetwrap");
   if (V.sheet) { const keep = old && old.dataset.k === sheetKey() && V.sheet.k === "card";
@@ -3355,6 +3358,7 @@ document.addEventListener("click", async e => { if (e.target.closest(".lka")) re
   if (b.hasAttribute("data-reload")) { location.reload(); return; }
   if (b.hasAttribute("data-chkfix")) { if (window.SYNC && SYNC.busy) { toast("同期中は直さない。「同期済み」になってから押してください"); render(); return; } if (!confirm("見つかったところを直す?(ノートのないカードは消える)")) return; const p = await A2.check(true); toast(p.length ? "直した:" + p.join("・") : "直すところはなかった"); V.sheet = null; render(); return; }
   if (b.hasAttribute("data-moreopen")) { V.sheet = { k: "more" }; render(); return; }
+  if (d.ntskind && V.sheet && V.sheet.k === "nts") { V.sheet.kind = d.ntskind; render(); return; }
   if (b.hasAttribute("data-revundo")) { const l = (await A2.all("trash")).filter(t => /指示どおり自動で消した/.test(t.why)); if (!l.length || !confirm(l.length + "件を戻す?")) return; await A2.untrash(l); A2.S.meta.cleanupRevived1 = Object.assign({}, A2.S.meta.cleanupRevived1, { n: 0 }); await A2.setMeta("cleanupRevived1", A2.S.meta.cleanupRevived1); toast(l.length + "件を戻した"); V.sheet = null; render(); return; }
   if (d.revdel) { const o = A2.revived().find(x => x.key === d.revdel); if (!o || !confirm(o.n + "件を消す?(ほかの端末にも反映。ごみ箱から戻せる)")) return;
     const tombs = A2.S.meta.tombs || {}; for (const st of ["cards", "notes", "decks", "notetypes", "subjects", "exsub"]) { const ids = o.ids[st] || []; if (!ids.length) continue; ids.forEach(id => { if (tombs[st]) delete tombs[st][id]; }); await A2.remove(st, ids, { why: "復活したものを消した" }); }
@@ -3683,7 +3687,7 @@ if (document.readyState === "complete") boot1(); else { document.addEventListene
 /* ── exercise.js ── */
 /* Anki2 演習 — 材料(問題集・ばらの問題)・解法の地図・結果・画面いっぱいの演習。データは分野ごとに A2.S.exsub */
 "use strict";
-window.APP_VER_EX = "r6.02";
+window.APP_VER_EX = "r6.03";
 const EXK = [ ["常に", "常に意識", "読んでいるあいだ、ずっと意識すること"], ["もし", "もし〜なら", "何かに出会ったら、こうする"], ["型", "問題の型", "この型の問題が出たら、こう解く"], ["手順", "手順", "この順番で進める"] ];
 let EXV = { fview: "flow", fopen: [], flink: null, fsx: {}, sub: null, tab: "材料", area: null, kind: "常に", mat: null, run: null, mopen: {}, mstep: {}, adding: false };
 /* r5.17 お試し:EXV.trial = { sid, doc(写し), subj?, ent? } のあいだは、その分野の記録を写しに向ける。写しは保存しない */
@@ -5319,7 +5323,7 @@ window.exView = exView; window.exSheet = exSheet; window.exDrawMermaid = exDrawM
    ・変わった分のファイルがたまったら、どれかの端末が全体のファイル(sync/notes/… など)にまとめ直し、古いものを片づける
    ・記録は1件ずつ見比べて、新しいほうを残す。消した印も伝える。復習の記録は足すだけ */
 "use strict";
-window.APP_VER_SYNC = "r6.02";
+window.APP_VER_SYNC = "r6.03";
 const SYNC = { busy: false, err: "", last: 0, timer: null, note: "", again: false, p: null };
 const STORES_SYNC = ["notetypes", "decks", "subjects", "stages", "notes", "cards", "revlog", "exsub", "memos", "wh", "cfg"];   // 先に入れ物(ノートタイプ・デッキ)、次にノート、それからカードと記録
 const conn = () => A2.S.meta.conn || null;
